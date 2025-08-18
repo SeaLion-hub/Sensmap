@@ -10,8 +10,12 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// --- 데이터베이스 연결 풀 설정 (환경변수 사용) ---
+// --- 데이터베이스 연결 풀 설정 (Railway 환경 대응) ---
 const pool = new Pool({
+    // Railway에서는 DATABASE_URL 환경변수를 자동으로 제공
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    // 기존 설정도 fallback으로 유지
     user: process.env.DB_USER || 'postgres',
     host: process.env.DB_HOST || 'localhost',
     database: process.env.DB_NAME || 'sensmap_db',

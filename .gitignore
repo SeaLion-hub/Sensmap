@@ -180,3 +180,17 @@ ehthumbs.db
 *.key
 *.cert
 
+# Railway deployment files
+.railway/
+
+# Database backups  
+*.sql.backup
+*.dump
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
