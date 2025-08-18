@@ -10,15 +10,15 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// --- 데이터베이스 연결 풀 설정 (Railway 환경 대응) ---
+// --- 데이터베이스 연결 풀 설정 (Railway 환경 최적화) ---
 const pool = new Pool({
     // Railway DATABASE_URL을 최우선으로 사용
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
-    // 연결 풀 설정
-    max: 20,
+    // Railway 환경에 최적화된 연결 풀 설정
+    max: 5,                        // 20에서 5로 줄임 (메모리 절약)
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000,
+    connectionTimeoutMillis: 5000,  // 2초에서 5초로 늘림
 });
 
 pool.on('connect', () => {
@@ -122,6 +122,7 @@ async function initializeDatabase() {
         console.log('✅ 데이터베이스 초기화가 완료되었습니다.');
     } catch (error) {
         console.error('❌ 데이터베이스 초기화 중 오류:', error);
+        throw error; // 초기화 실패 시 서버 종료
     }
 }
 
@@ -311,12 +312,12 @@ app.use((error, req, res, next) => {
 
 // --- 서버 시작 및 주기적 작업 설정 ---
 
-// 서버 시작 (모든 IP에서 접근 가능하도록 수정)
-app.listen(port, '0.0.0.0', async () => {
+// 서버 시작 (Railway 환경에 최적화)
+const server = app.listen(port, '0.0.0.0', async () => {
     console.log(`========================================`);
     console.log(`🚀 Sensmap 백엔드 서버가 시작되었습니다!`);
-    console.log(`📍 로컬 주소: http://localhost:${port}`);
-    console.log(`🌐 외부 주소: http://[당신의IP]:${port}`);
+    console.log(`📍 포트: ${port}`);
+    console.log(`🌐 환경: ${process.env.NODE_ENV || 'development'}`);
     console.log(`📊 API 엔드포인트:`);
     console.log(`   GET  /api/health - 서버 상태 확인`);
     console.log(`   GET  /api/reports - 감각 데이터 조회`);
@@ -326,12 +327,64 @@ app.listen(port, '0.0.0.0', async () => {
     console.log(`   GET  /api/stats - 통계 정보 조회`);
     console.log(`========================================`);
 
-    // 데이터베이스 초기화
-    await initializeDatabase();
+    try {
+        // 데이터베이스 초기화
+        await initializeDatabase();
 
-    // 1시간마다 만료된 데이터 정리
-    setInterval(cleanupExpiredData, 3600000);
+        // 1시간마다 만료된 데이터 정리
+        setInterval(cleanupExpiredData, 3600000);
+        
+        // 서버 시작 시 한번 정리 (5초 후)
+        setTimeout(cleanupExpiredData, 5000);
+        
+        console.log('✅ 서버 초기화가 완료되었습니다.');
+    } catch (error) {
+        console.error('❌ 서버 초기화 중 오류:', error);
+        process.exit(1);
+    }
+});
+
+// 우아한 종료 처리 (Railway SIGTERM 대응)
+const gracefulShutdown = (signal) => {
+    console.log(`🔄 ${signal} 신호를 받았습니다. 서버를 우아하게 종료합니다...`);
     
-    // 서버 시작 시 한번 정리 (5초 후)
-    setTimeout(cleanupExpiredData, 5000);
+    server.close((err) => {
+        if (err) {
+            console.error('❌ 서버 종료 중 오류:', err);
+            process.exit(1);
+        }
+        
+        console.log('✅ 서버가 정상적으로 종료되었습니다.');
+        
+        pool.end((poolErr) => {
+            if (poolErr) {
+                console.error('❌ 데이터베이스 연결 종료 중 오류:', poolErr);
+                process.exit(1);
+            }
+            
+            console.log('✅ 데이터베이스 연결이 종료되었습니다.');
+            process.exit(0);
+        });
+    });
+    
+    // 30초 후 강제 종료 (Railway 타임아웃 방지)
+    setTimeout(() => {
+        console.log('⚠️  강제 종료됩니다...');
+        process.exit(1);
+    }, 30000);
+};
+
+// 종료 신호 처리
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// 처리되지 않은 예외 및 Promise 거부 처리
+process.on('uncaughtException', (error) => {
+    console.error('❌ 처리되지 않은 예외:', error);
+    gracefulShutdown('uncaughtException');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ 처리되지 않은 Promise 거부:', reason);
+    gracefulShutdown('unhandledRejection');
 });
