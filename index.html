@@ -1,23 +1,38 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta name="server-url" content="https://sensmap-production.up.railway.app">
+    <!-- Railway 배포 시 자동으로 올바른 URL이 설정되도록 수정 -->
+    <meta name="server-url" content="">
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sensmap - Advanced Sensory Navigation</title>
     
-    <!-- 서버 URL 설정 - 실제 서버 IP나 도메인으로 변경하세요 -->
-    <meta name="server-url" content="http://localhost:3000">
-    
-    <!-- 전역 변수로 서버 URL 설정 -->
+    <!-- 동적으로 서버 URL을 감지하는 스크립트 -->
     <script>
-        // 실제 서버 주소로 변경하세요
-        window.SENSMAP_SERVER_URL = 'http://localhost:3000';
-        // 예시: window.SENSMAP_SERVER_URL = 'http://192.168.1.100:3000';
-        // 예시: window.SENSMAP_SERVER_URL = 'https://sensmap.yourdomain.com:3000';
+        // Railway 배포 환경을 자동으로 감지하여 서버 URL 설정
+        (function() {
+            const currentHost = window.location.hostname;
+            const currentProtocol = window.location.protocol;
+            
+            // Railway 배포 환경 감지
+            if (currentHost.includes('railway.app') || currentHost.includes('up.railway.app')) {
+                // Railway 환경: 같은 도메인 사용
+                window.SENSMAP_SERVER_URL = `${currentProtocol}//${currentHost}`;
+            }
+            // 로컬 개발 환경
+            else if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
+                window.SENSMAP_SERVER_URL = 'http://localhost:3000';
+            }
+            // 기타 프로덕션 환경
+            else {
+                window.SENSMAP_SERVER_URL = `${currentProtocol}//${currentHost}`;
+            }
+            
+            console.log('🔗 서버 URL 설정:', window.SENSMAP_SERVER_URL);
+        })();
     </script>
     
-    <!-- Favicon -->
+    <!-- 나머지 head 내용은 동일... -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>">
     
     <!-- Meta tags for better SEO and social sharing -->

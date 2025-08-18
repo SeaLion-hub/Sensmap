@@ -51,35 +51,40 @@ class SensmapApp {
 
 
     getServerUrl() {
-        // 1. 환경 변수에서 먼저 확인 (빌드 시점에 설정)
-        if (typeof process !== 'undefined' && process.env && process.env.REACT_APP_SERVER_URL) {
-            return process.env.REACT_APP_SERVER_URL;
-        }
+    // 1. window 객체에 설정된 전역 변수 확인 (index.html에서 설정)
+    if (window.SENSMAP_SERVER_URL) {
+        return window.SENSMAP_SERVER_URL;
+    }
 
-        // 2. window 객체에 설정된 전역 변수 확인
-        if (window.SENSMAP_SERVER_URL) {
-            return window.SENSMAP_SERVER_URL;
-        }
+    // 2. 환경 변수에서 확인 (빌드 시점에 설정)
+    if (typeof process !== 'undefined' && process.env && process.env.REACT_APP_SERVER_URL) {
+        return process.env.REACT_APP_SERVER_URL;
+    }
 
-        // 3. HTML의 meta 태그에서 확인
-        const metaTag = document.querySelector('meta[name="server-url"]');
-        if (metaTag && metaTag.content) {
-            return metaTag.content;
-        }
+    // 3. HTML의 meta 태그에서 확인
+    const metaTag = document.querySelector('meta[name="server-url"]');
+    if (metaTag && metaTag.content && metaTag.content.trim() !== '') {
+        return metaTag.content;
+    }
 
-        // 4. 현재 호스트 기반으로 자동 설정
-        const currentHost = window.location.hostname;
-        
-        // 개발 환경 감지
-        if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
-            return 'http://localhost:3000';
-        }
-        
-        // 프로덕션 환경 - 현재 호스트 사용
-        const protocol = window.location.protocol; // http: 또는 https:
-        const port = ':3000'; // 서버 포트
-        
-        return `${protocol}//${currentHost}${port}`;
+    // 4. 현재 호스트 기반으로 자동 설정
+    const currentHost = window.location.hostname;
+    const currentProtocol = window.location.protocol;
+    
+    // Railway 배포 환경 감지
+    if (currentHost.includes('railway.app') || currentHost.includes('up.railway.app')) {
+        // Railway에서는 프론트엔드와 백엔드가 같은 도메인을 사용
+        return `${currentProtocol}//${currentHost}`;
+    }
+    
+    // 로컬 개발 환경
+    if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
+        return 'http://localhost:3000';
+    }
+    
+    // 기타 프로덕션 환경 - 현재 호스트 사용
+    return `${currentProtocol}//${currentHost}`;
+      
     }
 
     // --- 서버 연결 확인 및 데이터 로딩 ---
