@@ -12,15 +12,9 @@ app.use(express.json());
 
 // --- 데이터베이스 연결 풀 설정 (Railway 환경 대응) ---
 const pool = new Pool({
-    // Railway에서는 DATABASE_URL 환경변수를 자동으로 제공
+    // Railway DATABASE_URL을 최우선으로 사용
     connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-    // 기존 설정도 fallback으로 유지
-    user: process.env.DB_USER || 'postgres',
-    host: process.env.DB_HOST || 'localhost',
-    database: process.env.DB_NAME || 'sensmap_db',
-    password: process.env.DB_PASSWORD || 'bsben',
-    port: process.env.DB_PORT || 5432,
+    ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
     // 연결 풀 설정
     max: 20,
     idleTimeoutMillis: 30000,
@@ -82,6 +76,53 @@ function createResponse(success, data = null, message = '', error = null) {
         error,
         timestamp: new Date().toISOString()
     };
+}
+
+// 데이터베이스 초기화 함수
+async function initializeDatabase() {
+    try {
+        console.log('🔄 데이터베이스 테이블을 확인하고 생성합니다...');
+        
+        // 테이블 생성 쿼리
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS sensory_reports (
+                id SERIAL PRIMARY KEY,
+                lat DECIMAL(10, 8) NOT NULL,
+                lng DECIMAL(11, 8) NOT NULL,
+                noise INTEGER CHECK (noise >= 0 AND noise <= 10),
+                light INTEGER CHECK (light >= 0 AND light <= 10),
+                odor INTEGER CHECK (odor >= 0 AND odor <= 10),
+                crowd INTEGER CHECK (crowd >= 0 AND crowd <= 10),
+                type VARCHAR(20) NOT NULL CHECK (type IN ('irregular', 'regular')),
+                duration INTEGER CHECK (duration > 0),
+                wheelchair BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            )
+        `);
+
+        // 인덱스 생성
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_sensory_reports_location ON sensory_reports (lat, lng)');
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_sensory_reports_created_at ON sensory_reports (created_at)');
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_sensory_reports_type ON sensory_reports (type)');
+
+        // 샘플 데이터 확인 및 추가
+        const existingData = await pool.query('SELECT COUNT(*) FROM sensory_reports');
+        if (parseInt(existingData.rows[0].count) === 0) {
+            console.log('📝 샘플 데이터를 추가합니다...');
+            await pool.query(`
+                INSERT INTO sensory_reports (lat, lng, noise, light, odor, crowd, type, duration, wheelchair) VALUES
+                (37.5665, 126.9780, 7, 5, 3, 8, 'irregular', 45, false),
+                (37.5670, 126.9785, 4, 6, 5, 6, 'regular', 240, false),
+                (37.5660, 126.9775, 8, 4, 7, 9, 'irregular', 30, true)
+            `);
+            console.log('✅ 샘플 데이터가 추가되었습니다.');
+        }
+
+        console.log('✅ 데이터베이스 초기화가 완료되었습니다.');
+    } catch (error) {
+        console.error('❌ 데이터베이스 초기화 중 오류:', error);
+    }
 }
 
 // --- API 엔드포인트 ---
@@ -271,7 +312,7 @@ app.use((error, req, res, next) => {
 // --- 서버 시작 및 주기적 작업 설정 ---
 
 // 서버 시작 (모든 IP에서 접근 가능하도록 수정)
-app.listen(port, '0.0.0.0', () => {
+app.listen(port, '0.0.0.0', async () => {
     console.log(`========================================`);
     console.log(`🚀 Sensmap 백엔드 서버가 시작되었습니다!`);
     console.log(`📍 로컬 주소: http://localhost:${port}`);
@@ -285,9 +326,12 @@ app.listen(port, '0.0.0.0', () => {
     console.log(`   GET  /api/stats - 통계 정보 조회`);
     console.log(`========================================`);
 
+    // 데이터베이스 초기화
+    await initializeDatabase();
+
     // 1시간마다 만료된 데이터 정리
     setInterval(cleanupExpiredData, 3600000);
     
-    // 서버 시작 시 한번 정리
+    // 서버 시작 시 한번 정리 (5초 후)
     setTimeout(cleanupExpiredData, 5000);
 });
