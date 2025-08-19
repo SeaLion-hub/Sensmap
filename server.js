@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
 const { ClerkExpressRequireAuth } = require('@clerk/clerk-sdk-node');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -75,7 +77,7 @@ function createResponse(success, data = null, message = '', error = null) {
 // --- 데이터베이스 초기화 함수 ---
 async function initializeDatabase() {
     try {
-        console.log('🔄 데이터베이스 테이블을 확인하고 생성합니다...');
+        console.log('📄 데이터베이스 테이블을 확인하고 생성합니다...');
         
         await pool.query(`
             CREATE TABLE IF NOT EXISTS sensory_reports (
@@ -128,13 +130,95 @@ async function initializeDatabase() {
     }
 }
 
+// --- 환경변수 주입을 위한 index.html 처리 ---
+app.get('/', (req, res) => {
+    try {
+        // index.html 파일 읽기
+        const indexPath = path.join(__dirname, 'index.html');
+        let html = fs.readFileSync(indexPath, 'utf8');
+        
+        // Clerk publishable key 확인 (여러 환경변수명 지원)
+        const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || 
+                        process.env.CLERK_PUBLISHABLE_KEY || 
+                        process.env.VITE_CLERK_PUBLISHABLE_KEY;
+        
+        if (clerkKey) {
+            console.log('🔑 Clerk publishable key를 클라이언트로 주입합니다:', clerkKey.substring(0, 10) + '...');
+            
+            // <head> 태그 바로 뒤에 환경변수 스크립트 추가
+            html = html.replace(
+                '<head>',
+                `<head>
+                <script>
+                    // 서버에서 주입된 환경변수
+                    window.CLERK_PUBLISHABLE_KEY = '${clerkKey}';
+                    console.log('🔑 Clerk key injected from server:', '${clerkKey.substring(0, 10)}...');
+                </script>`
+            );
+        } else {
+            console.warn('⚠️ Clerk publishable key 환경변수가 설정되지 않았습니다.');
+            console.warn('다음 환경변수 중 하나를 설정해주세요:');
+            console.warn('- NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY');
+            console.warn('- CLERK_PUBLISHABLE_KEY');
+            console.warn('- VITE_CLERK_PUBLISHABLE_KEY');
+        }
+        
+        res.send(html);
+    } catch (error) {
+        console.error('Error serving index.html:', error);
+        
+        // 파일이 없는 경우 기본 HTML 반환
+        if (error.code === 'ENOENT') {
+            return res.status(404).send(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Sensmap - File Not Found</title>
+                </head>
+                <body>
+                    <h1>index.html 파일을 찾을 수 없습니다</h1>
+                    <p>현재 디렉토리: ${__dirname}</p>
+                    <p>찾는 파일: ${path.join(__dirname, 'index.html')}</p>
+                    <p>서버는 정상 작동 중입니다. API 엔드포인트는 /api/* 경로에서 사용 가능합니다.</p>
+                </body>
+                </html>
+            `);
+        }
+        
+        res.status(500).json(createResponse(false, null, '', 'Internal Server Error'));
+    }
+});
+
+// --- 환경설정 API 엔드포인트 (보조) ---
+app.get('/api/config', (req, res) => {
+    const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || 
+                    process.env.CLERK_PUBLISHABLE_KEY || 
+                    process.env.VITE_CLERK_PUBLISHABLE_KEY;
+    
+    res.json(createResponse(true, {
+        clerkPublishableKey: clerkKey,
+        environment: process.env.NODE_ENV || 'development',
+        hasClerkKey: !!clerkKey
+    }, '환경설정 정보를 조회했습니다.'));
+});
+
 // --- API 엔드포인트 ---
 
 // [GET] /api/health - 서버 상태 확인
 app.get('/api/health', async (req, res) => {
     try {
         await pool.query('SELECT 1');
-        res.status(200).json(createResponse(true, { status: 'healthy', database: 'connected' }, '서버가 정상 작동 중입니다.'));
+        
+        const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || 
+                        process.env.CLERK_PUBLISHABLE_KEY || 
+                        process.env.VITE_CLERK_PUBLISHABLE_KEY;
+        
+        res.status(200).json(createResponse(true, { 
+            status: 'healthy', 
+            database: 'connected',
+            clerkConfigured: !!clerkKey,
+            environment: process.env.NODE_ENV || 'development'
+        }, '서버가 정상 작동 중입니다.'));
     } catch (e) {
         console.error('Health check failed:', e);
         res.status(500).json(createResponse(false, { status: 'unhealthy', database: 'disconnected' }, '', '데이터베이스 연결에 실패했습니다.'));
@@ -356,13 +440,10 @@ app.get('/api/my-stats', ClerkExpressRequireAuth(), async (req, res) => {
     }
 });
 
-// 정적 파일 제공 (프론트엔드)
-app.use(express.static('.'));
-
-// 루트 경로에서 index.html 제공
-app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/index.html');
-});
+// 정적 파일 제공 (프론트엔드) - 루트 경로 처리 이후에 설정
+app.use(express.static('.', { 
+    index: false // index.html 자동 제공 비활성화 (위에서 수동 처리)
+}));
 
 // 404 처리
 app.use('*', (req, res) => {
@@ -380,9 +461,27 @@ const server = app.listen(port, '0.0.0.0', async () => {
     console.log(`========================================`);
     console.log(`🚀 Sensmap 백엔드 서버가 시작되었습니다! (Clerk 인증 적용)`);
     console.log(`📍 포트: ${port}`);
-    console.log(`🌐 환경: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🌍 환경: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🔐 인증: Clerk (Google/Email 로그인 지원)`);
+    
+    // Clerk 키 상태 확인
+    const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || 
+                    process.env.CLERK_PUBLISHABLE_KEY || 
+                    process.env.VITE_CLERK_PUBLISHABLE_KEY;
+    
+    if (clerkKey) {
+        console.log(`🔑 Clerk Key: ${clerkKey.substring(0, 15)}... (✅ 설정됨)`);
+    } else {
+        console.log(`🔑 Clerk Key: ❌ 설정되지 않음`);
+        console.log(`⚠️  다음 환경변수 중 하나를 설정해주세요:`);
+        console.log(`   - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`);
+        console.log(`   - CLERK_PUBLISHABLE_KEY`);
+        console.log(`   - VITE_CLERK_PUBLISHABLE_KEY`);
+    }
+    
     console.log(`📊 API 엔드포인트:`);
+    console.log(`   GET  / - 메인 페이지 (환경변수 자동 주입)`);
+    console.log(`   GET  /api/config - 환경설정 정보 조회`);
     console.log(`   GET  /api/health - 서버 상태 확인`);
     console.log(`   GET  /api/user - 사용자 정보 조회 (🔒 인증 필요)`);
     console.log(`   GET  /api/reports - 모든 감각 데이터 조회 (🔒 인증 필요, 👁️ 공용)`);
@@ -407,7 +506,7 @@ const server = app.listen(port, '0.0.0.0', async () => {
 
 // 우아한 종료 처리
 const gracefulShutdown = (signal) => {
-    console.log(`🔄 ${signal} 신호를 받았습니다. 서버를 우아하게 종료합니다...`);
+    console.log(`📄 ${signal} 신호를 받았습니다. 서버를 우아하게 종료합니다...`);
     
     server.close((err) => {
         if (err) {
@@ -429,7 +528,7 @@ const gracefulShutdown = (signal) => {
     });
     
     setTimeout(() => {
-        console.log('⚠️  강제 종료됩니다...');
+        console.log('⚠️ 강제 종료됩니다...');
         process.exit(1);
     }, 30000);
 };
