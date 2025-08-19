@@ -593,7 +593,6 @@
                     <div class="form-group">
                         <label class="form-label" for="noiseThreshold">소음 민감도</label>
                         <div class="slider-container">
-                            <input type="range" class="range-slider" id="noiseThreshold" name="noiseThreshold" min="0" max="10" value="5" aria-describedby="noiseThresholdHelp">
                             <div class="range-value">5</div>
                         </div>
                         <small id="noiseThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 소음에 민감함</small>
@@ -704,41 +703,58 @@
     <script src="https://unpkg.com/leaflet-geosearch@3.11.0/dist/geosearch.umd.js"></script>
     <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
     
-    <!-- Clerk JavaScript SDK - 올바른 UMD 방식 -->
+    <!-- Clerk JavaScript SDK - 올바른 UMD 방식 (수정됨) -->
     <script>
-        // Clerk 키 설정 함수
-        function getClerkPublishableKey() {
-            const hostname = window.location.hostname;
-            
-            // 서버에서 주입된 키 (최우선)
-            if (window.CLERK_PUBLISHABLE_KEY) {
+            // Clerk 키 설정 함수 (수정됨)
+            function getClerkPublishableKey() {
+                const hostname = window.location.hostname;
+                
+                if (window.CLERK_PUBLISHABLE_KEY) {
+                console.log('🔑 Using server-injected key');
                 return window.CLERK_PUBLISHABLE_KEY;
+            }
+
+            // Railway 환경 변수명 확인
+            if (window.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
+                console.log('🔑 Using Railway-provided key');
+                return window.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
             }
             
             // 로컬 개발 환경
             if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                console.log('🏠 Local development environment detected');
                 return 'pk_test_cGVyZmVjdC1zdGFybGluZy05OC5jbGVyay5hY2NvdW50cy5kZXYk';
             }
             
             // Railway나 기타 프로덕션 환경에서는 서버에서 키를 주입해야 함
-            console.warn('⚠️ Clerk publishable key not found');
+            console.warn('⚠️ No Clerk publishable key found for hostname:', hostname);
             return null;
         }
         
-        // Clerk 키를 data 속성으로 설정
+        // Clerk 키 설정
         const clerkKey = getClerkPublishableKey();
         if (clerkKey) {
             window.CLERK_PUBLISHABLE_KEY = clerkKey;
+            console.log('✅ Clerk key configured');
+        } else {
+            console.error('❌ No valid Clerk key available');
         }
     </script>
     
-    <!-- Clerk SDK 로드 (UMD 방식) -->
-    <script 
-        async 
-        crossorigin="anonymous"
-        src="https://unpkg.com/@clerk/clerk-js@4.70.0/dist/clerk.browser.js"
-        onload="console.log('✅ Clerk SDK loaded')"
-        onerror="console.error('❌ Failed to load Clerk SDK')">
+    <!-- Clerk SDK 로드 (조건부) -->
+    <script>
+        if (window.CLERK_PUBLISHABLE_KEY) {
+            console.log('📦 Loading Clerk SDK...');
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/@clerk/clerk-js@4.70.0/dist/clerk.browser.js';
+            script.async = true;
+            script.crossOrigin = 'anonymous';
+            script.onload = () => console.log('✅ Clerk SDK loaded successfully');
+            script.onerror = () => console.error('❌ Failed to load Clerk SDK');
+            document.head.appendChild(script);
+        } else {
+            console.warn('⚠️ Skipping Clerk SDK load - no key available');
+        }
     </script>
     
     <!-- Clerk 인증 관리 스크립트 (수정된 버전) -->
@@ -755,7 +771,7 @@
             }
 
             // Clerk SDK 로드 대기
-            async waitForClerkSDK(timeoutMs = 10000) {
+            async waitForClerkSDK(timeoutMs = 15000) {
                 return new Promise((resolve, reject) => {
                     if (window.Clerk) {
                         console.log('✅ Clerk SDK already available');
@@ -869,19 +885,24 @@
                         return await this.initializeFallbackMode();
                     }
 
-                    console.log('🔑 Using Clerk key:', clerkKey.substring(0, 10) + '...');
+                    console.log('🔑 Using Clerk key:', clerkKey.substring(0, 20) + '...');
 
-                    // Clerk SDK 대기
+                    // Clerk SDK 대기 - 더 긴 시간 대기
                     try {
-                        await this.waitForClerkSDK(8000);
+                        await this.waitForClerkSDK(15000); // 15초 대기
                         
                         // Clerk 인스턴스 초기화 (UMD 방식에서는 전역 Clerk 객체 사용)
-                        console.log('🔧 Initializing Clerk...');
+                        console.log('🔧 Initializing Clerk with key...');
                         
-                        // UMD 방식: window.Clerk가 이미 초기화된 인스턴스
-                        await window.Clerk.load({
-                            publishableKey: clerkKey
-                        });
+                        // UMD 방식: window.Clerk.load()에 키 전달
+                        await Promise.race([
+                            window.Clerk.load({
+                                publishableKey: clerkKey
+                            }),
+                            new Promise((_, reject) => 
+                                setTimeout(() => reject(new Error('Clerk initialization timeout')), 10000)
+                            )
+                        ]);
 
                         console.log('✅ Clerk 초기화 완료');
 
@@ -892,7 +913,7 @@
                             this.authToken = await window.Clerk.session?.getToken();
                             this.showMainApp();
                             this.updateUserInfo();
-                            console.log('👤 User already authenticated');
+                            console.log('👤 User already authenticated:', this.user.emailAddresses[0]?.emailAddress);
                         } else {
                             console.log('🔓 User not authenticated, showing login form');
                             this.showLoginForm();
@@ -918,6 +939,17 @@
 
                     } catch (sdkError) {
                         console.error('❌ Clerk SDK 로드/초기화 실패:', sdkError);
+                        
+                        // 특정 에러에서만 fallback, 키 관련 에러는 재시도
+                        if (sdkError.message.includes('publishable key') || 
+                            sdkError.message.includes('invalid') || 
+                            sdkError.message.includes('unauthorized')) {
+                            console.error('🚨 Clerk key validation failed:', sdkError.message);
+                            this.showError('Clerk 인증 키가 유효하지 않습니다. 환경 설정을 확인해주세요.');
+                            return false;
+                        }
+                        
+                        // 네트워크 에러 등은 fallback 모드로
                         return await this.initializeFallbackMode();
                     }
 
@@ -1065,6 +1097,36 @@
                 console.error('💥 Authentication initialization failed:', error);
                 await window.authManager.initializeFallbackMode();
             }
+        });
+
+        // script.js 인증 대기 로직 수정
+        document.addEventListener('DOMContentLoaded', () => {
+            // AuthManager가 초기화된 후 실행
+            const checkAuthAndInitApp = () => {
+                if (window.authManager) {
+                    // AuthManager가 준비되면 앱 초기화
+                    if (window.sensmapApp && window.sensmapApp.waitForAuth) {
+                        // 기존 waitForAuth 메서드를 수정
+                        window.sensmapApp.waitForAuth = async function() {
+                            // 인증 완료되거나 fallback 모드일 때까지 대기
+                            while (!window.authManager || 
+                                   (!window.authManager.isAuthenticated && !window.authManager.fallbackMode)) {
+                                await new Promise(resolve => setTimeout(resolve, 100));
+                            }
+                            
+                            console.log('✅ Auth ready - authenticated:', window.authManager.isAuthenticated, 'fallback:', window.authManager.fallbackMode);
+                            
+                            // 앱 초기화 실행
+                            await this.initializeApp();
+                        };
+                    }
+                } else {
+                    // AuthManager가 아직 준비되지 않았으면 다시 시도
+                    setTimeout(checkAuthAndInitApp, 100);
+                }
+            };
+            
+            checkAuthAndInitApp();
         });
 
         // API 요청 시 인증 토큰을 포함하는 헬퍼 함수
