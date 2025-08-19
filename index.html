@@ -184,6 +184,56 @@
             color: #c33;
             text-align: center;
         }
+
+        /* 알림 배너 스타일 */
+        .alert-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #fbbf24;
+            color: #92400e;
+            padding: 12px 20px;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 10001;
+            font-size: 14px;
+        }
+
+        .alert-banner.warning {
+            background: #fbbf24;
+            color: #92400e;
+        }
+
+        .alert-banner.error {
+            background: #ef4444;
+            color: white;
+        }
+
+        .alert-banner.info {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .alert-content {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .alert-close {
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+        }
+
+        .alert-close:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
     </style>
 </head>
 <body>
@@ -329,7 +379,7 @@
                         </button>
                         <div id="sensoryDropdown" class="sensory-dropdown">
                              <div class="sensory-option active" data-sensory="all">
-                                <span class="sensory-icon">🌐</span> 전체
+                                <span class="sensory-icon">🌍</span> 전체
                             </div>
                             <div class="sensory-option" data-sensory="noise">
                                 <span class="sensory-icon">🔊</span> 소음
@@ -654,77 +704,79 @@
     <script src="https://unpkg.com/leaflet-geosearch@3.11.0/dist/geosearch.umd.js"></script>
     <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
     
-    <!-- Clerk JavaScript SDK -->
-    <script src="https://unpkg.com/@clerk/clerk-js@4.70.0/dist/clerk.browser.js"></script>
-    
-    <!-- Clerk 초기화 및 인증 스크립트 -->
+    <!-- Clerk JavaScript SDK - 올바른 UMD 방식 -->
     <script>
-        // Clerk 인증 관리 클래스 (수정된 버전)
+        // Clerk 키 설정 함수
+        function getClerkPublishableKey() {
+            const hostname = window.location.hostname;
+            
+            // 서버에서 주입된 키 (최우선)
+            if (window.CLERK_PUBLISHABLE_KEY) {
+                return window.CLERK_PUBLISHABLE_KEY;
+            }
+            
+            // 로컬 개발 환경
+            if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                return 'pk_test_cGVyZmVjdC1zdGFybGluZy05OC5jbGVyay5hY2NvdW50cy5kZXYk';
+            }
+            
+            // Railway나 기타 프로덕션 환경에서는 서버에서 키를 주입해야 함
+            console.warn('⚠️ Clerk publishable key not found');
+            return null;
+        }
+        
+        // Clerk 키를 data 속성으로 설정
+        const clerkKey = getClerkPublishableKey();
+        if (clerkKey) {
+            window.CLERK_PUBLISHABLE_KEY = clerkKey;
+        }
+    </script>
+    
+    <!-- Clerk SDK 로드 (UMD 방식) -->
+    <script 
+        async 
+        crossorigin="anonymous"
+        src="https://unpkg.com/@clerk/clerk-js@4.70.0/dist/clerk.browser.js"
+        onload="console.log('✅ Clerk SDK loaded')"
+        onerror="console.error('❌ Failed to load Clerk SDK')">
+    </script>
+    
+    <!-- Clerk 인증 관리 스크립트 (수정된 버전) -->
+    <script>
+        // 수정된 AuthManager 클래스 - UMD 방식에 맞게 조정
         class AuthManager {
             constructor() {
-                this.clerk = null;
                 this.user = null;
                 this.isAuthenticated = false;
                 this.authToken = null;
-                this.publishableKey = null;
-                this.initRetryCount = 0;
-                this.maxRetries = 3;
+                this.fallbackMode = false;
                 this.isInitializing = false;
                 this.initializationPromise = null;
             }
 
-            // 환경변수에서 Clerk publishable key 가져오기
-            getClerkPublishableKey() {
-                // 1. 서버에서 주입된 환경변수 (최우선)
-                if (window.CLERK_PUBLISHABLE_KEY) {
-                    console.log('✅ Using server-injected Clerk key');
-                    return window.CLERK_PUBLISHABLE_KEY;
-                }
-                
-                // 2. meta 태그에서 시도
-                const metaKey = document.querySelector('meta[name="clerk-publishable-key"]');
-                if (metaKey) {
-                    return metaKey.getAttribute('content');
-                }
-                
-                // 3. 환경에 따른 기본값
-                const hostname = window.location.hostname;
-                
-                // Railway 프로덕션 환경
-                if (hostname.includes('railway.app')) {
-                    console.warn('⚠️ Railway 환경에서는 서버에서 CLERK_PUBLISHABLE_KEY를 주입해야 합니다');
-                    return null;
-                }
-                
-                // 로컬 개발 환경용 기본 키
-                if (hostname === 'localhost' || hostname === '127.0.0.1') {
-                    return 'pk_test_cGVyZmVjdC1zdGFybGluZy05OC5jbGVyay5hY2NvdW50cy5kZXYk';
-                }
-                
-                return null;
-            }
-
-            // Clerk SDK 로드 상태 확인
-            async waitForClerkSDK() {
+            // Clerk SDK 로드 대기
+            async waitForClerkSDK(timeoutMs = 10000) {
                 return new Promise((resolve, reject) => {
-                    // 이미 로드된 경우
                     if (window.Clerk) {
+                        console.log('✅ Clerk SDK already available');
                         resolve(window.Clerk);
                         return;
                     }
 
-                    // SDK 로드를 기다림 (최대 10초)
+                    console.log('⏳ Waiting for Clerk SDK...');
+                    
                     let attempts = 0;
-                    const maxAttempts = 50; // 200ms * 50 = 10초
+                    const maxAttempts = timeoutMs / 200;
                     
                     const checkClerk = () => {
                         attempts++;
                         
                         if (window.Clerk) {
-                            console.log('✅ Clerk SDK 로드 완료');
+                            console.log('✅ Clerk SDK loaded successfully');
                             resolve(window.Clerk);
                         } else if (attempts >= maxAttempts) {
-                            reject(new Error('Clerk SDK 로드 시간 초과. 네트워크 연결을 확인해주세요.'));
+                            console.error('❌ Clerk SDK load timeout');
+                            reject(new Error('Clerk SDK 로드 시간 초과'));
                         } else {
                             setTimeout(checkClerk, 200);
                         }
@@ -734,120 +786,188 @@
                 });
             }
 
+            // Fallback 모드 초기화
+            async initializeFallbackMode() {
+                console.log('🔄 Fallback 모드로 전환: 인증 없이 데모 모드로 실행');
+                
+                this.isAuthenticated = false;
+                this.fallbackMode = true;
+                
+                this.showFallbackMessage();
+                this.showMainApp();
+                
+                return true;
+            }
+
+            showFallbackMessage() {
+                const authOverlay = document.getElementById('authOverlay');
+                const appContainer = document.getElementById('appContainer');
+                const authLoadingOverlay = document.getElementById('authLoadingOverlay');
+                
+                if (authLoadingOverlay) authLoadingOverlay.classList.add('hidden');
+                if (authOverlay) authOverlay.classList.add('hidden');
+                if (appContainer) appContainer.classList.remove('hidden');
+                
+                // 사용자 정보 영역에 데모 모드 표시
+                const userInfo = document.getElementById('userInfo');
+                if (userInfo) {
+                    userInfo.innerHTML = `
+                        <div style="background: #fef3c7; color: #92400e; padding: 8px 12px; border-radius: 6px; font-size: 12px;">
+                            🔄 데모 모드 (인증 서비스 일시 불가)
+                        </div>
+                    `;
+                    userInfo.classList.remove('hidden');
+                }
+                
+                // 알림 배너 표시
+                setTimeout(() => {
+                    this.showAlert('현재 인증 서비스에 연결할 수 없어 데모 모드로 실행됩니다. 일부 기능이 제한됩니다.', 'warning');
+                }, 1000);
+            }
+
+            showAlert(message, type = 'info') {
+                try {
+                    const alertBanner = document.getElementById('alertBanner');
+                    const alertText = document.getElementById('alertText');
+                    
+                    if (alertBanner && alertText) {
+                        alertText.textContent = message;
+                        alertBanner.className = `alert-banner ${type}`;
+                        alertBanner.style.display = 'flex';
+                    }
+                } catch (error) {
+                    console.warn('Alert 표시 실패:', error);
+                }
+            }
+
             async initialize() {
-                // 이미 초기화 중이면 기존 Promise 반환
                 if (this.isInitializing && this.initializationPromise) {
                     return this.initializationPromise;
                 }
 
                 this.isInitializing = true;
                 this.initializationPromise = this._doInitialize();
-                return this.initializationPromise;
-            }
-
-            async _doInitialize() {
+                
                 try {
-                    // Clerk publishable key 확인
-                    this.publishableKey = this.getClerkPublishableKey();
-                    
-                    if (!this.publishableKey) {
-                        throw new Error('Clerk publishable key가 설정되지 않았습니다. 환경변수를 확인해주세요.');
-                    }
-
-                    console.log('🔐 Using Clerk key:', this.publishableKey.substring(0, 10) + '...');
-
-                    // Clerk SDK 로드 대기
-                    console.log('⏳ Clerk SDK 로드를 기다리는 중...');
-                    const ClerkSDK = await this.waitForClerkSDK();
-
-                    // Clerk 인스턴스 생성 및 초기화
-                    this.clerk = new ClerkSDK(this.publishableKey);
-                    await this.clerk.load();
-
-                    console.log('✅ Clerk 초기화 완료');
-
-                    // 인증 상태 확인
-                    if (this.clerk.user) {
-                        this.user = this.clerk.user;
-                        this.isAuthenticated = true;
-                        this.authToken = await this.clerk.session.getToken();
-                        this.showMainApp();
-                        this.updateUserInfo();
-                    } else {
-                        this.showLoginForm();
-                    }
-
-                    // 인증 상태 변경 리스너
-                    this.clerk.addListener('user', (user) => {
-                        if (user) {
-                            this.user = user;
-                            this.isAuthenticated = true;
-                            this.showMainApp();
-                            this.updateUserInfo();
-                        } else {
-                            this.user = null;
-                            this.isAuthenticated = false;
-                            this.authToken = null;
-                            this.showLoginForm();
-                        }
-                    });
-
+                    const result = await this.initializationPromise;
                     this.isInitializing = false;
-                    return true;
-
+                    return result;
                 } catch (error) {
-                    console.error('Clerk 초기화 실패:', error);
-                    
-                    // 재시도 로직
-                    if (this.initRetryCount < this.maxRetries) {
-                        this.initRetryCount++;
-                        console.log(`🔄 Clerk 초기화 재시도 중... (${this.initRetryCount}/${this.maxRetries})`);
-                        this.isInitializing = false;
-                        this.initializationPromise = null;
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-                        return this.initialize();
-                    }
-                    
                     this.isInitializing = false;
-                    this.showError(error.message);
                     throw error;
                 }
             }
 
-            showLoginForm() {
-                document.getElementById('authLoadingOverlay').classList.add('hidden');
-                document.getElementById('authOverlay').classList.remove('hidden');
-                document.getElementById('appContainer').classList.add('hidden');
-                document.getElementById('userInfo').classList.add('hidden');
-                document.getElementById('auth-error').classList.add('hidden');
+            async _doInitialize() {
+                try {
+                    console.log('🚀 Starting Clerk initialization...');
+                    
+                    // Clerk 키 확인
+                    const clerkKey = window.CLERK_PUBLISHABLE_KEY;
+                    if (!clerkKey) {
+                        console.warn('⚠️ No Clerk publishable key found, switching to fallback mode');
+                        return await this.initializeFallbackMode();
+                    }
 
-                // Clerk 로그인 컴포넌트 마운트
-                if (this.clerk && !document.querySelector('.cl-component')) {
+                    console.log('🔑 Using Clerk key:', clerkKey.substring(0, 10) + '...');
+
+                    // Clerk SDK 대기
                     try {
-                        this.clerk.mountSignIn(document.getElementById('clerk-signin'), {
+                        await this.waitForClerkSDK(8000);
+                        
+                        // Clerk 인스턴스 초기화 (UMD 방식에서는 전역 Clerk 객체 사용)
+                        console.log('🔧 Initializing Clerk...');
+                        
+                        // UMD 방식: window.Clerk가 이미 초기화된 인스턴스
+                        await window.Clerk.load({
+                            publishableKey: clerkKey
+                        });
+
+                        console.log('✅ Clerk 초기화 완료');
+
+                        // 인증 상태 확인
+                        if (window.Clerk.user) {
+                            this.user = window.Clerk.user;
+                            this.isAuthenticated = true;
+                            this.authToken = await window.Clerk.session?.getToken();
+                            this.showMainApp();
+                            this.updateUserInfo();
+                            console.log('👤 User already authenticated');
+                        } else {
+                            console.log('🔓 User not authenticated, showing login form');
+                            this.showLoginForm();
+                        }
+
+                        // 인증 상태 변경 리스너
+                        window.Clerk.addListener('user', (user) => {
+                            console.log('👤 User state changed:', !!user);
+                            if (user) {
+                                this.user = user;
+                                this.isAuthenticated = true;
+                                this.showMainApp();
+                                this.updateUserInfo();
+                            } else {
+                                this.user = null;
+                                this.isAuthenticated = false;
+                                this.authToken = null;
+                                this.showLoginForm();
+                            }
+                        });
+
+                        return true;
+
+                    } catch (sdkError) {
+                        console.error('❌ Clerk SDK 로드/초기화 실패:', sdkError);
+                        return await this.initializeFallbackMode();
+                    }
+
+                } catch (error) {
+                    console.error('❌ Clerk 초기화 최종 실패:', error);
+                    return await this.initializeFallbackMode();
+                }
+            }
+
+            showLoginForm() {
+                const authLoadingOverlay = document.getElementById('authLoadingOverlay');
+                const authOverlay = document.getElementById('authOverlay');
+                const appContainer = document.getElementById('appContainer');
+                const userInfo = document.getElementById('userInfo');
+
+                if (authLoadingOverlay) authLoadingOverlay.classList.add('hidden');
+                if (authOverlay) authOverlay.classList.remove('hidden');
+                if (appContainer) appContainer.classList.add('hidden');
+                if (userInfo) userInfo.classList.add('hidden');
+
+                // Clerk 로그인 컴포넌트 마운트 (UMD 방식)
+                if (window.Clerk && !document.querySelector('.cl-component')) {
+                    try {
+                        console.log('🔧 Mounting Clerk sign-in component');
+                        window.Clerk.mountSignIn(document.getElementById('clerk-signin'), {
                             routing: 'virtual',
                             appearance: {
                                 elements: {
                                     formButtonPrimary: 'bg-blue-600 hover:bg-blue-700 text-white',
-                                    card: 'shadow-lg',
-                                    headerTitle: 'text-xl font-semibold',
-                                    socialButtonsBlockButton: 'border border-gray-300 hover:bg-gray-50'
+                                    card: 'shadow-lg'
                                 }
-                            },
-                            signUpUrl: undefined // 같은 컴포넌트에서 회원가입도 처리
+                            }
                         });
                     } catch (error) {
-                        console.error('Clerk UI 마운트 실패:', error);
+                        console.error('❌ Clerk UI 마운트 실패:', error);
                         this.showError('로그인 인터페이스를 로드할 수 없습니다.');
                     }
                 }
             }
 
             showMainApp() {
-                document.getElementById('authLoadingOverlay').classList.add('hidden');
-                document.getElementById('authOverlay').classList.add('hidden');
-                document.getElementById('appContainer').classList.remove('hidden');
-                document.getElementById('userInfo').classList.remove('hidden');
+                const authLoadingOverlay = document.getElementById('authLoadingOverlay');
+                const authOverlay = document.getElementById('authOverlay');
+                const appContainer = document.getElementById('appContainer');
+                const userInfo = document.getElementById('userInfo');
+
+                if (authLoadingOverlay) authLoadingOverlay.classList.add('hidden');
+                if (authOverlay) authOverlay.classList.add('hidden');
+                if (appContainer) appContainer.classList.remove('hidden');
+                if (userInfo) userInfo.classList.remove('hidden');
             }
 
             updateUserInfo() {
@@ -855,121 +975,144 @@
                     const userName = this.user.firstName || this.user.emailAddresses[0].emailAddress.split('@')[0];
                     const userAvatar = this.user.imageUrl || 'https://via.placeholder.com/32';
 
-                    document.getElementById('userName').textContent = userName;
-                    document.getElementById('userAvatar').src = userAvatar;
+                    const userNameEl = document.getElementById('userName');
+                    const userAvatarEl = document.getElementById('userAvatar');
+                    
+                    if (userNameEl) userNameEl.textContent = userName;
+                    if (userAvatarEl) userAvatarEl.src = userAvatar;
                 }
             }
 
             async getAuthToken() {
-                if (this.clerk && this.clerk.session) {
-                    this.authToken = await this.clerk.session.getToken();
+                if (this.fallbackMode) {
+                    return null;
+                }
+                
+                if (window.Clerk && window.Clerk.session) {
+                    try {
+                        this.authToken = await window.Clerk.session.getToken();
+                    } catch (error) {
+                        console.warn('토큰 가져오기 실패:', error);
+                        return null;
+                    }
                 }
                 return this.authToken;
             }
 
             async logout() {
-                if (this.clerk) {
-                    await this.clerk.signOut();
+                if (window.Clerk) {
+                    try {
+                        await window.Clerk.signOut();
+                    } catch (error) {
+                        console.error('로그아웃 실패:', error);
+                    }
+                } else if (this.fallbackMode) {
+                    window.location.reload();
                 }
             }
 
             showError(message) {
-                document.getElementById('authLoadingOverlay').classList.add('hidden');
-                document.getElementById('authOverlay').classList.remove('hidden');
-                document.getElementById('auth-error').classList.remove('hidden');
-                document.getElementById('auth-error').textContent = message;
-                console.error('Auth Error:', message);
+                console.error('🚨 Auth Error:', message);
+                
+                const authLoadingOverlay = document.getElementById('authLoadingOverlay');
+                const authOverlay = document.getElementById('authOverlay');
+                const authError = document.getElementById('auth-error');
+
+                if (authLoadingOverlay) authLoadingOverlay.classList.add('hidden');
+                if (authOverlay) authOverlay.classList.remove('hidden');
+                if (authError) {
+                    authError.classList.remove('hidden');
+                    authError.textContent = message;
+                }
             }
         }
 
         // 전역 AuthManager 인스턴스
         window.authManager = new AuthManager();
 
-        // 페이지 로드 시 인증 초기화 (수정된 버전)
+        // 페이지 로드 시 인증 초기화
         document.addEventListener('DOMContentLoaded', async () => {
-            console.log('🚀 DOM 로드 완료, 인증 초기화 시작');
+            console.log('🌟 DOM loaded, starting authentication...');
             
             try {
-                // Clerk SDK가 로드될 때까지 대기 (최대 5초)
-                let sdkWaitTime = 0;
-                while (!window.Clerk && sdkWaitTime < 5000) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    sdkWaitTime += 100;
-                }
-
-                if (!window.Clerk) {
-                    throw new Error('Clerk SDK 로드 실패. 네트워크 연결을 확인해주세요.');
-                }
-
-                // AuthManager 초기화
                 await window.authManager.initialize();
+                console.log('✅ Authentication initialization completed');
 
                 // 로그아웃 버튼 이벤트 리스너
-                document.getElementById('logoutBtn')?.addEventListener('click', async () => {
-                    await window.authManager.logout();
-                });
+                const logoutBtn = document.getElementById('logoutBtn');
+                if (logoutBtn) {
+                    logoutBtn.addEventListener('click', async () => {
+                        try {
+                            await window.authManager.logout();
+                        } catch (error) {
+                            console.error('로그아웃 실패:', error);
+                        }
+                    });
+                }
+
+                // 알림 배너 닫기 버튼
+                const alertClose = document.getElementById('alertClose');
+                if (alertClose) {
+                    alertClose.addEventListener('click', () => {
+                        const alertBanner = document.getElementById('alertBanner');
+                        if (alertBanner) {
+                            alertBanner.style.display = 'none';
+                        }
+                    });
+                }
 
             } catch (error) {
-                console.error('인증 초기화 최종 실패:', error);
-                window.authManager.showError('인증 시스템을 초기화할 수 없습니다. 페이지를 새로고침해주세요.');
+                console.error('💥 Authentication initialization failed:', error);
+                await window.authManager.initializeFallbackMode();
             }
         });
 
         // API 요청 시 인증 토큰을 포함하는 헬퍼 함수
         window.authenticatedFetch = async (url, options = {}) => {
-            const token = await window.authManager.getAuthToken();
-            
-            return fetch(url, {
-                ...options,
-                headers: {
+            try {
+                const token = await window.authManager.getAuthToken();
+                
+                const headers = {
                     ...options.headers,
-                    'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
+                };
+                
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
                 }
-            });
+                
+                return fetch(url, {
+                    ...options,
+                    headers
+                });
+            } catch (error) {
+                console.error('인증된 요청 실패:', error);
+                throw error;
+            }
         };
 
-        // API 요청 시 인증 토큰을 포함하는 헬퍼 함수
-        window.authenticatedFetch = async (url, options = {}) => {
-            const token = await window.authManager.getAuthToken();
-            
-            return fetch(url, {
-                ...options,
-                headers: {
-                    ...options.headers,
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
+        // 디버깅을 위한 전역 함수
+        window.debugAuth = () => {
+            console.log('🔍 Auth Debug Info:');
+            console.log('- AuthManager exists:', !!window.authManager);
+            console.log('- Clerk SDK loaded:', !!window.Clerk);
+            console.log('- Is authenticated:', window.authManager?.isAuthenticated);
+            console.log('- Fallback mode:', window.authManager?.fallbackMode);
+            console.log('- User:', window.authManager?.user ? 'Logged in' : 'Not logged in');
         };
     </script>
     
     <!-- 기존 메인 앱 스크립트 -->
     <script src="script.js"></script>
 
-    <!-- Performance monitoring (optional) -->
+    <!-- Performance monitoring -->
     <script>
-        // Simple performance monitoring
         window.addEventListener('load', () => {
             setTimeout(() => {
                 const perfData = performance.getEntriesByType('navigation')[0];
                 console.log('🚀 Page load time:', Math.round(perfData.loadEventEnd - perfData.fetchStart), 'ms');
             }, 100);
         });
-
-        // Service Worker registration for future PWA features
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                // Uncomment when you have a service worker
-                // navigator.serviceWorker.register('/sw.js')
-                //     .then((registration) => {
-                //         console.log('SW registered: ', registration);
-                //     })
-                //     .catch((registrationError) => {
-                //         console.log('SW registration failed: ', registrationError);
-                //     });
-            });
-        }
     </script>
 </body>
 </html>
