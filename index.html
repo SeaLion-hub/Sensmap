@@ -659,7 +659,7 @@
     
     <!-- Clerk 초기화 및 인증 스크립트 -->
     <script>
-        // Clerk 인증 관리 클래스
+        // Clerk 인증 관리 클래스 (수정된 버전)
         class AuthManager {
             constructor() {
                 this.clerk = null;
@@ -667,12 +667,15 @@
                 this.isAuthenticated = false;
                 this.authToken = null;
                 this.publishableKey = null;
+                this.initRetryCount = 0;
+                this.maxRetries = 5;
             }
 
             // 환경변수에서 Clerk publishable key 가져오기
             getClerkPublishableKey() {
-                // 1. 환경변수에서 시도 (서버에서 설정한 경우)
+                // 1. 서버에서 주입된 환경변수 (최우선)
                 if (window.CLERK_PUBLISHABLE_KEY) {
+                    console.log('✅ Using server-injected Clerk key');
                     return window.CLERK_PUBLISHABLE_KEY;
                 }
                 
@@ -687,8 +690,7 @@
                 
                 // Railway 프로덕션 환경
                 if (hostname.includes('railway.app')) {
-                    // Railway 환경변수에서 설정된 키를 사용해야 함
-                    console.warn('Railway 환경에서는 CLERK_PUBLISHABLE_KEY 환경변수가 필요합니다');
+                    console.warn('Railway 환경에서는 서버에서 CLERK_PUBLISHABLE_KEY를 주입해야 합니다');
                     return null;
                 }
                 
@@ -700,20 +702,56 @@
                 return null;
             }
 
+            // Clerk SDK 로드 상태 확인
+            async waitForClerkSDK() {
+                return new Promise((resolve, reject) => {
+                    // 이미 로드된 경우
+                    if (window.Clerk) {
+                        resolve(window.Clerk);
+                        return;
+                    }
+
+                    // SDK 로드를 기다림 (최대 10초)
+                    let attempts = 0;
+                    const maxAttempts = 50; // 200ms * 50 = 10초
+                    
+                    const checkClerk = () => {
+                        attempts++;
+                        
+                        if (window.Clerk) {
+                            console.log('✅ Clerk SDK 로드 완료');
+                            resolve(window.Clerk);
+                        } else if (attempts >= maxAttempts) {
+                            reject(new Error('Clerk SDK 로드 시간 초과. 네트워크 연결을 확인해주세요.'));
+                        } else {
+                            setTimeout(checkClerk, 200);
+                        }
+                    };
+                    
+                    checkClerk();
+                });
+            }
+
             async initialize() {
                 try {
                     // Clerk publishable key 확인
                     this.publishableKey = this.getClerkPublishableKey();
                     
                     if (!this.publishableKey) {
-                        throw new Error('Clerk publishable key가 설정되지 않았습니다. 환경변수 CLERK_PUBLISHABLE_KEY를 확인해주세요.');
+                        throw new Error('Clerk publishable key가 설정되지 않았습니다. 환경변수를 확인해주세요.');
                     }
 
                     console.log('🔑 Using Clerk key:', this.publishableKey.substring(0, 10) + '...');
 
-                    // Clerk 초기화
-                    this.clerk = window.Clerk;
-                    await this.clerk.load({ publishableKey: this.publishableKey });
+                    // Clerk SDK 로드 대기
+                    console.log('⏳ Clerk SDK 로드를 기다리는 중...');
+                    const ClerkSDK = await this.waitForClerkSDK();
+
+                    // Clerk 인스턴스 생성 및 초기화
+                    this.clerk = new ClerkSDK(this.publishableKey);
+                    await this.clerk.load();
+
+                    console.log('✅ Clerk 초기화 완료');
 
                     // 인증 상태 확인
                     if (this.clerk.user) {
@@ -743,6 +781,15 @@
 
                 } catch (error) {
                     console.error('Clerk 초기화 실패:', error);
+                    
+                    // 재시도 로직
+                    if (this.initRetryCount < this.maxRetries) {
+                        this.initRetryCount++;
+                        console.log(`🔄 Clerk 초기화 재시도 중... (${this.initRetryCount}/${this.maxRetries})`);
+                        setTimeout(() => this.initialize(), 2000);
+                        return;
+                    }
+                    
                     this.showError(error.message);
                 }
             }
@@ -818,14 +865,17 @@
         // 전역 AuthManager 인스턴스
         window.authManager = new AuthManager();
 
-        // 페이지 로드 시 인증 초기화
-        document.addEventListener('DOMContentLoaded', async () => {
-            await window.authManager.initialize();
+        // 페이지 로드 시 인증 초기화 (window.onload 사용)
+        window.addEventListener('load', async () => {
+            // Clerk SDK가 로드될 때까지 잠시 대기
+            setTimeout(async () => {
+                await window.authManager.initialize();
 
-            // 로그아웃 버튼 이벤트 리스너
-            document.getElementById('logoutBtn').addEventListener('click', async () => {
-                await window.authManager.logout();
-            });
+                // 로그아웃 버튼 이벤트 리스너
+                document.getElementById('logoutBtn').addEventListener('click', async () => {
+                    await window.authManager.logout();
+                });
+            }, 500); // 500ms 대기 후 초기화
         });
 
         // API 요청 시 인증 토큰을 포함하는 헬퍼 함수
