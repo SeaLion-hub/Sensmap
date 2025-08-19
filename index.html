@@ -174,6 +174,16 @@
         .cl-component {
             width: 100% !important;
         }
+
+        .error-message {
+            background: #fee;
+            border: 1px solid #fcc;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            color: #c33;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -189,6 +199,9 @@
             <h2 class="auth-title">🗺️ Sensmap에 오신 것을 환영합니다!</h2>
             <p class="auth-description">감각 데이터를 기록하고 관리하려면 로그인해주세요.<br>개인 데이터는 안전하게 보호됩니다.</p>
             <div id="clerk-signin"></div>
+            <div id="auth-error" class="error-message hidden">
+                인증 시스템 초기화에 실패했습니다. 환경 설정을 확인해주세요.
+            </div>
         </div>
     </div>
 
@@ -316,7 +329,7 @@
                         </button>
                         <div id="sensoryDropdown" class="sensory-dropdown">
                              <div class="sensory-option active" data-sensory="all">
-                                <span class="sensory-icon">🌍</span> 전체
+                                <span class="sensory-icon">🌐</span> 전체
                             </div>
                             <div class="sensory-option" data-sensory="noise">
                                 <span class="sensory-icon">🔊</span> 소음
@@ -503,6 +516,67 @@
                     </div>
 
                     <button type="submit" class="primary-btn">
+                        <i class="fas fa-save"></i>
+                        감각 정보 저장
+                    </button>
+                    
+                    <button type="button" class="secondary-btn" id="cancelBtn">
+                        <i class="fas fa-times"></i>
+                        취소
+                    </button>
+                </form>
+            </div>
+        </aside>
+
+        <!-- Profile Panel -->
+        <aside class="side-panel" id="profilePanel" aria-hidden="true">
+            <div class="panel-header">
+                <div class="panel-title">감각 프로필</div>
+                <div class="panel-subtitle">개인 민감도를 설정하여 맞춤형 경로를 찾아보세요</div>
+                <button class="close-btn" id="closeProfileBtn" aria-label="패널 닫기">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="panel-content">
+                <form id="profileForm">
+                    <div class="form-group">
+                        <label class="form-label" for="noiseThreshold">소음 민감도</label>
+                        <div class="slider-container">
+                            <input type="range" class="range-slider" id="noiseThreshold" name="noiseThreshold" min="0" max="10" value="5" aria-describedby="noiseThresholdHelp">
+                            <div class="range-value">5</div>
+                        </div>
+                        <small id="noiseThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 소음에 민감함</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="lightThreshold">빛 민감도</label>
+                        <div class="slider-container">
+                            <input type="range" class="range-slider" id="lightThreshold" name="lightThreshold" min="0" max="10" value="5" aria-describedby="lightThresholdHelp">
+                            <div class="range-value">5</div>
+                        </div>
+                        <small id="lightThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 밝은 빛에 민감함</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="odorThreshold">냄새 민감도</label>
+                        <div class="slider-container">
+                            <input type="range" class="range-slider" id="odorThreshold" name="odorThreshold" min="0" max="10" value="5" aria-describedby="odorThresholdHelp">
+                            <div class="range-value">5</div>
+                        </div>
+                        <small id="odorThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 냄새에 민감함</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="crowdThreshold">혼잡 민감도</label>
+                        <div class="slider-container">
+                            <input type="range" class="range-slider" id="crowdThreshold" name="crowdThreshold" min="0" max="10" value="5" aria-describedby="crowdThresholdHelp">
+                            <div class="range-value">5</div>
+                        </div>
+                        <small id="crowdThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 혼잡함에 민감함</small>
+                    </div>
+
+                    <button type="submit" class="primary-btn">
                         <i class="fas fa-user-check"></i>
                         프로필 저장
                     </button>
@@ -592,12 +666,53 @@
                 this.user = null;
                 this.isAuthenticated = false;
                 this.authToken = null;
+                this.publishableKey = null;
+            }
+
+            // 환경변수에서 Clerk publishable key 가져오기
+            getClerkPublishableKey() {
+                // 1. 환경변수에서 시도 (서버에서 설정한 경우)
+                if (window.CLERK_PUBLISHABLE_KEY) {
+                    return window.CLERK_PUBLISHABLE_KEY;
+                }
+                
+                // 2. meta 태그에서 시도
+                const metaKey = document.querySelector('meta[name="clerk-publishable-key"]');
+                if (metaKey) {
+                    return metaKey.getAttribute('content');
+                }
+                
+                // 3. 환경에 따른 기본값
+                const hostname = window.location.hostname;
+                
+                // Railway 프로덕션 환경
+                if (hostname.includes('railway.app')) {
+                    // Railway 환경변수에서 설정된 키를 사용해야 함
+                    console.warn('Railway 환경에서는 CLERK_PUBLISHABLE_KEY 환경변수가 필요합니다');
+                    return null;
+                }
+                
+                // 로컬 개발 환경용 기본 키
+                if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                    return 'pk_test_cGVyZmVjdC1zdGFybGluZy05OC5jbGVyay5hY2NvdW50cy5kZXYk';
+                }
+                
+                return null;
             }
 
             async initialize() {
                 try {
+                    // Clerk publishable key 확인
+                    this.publishableKey = this.getClerkPublishableKey();
+                    
+                    if (!this.publishableKey) {
+                        throw new Error('Clerk publishable key가 설정되지 않았습니다. 환경변수 CLERK_PUBLISHABLE_KEY를 확인해주세요.');
+                    }
+
+                    console.log('🔑 Using Clerk key:', this.publishableKey.substring(0, 10) + '...');
+
                     // Clerk 초기화
-                    this.clerk = new window.Clerk('pk_test_cGVyZmVjdC1zdGFybGluZy05OC5jbGVyay5hY2NvdW50cy5kZXYk');
+                    this.clerk = new window.Clerk(this.publishableKey);
                     await this.clerk.load();
 
                     // 인증 상태 확인
@@ -628,7 +743,7 @@
 
                 } catch (error) {
                     console.error('Clerk 초기화 실패:', error);
-                    this.showError('인증 시스템을 초기화할 수 없습니다.');
+                    this.showError(error.message);
                 }
             }
 
@@ -637,21 +752,27 @@
                 document.getElementById('authOverlay').classList.remove('hidden');
                 document.getElementById('appContainer').classList.add('hidden');
                 document.getElementById('userInfo').classList.add('hidden');
+                document.getElementById('auth-error').classList.add('hidden');
 
                 // Clerk 로그인 컴포넌트 마운트
                 if (this.clerk && !document.querySelector('.cl-component')) {
-                    this.clerk.mountSignIn(document.getElementById('clerk-signin'), {
-                        routing: 'virtual',
-                        appearance: {
-                            elements: {
-                                formButtonPrimary: 'bg-blue-600 hover:bg-blue-700 text-white',
-                                card: 'shadow-lg',
-                                headerTitle: 'text-xl font-semibold',
-                                socialButtonsBlockButton: 'border border-gray-300 hover:bg-gray-50'
-                            }
-                        },
-                        signUpUrl: undefined // 같은 컴포넌트에서 회원가입도 처리
-                    });
+                    try {
+                        this.clerk.mountSignIn(document.getElementById('clerk-signin'), {
+                            routing: 'virtual',
+                            appearance: {
+                                elements: {
+                                    formButtonPrimary: 'bg-blue-600 hover:bg-blue-700 text-white',
+                                    card: 'shadow-lg',
+                                    headerTitle: 'text-xl font-semibold',
+                                    socialButtonsBlockButton: 'border border-gray-300 hover:bg-gray-50'
+                                }
+                            },
+                            signUpUrl: undefined // 같은 컴포넌트에서 회원가입도 처리
+                        });
+                    } catch (error) {
+                        console.error('Clerk UI 마운트 실패:', error);
+                        this.showError('로그인 인터페이스를 로드할 수 없습니다.');
+                    }
                 }
             }
 
@@ -687,9 +808,10 @@
 
             showError(message) {
                 document.getElementById('authLoadingOverlay').classList.add('hidden');
-                console.error(message);
-                // 간단한 에러 처리 - 실제로는 더 정교한 에러 UI를 보여줄 수 있음
-                alert(message);
+                document.getElementById('authOverlay').classList.remove('hidden');
+                document.getElementById('auth-error').classList.remove('hidden');
+                document.getElementById('auth-error').textContent = message;
+                console.error('Auth Error:', message);
             }
         }
 
@@ -749,65 +871,4 @@
         }
     </script>
 </body>
-</html>-btn">
-                        <i class="fas fa-save"></i>
-                        감각 정보 저장
-                    </button>
-                    
-                    <button type="button" class="secondary-btn" id="cancelBtn">
-                        <i class="fas fa-times"></i>
-                        취소
-                    </button>
-                </form>
-            </div>
-        </aside>
-
-        <!-- Profile Panel -->
-        <aside class="side-panel" id="profilePanel" aria-hidden="true">
-            <div class="panel-header">
-                <div class="panel-title">감각 프로필</div>
-                <div class="panel-subtitle">개인 민감도를 설정하여 맞춤형 경로를 찾아보세요</div>
-                <button class="close-btn" id="closeProfileBtn" aria-label="패널 닫기">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            
-            <div class="panel-content">
-                <form id="profileForm">
-                    <div class="form-group">
-                        <label class="form-label" for="noiseThreshold">소음 민감도</label>
-                        <div class="slider-container">
-                            <input type="range" class="range-slider" id="noiseThreshold" name="noiseThreshold" min="0" max="10" value="5" aria-describedby="noiseThresholdHelp">
-                            <div class="range-value">5</div>
-                        </div>
-                        <small id="noiseThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 소음에 민감함</small>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label" for="lightThreshold">빛 민감도</label>
-                        <div class="slider-container">
-                            <input type="range" class="range-slider" id="lightThreshold" name="lightThreshold" min="0" max="10" value="5" aria-describedby="lightThresholdHelp">
-                            <div class="range-value">5</div>
-                        </div>
-                        <small id="lightThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 밝은 빛에 민감함</small>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label" for="odorThreshold">냄새 민감도</label>
-                        <div class="slider-container">
-                            <input type="range" class="range-slider" id="odorThreshold" name="odorThreshold" min="0" max="10" value="5" aria-describedby="odorThresholdHelp">
-                            <div class="range-value">5</div>
-                        </div>
-                        <small id="odorThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 냄새에 민감함</small>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label" for="crowdThreshold">혼잡 민감도</label>
-                        <div class="slider-container">
-                            <input type="range" class="range-slider" id="crowdThreshold" name="crowdThreshold" min="0" max="10" value="5" aria-describedby="crowdThresholdHelp">
-                            <div class="range-value">5</div>
-                        </div>
-                        <small id="crowdThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 혼잡함에 민감함</small>
-                    </div>
-
-                    <button type="submit" class="primary
+</html>
