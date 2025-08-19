@@ -668,7 +668,9 @@
                 this.authToken = null;
                 this.publishableKey = null;
                 this.initRetryCount = 0;
-                this.maxRetries = 5;
+                this.maxRetries = 3;
+                this.isInitializing = false;
+                this.initializationPromise = null;
             }
 
             // 환경변수에서 Clerk publishable key 가져오기
@@ -690,7 +692,7 @@
                 
                 // Railway 프로덕션 환경
                 if (hostname.includes('railway.app')) {
-                    console.warn('Railway 환경에서는 서버에서 CLERK_PUBLISHABLE_KEY를 주입해야 합니다');
+                    console.warn('⚠️ Railway 환경에서는 서버에서 CLERK_PUBLISHABLE_KEY를 주입해야 합니다');
                     return null;
                 }
                 
@@ -733,6 +735,17 @@
             }
 
             async initialize() {
+                // 이미 초기화 중이면 기존 Promise 반환
+                if (this.isInitializing && this.initializationPromise) {
+                    return this.initializationPromise;
+                }
+
+                this.isInitializing = true;
+                this.initializationPromise = this._doInitialize();
+                return this.initializationPromise;
+            }
+
+            async _doInitialize() {
                 try {
                     // Clerk publishable key 확인
                     this.publishableKey = this.getClerkPublishableKey();
@@ -741,7 +754,7 @@
                         throw new Error('Clerk publishable key가 설정되지 않았습니다. 환경변수를 확인해주세요.');
                     }
 
-                    console.log('🔑 Using Clerk key:', this.publishableKey.substring(0, 10) + '...');
+                    console.log('🔐 Using Clerk key:', this.publishableKey.substring(0, 10) + '...');
 
                     // Clerk SDK 로드 대기
                     console.log('⏳ Clerk SDK 로드를 기다리는 중...');
@@ -779,6 +792,9 @@
                         }
                     });
 
+                    this.isInitializing = false;
+                    return true;
+
                 } catch (error) {
                     console.error('Clerk 초기화 실패:', error);
                     
@@ -786,11 +802,15 @@
                     if (this.initRetryCount < this.maxRetries) {
                         this.initRetryCount++;
                         console.log(`🔄 Clerk 초기화 재시도 중... (${this.initRetryCount}/${this.maxRetries})`);
-                        setTimeout(() => this.initialize(), 2000);
-                        return;
+                        this.isInitializing = false;
+                        this.initializationPromise = null;
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        return this.initialize();
                     }
                     
+                    this.isInitializing = false;
                     this.showError(error.message);
+                    throw error;
                 }
             }
 
@@ -865,18 +885,49 @@
         // 전역 AuthManager 인스턴스
         window.authManager = new AuthManager();
 
-        // 페이지 로드 시 인증 초기화 (window.onload 사용)
-        window.addEventListener('load', async () => {
-            // Clerk SDK가 로드될 때까지 잠시 대기
-            setTimeout(async () => {
+        // 페이지 로드 시 인증 초기화 (수정된 버전)
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('🚀 DOM 로드 완료, 인증 초기화 시작');
+            
+            try {
+                // Clerk SDK가 로드될 때까지 대기 (최대 5초)
+                let sdkWaitTime = 0;
+                while (!window.Clerk && sdkWaitTime < 5000) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    sdkWaitTime += 100;
+                }
+
+                if (!window.Clerk) {
+                    throw new Error('Clerk SDK 로드 실패. 네트워크 연결을 확인해주세요.');
+                }
+
+                // AuthManager 초기화
                 await window.authManager.initialize();
 
                 // 로그아웃 버튼 이벤트 리스너
-                document.getElementById('logoutBtn').addEventListener('click', async () => {
+                document.getElementById('logoutBtn')?.addEventListener('click', async () => {
                     await window.authManager.logout();
                 });
-            }, 500); // 500ms 대기 후 초기화
+
+            } catch (error) {
+                console.error('인증 초기화 최종 실패:', error);
+                window.authManager.showError('인증 시스템을 초기화할 수 없습니다. 페이지를 새로고침해주세요.');
+            }
         });
+
+        // API 요청 시 인증 토큰을 포함하는 헬퍼 함수
+        window.authenticatedFetch = async (url, options = {}) => {
+            const token = await window.authManager.getAuthToken();
+            
+            return fetch(url, {
+                ...options,
+                headers: {
+                    ...options.headers,
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+        };
 
         // API 요청 시 인증 토큰을 포함하는 헬퍼 함수
         window.authenticatedFetch = async (url, options = {}) => {
