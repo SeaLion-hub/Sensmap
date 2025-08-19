@@ -712,8 +712,8 @@
                     console.log('🔑 Using Clerk key:', this.publishableKey.substring(0, 10) + '...');
 
                     // Clerk 초기화
-                    this.clerk = new window.Clerk(this.publishableKey);
-                    await this.clerk.load();
+                    this.clerk = window.Clerk;
+                    await this.clerk.load({ publishableKey: this.publishableKey });
 
                     // 인증 상태 확인
                     if (this.clerk.user) {
