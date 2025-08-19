@@ -1,7 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
-require('dotenv').config(); // .env 파일 로드
+const { ClerkExpressRequireAuth } = require('@clerk/clerk-sdk-node');
+require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -10,15 +11,13 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// --- 데이터베이스 연결 풀 설정 (Railway 환경 최적화) ---
+// --- 데이터베이스 연결 풀 설정 ---
 const pool = new Pool({
-    // Railway DATABASE_URL을 최우선으로 사용
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
-    // Railway 환경에 최적화된 연결 풀 설정
-    max: 5,                        // 20에서 5로 줄임 (메모리 절약)
+    max: 5,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000,  // 2초에서 5초로 늘림
+    connectionTimeoutMillis: 5000,
 });
 
 pool.on('connect', () => {
@@ -30,8 +29,6 @@ pool.on('error', (err) => {
 });
 
 // --- 유틸리티 함수 ---
-
-// 데이터 유효성 검증 함수
 function validateSensoryData(data) {
     const { lat, lng, type } = data;
     if (lat === undefined || lng === undefined || type === undefined) {
@@ -49,10 +46,8 @@ function validateSensoryData(data) {
     return { valid: true };
 }
 
-// 만료된 데이터 자동 정리 함수
 async function cleanupExpiredData() {
     try {
-        // irregular: 6시간, regular: 7일 후 삭제
         const result = await pool.query(`
             DELETE FROM sensory_reports 
             WHERE 
@@ -67,7 +62,6 @@ async function cleanupExpiredData() {
     }
 }
 
-// 표준 응답 형식 함수
 function createResponse(success, data = null, message = '', error = null) {
     return {
         success,
@@ -78,15 +72,15 @@ function createResponse(success, data = null, message = '', error = null) {
     };
 }
 
-// 데이터베이스 초기화 함수
+// --- 데이터베이스 초기화 함수 ---
 async function initializeDatabase() {
     try {
         console.log('🔄 데이터베이스 테이블을 확인하고 생성합니다...');
         
-        // 테이블 생성 쿼리
         await pool.query(`
             CREATE TABLE IF NOT EXISTS sensory_reports (
                 id SERIAL PRIMARY KEY,
+                user_id VARCHAR(255) NOT NULL,
                 lat DECIMAL(10, 8) NOT NULL,
                 lng DECIMAL(11, 8) NOT NULL,
                 noise INTEGER CHECK (noise >= 0 AND noise <= 10),
@@ -101,28 +95,36 @@ async function initializeDatabase() {
             )
         `);
 
+        // user_id 컬럼이 없는 경우 추가
+        try {
+            await pool.query('ALTER TABLE sensory_reports ADD COLUMN user_id VARCHAR(255)');
+            console.log('✅ user_id 컬럼이 추가되었습니다.');
+        } catch (err) {
+            if (err.code === '42701') {
+                console.log('ℹ️ user_id 컬럼이 이미 존재합니다.');
+            } else {
+                throw err;
+            }
+        }
+
+        // NOT NULL 제약조건 추가
+        try {
+            await pool.query(`UPDATE sensory_reports SET user_id = 'anonymous' WHERE user_id IS NULL`);
+            await pool.query('ALTER TABLE sensory_reports ALTER COLUMN user_id SET NOT NULL');
+        } catch (err) {
+            console.log('ℹ️ user_id 제약조건 처리:', err.message);
+        }
+
         // 인덱스 생성
         await pool.query('CREATE INDEX IF NOT EXISTS idx_sensory_reports_location ON sensory_reports (lat, lng)');
         await pool.query('CREATE INDEX IF NOT EXISTS idx_sensory_reports_created_at ON sensory_reports (created_at)');
         await pool.query('CREATE INDEX IF NOT EXISTS idx_sensory_reports_type ON sensory_reports (type)');
-
-        // 샘플 데이터 확인 및 추가
-        const existingData = await pool.query('SELECT COUNT(*) FROM sensory_reports');
-        if (parseInt(existingData.rows[0].count) === 0) {
-            console.log('📝 샘플 데이터를 추가합니다...');
-            await pool.query(`
-                INSERT INTO sensory_reports (lat, lng, noise, light, odor, crowd, type, duration, wheelchair) VALUES
-                (37.5665, 126.9780, 7, 5, 3, 8, 'irregular', 45, false),
-                (37.5670, 126.9785, 4, 6, 5, 6, 'regular', 240, false),
-                (37.5660, 126.9775, 8, 4, 7, 9, 'irregular', 30, true)
-            `);
-            console.log('✅ 샘플 데이터가 추가되었습니다.');
-        }
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_sensory_reports_user_id ON sensory_reports (user_id)');
 
         console.log('✅ 데이터베이스 초기화가 완료되었습니다.');
     } catch (error) {
         console.error('❌ 데이터베이스 초기화 중 오류:', error);
-        throw error; // 초기화 실패 시 서버 종료
+        throw error;
     }
 }
 
@@ -139,11 +141,23 @@ app.get('/api/health', async (req, res) => {
     }
 });
 
-// [GET] /api/reports - 모든 감각 데이터 조회
-app.get('/api/reports', async (req, res) => {
+// [GET] /api/user - 현재 사용자 정보 조회 (인증 필요)
+app.get('/api/user', ClerkExpressRequireAuth(), async (req, res) => {
+    try {
+        const userId = req.auth.userId;
+        res.status(200).json(createResponse(true, { userId }, '사용자 정보를 조회했습니다.'));
+    } catch (err) {
+        console.error('사용자 정보 조회 중 오류:', err);
+        res.status(500).json(createResponse(false, null, '', '사용자 정보 조회 중 오류가 발생했습니다.'));
+    }
+});
+
+// [GET] /api/reports - 모든 사용자의 감각 데이터 조회 (인증 필요, 공용 조회)
+app.get('/api/reports', ClerkExpressRequireAuth(), async (req, res) => {
     try {
         const { recent_hours = 168 } = req.query; // 기본 1주일
         
+        // 모든 사용자의 데이터를 조회 (공용)
         const result = await pool.query(`
             SELECT * FROM sensory_reports 
             WHERE created_at > NOW() - INTERVAL '${parseInt(recent_hours)} hours'
@@ -158,9 +172,30 @@ app.get('/api/reports', async (req, res) => {
     }
 });
 
-// [POST] /api/reports - 새로운 감각 데이터 추가
-app.post('/api/reports', async (req, res) => {
+// [GET] /api/my-reports - 내 감각 데이터만 조회 (인증 필요)
+app.get('/api/my-reports', ClerkExpressRequireAuth(), async (req, res) => {
     try {
+        const userId = req.auth.userId;
+        const { recent_hours = 168 } = req.query; // 기본 1주일
+        
+        const result = await pool.query(`
+            SELECT * FROM sensory_reports 
+            WHERE user_id = $1 AND created_at > NOW() - INTERVAL '${parseInt(recent_hours)} hours'
+            ORDER BY created_at DESC 
+            LIMIT 2000
+        `, [userId]);
+        
+        res.status(200).json(createResponse(true, result.rows, `${result.rows.length}개의 내 감각 데이터를 조회했습니다.`));
+    } catch (err) {
+        console.error('내 데이터 조회 중 오류:', err);
+        res.status(500).json(createResponse(false, null, '', '데이터베이스 조회 중 오류가 발생했습니다.'));
+    }
+});
+
+// [POST] /api/reports - 새로운 감각 데이터 추가 (인증 필요)
+app.post('/api/reports', ClerkExpressRequireAuth(), async (req, res) => {
+    try {
+        const userId = req.auth.userId;
         const validation = validateSensoryData(req.body);
         if (!validation.valid) {
             return res.status(400).json(createResponse(false, null, '', validation.message));
@@ -168,7 +203,6 @@ app.post('/api/reports', async (req, res) => {
 
         const { lat, lng, noise, light, odor, crowd, type, duration, wheelchair } = req.body;
         
-        // null 값들을 명시적으로 처리
         const cleanData = {
             lat: parseFloat(lat),
             lng: parseFloat(lng),
@@ -182,9 +216,9 @@ app.post('/api/reports', async (req, res) => {
         };
 
         const newReport = await pool.query(
-            `INSERT INTO sensory_reports (lat, lng, noise, light, odor, crowd, type, duration, wheelchair)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-            [cleanData.lat, cleanData.lng, cleanData.noise, cleanData.light, cleanData.odor, 
+            `INSERT INTO sensory_reports (user_id, lat, lng, noise, light, odor, crowd, type, duration, wheelchair)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+            [userId, cleanData.lat, cleanData.lng, cleanData.noise, cleanData.light, cleanData.odor, 
              cleanData.crowd, cleanData.type, cleanData.duration, cleanData.wheelchair]
         );
 
@@ -195,9 +229,10 @@ app.post('/api/reports', async (req, res) => {
     }
 });
 
-// [DELETE] /api/reports/:id - 특정 감각 데이터 삭제
-app.delete('/api/reports/:id', async (req, res) => {
+// [DELETE] /api/reports/:id - 특정 감각 데이터 삭제 (본인 데이터만, 인증 필요)
+app.delete('/api/reports/:id', ClerkExpressRequireAuth(), async (req, res) => {
     try {
+        const userId = req.auth.userId;
         const { id } = req.params;
         const reportId = parseInt(id);
         
@@ -205,10 +240,11 @@ app.delete('/api/reports/:id', async (req, res) => {
             return res.status(400).json(createResponse(false, null, '', '유효하지 않은 ID입니다.'));
         }
 
-        const result = await pool.query('DELETE FROM sensory_reports WHERE id = $1 RETURNING *', [reportId]);
+        // 본인 데이터만 삭제 가능
+        const result = await pool.query('DELETE FROM sensory_reports WHERE id = $1 AND user_id = $2 RETURNING *', [reportId, userId]);
         
         if (result.rowCount === 0) {
-            return res.status(404).json(createResponse(false, null, '', '삭제할 데이터를 찾을 수 없습니다.'));
+            return res.status(404).json(createResponse(false, null, '', '삭제할 데이터를 찾을 수 없거나 권한이 없습니다.'));
         }
 
         res.status(200).json(createResponse(true, result.rows[0], '감각 정보가 성공적으로 삭제되었습니다.'));
@@ -218,9 +254,10 @@ app.delete('/api/reports/:id', async (req, res) => {
     }
 });
 
-// [PUT] /api/reports/:id - 특정 감각 데이터 수정
-app.put('/api/reports/:id', async (req, res) => {
+// [PUT] /api/reports/:id - 특정 감각 데이터 수정 (본인 데이터만, 인증 필요)
+app.put('/api/reports/:id', ClerkExpressRequireAuth(), async (req, res) => {
     try {
+        const userId = req.auth.userId;
         const { id } = req.params;
         const reportId = parseInt(id);
         
@@ -247,17 +284,18 @@ app.put('/api/reports/:id', async (req, res) => {
             wheelchair: Boolean(wheelchair)
         };
 
+        // 본인 데이터만 수정 가능
         const result = await pool.query(
             `UPDATE sensory_reports 
              SET lat = $1, lng = $2, noise = $3, light = $4, odor = $5, crowd = $6, 
                  type = $7, duration = $8, wheelchair = $9, updated_at = NOW() 
-             WHERE id = $10 RETURNING *`,
+             WHERE id = $10 AND user_id = $11 RETURNING *`,
             [cleanData.lat, cleanData.lng, cleanData.noise, cleanData.light, cleanData.odor,
-             cleanData.crowd, cleanData.type, cleanData.duration, cleanData.wheelchair, reportId]
+             cleanData.crowd, cleanData.type, cleanData.duration, cleanData.wheelchair, reportId, userId]
         );
 
         if (result.rowCount === 0) {
-            return res.status(404).json(createResponse(false, null, '', '수정할 데이터를 찾을 수 없습니다.'));
+            return res.status(404).json(createResponse(false, null, '', '수정할 데이터를 찾을 수 없거나 권한이 없습니다.'));
         }
 
         res.status(200).json(createResponse(true, result.rows[0], '감각 정보가 성공적으로 수정되었습니다.'));
@@ -267,9 +305,10 @@ app.put('/api/reports/:id', async (req, res) => {
     }
 });
 
-// [GET] /api/stats - 통계 정보 조회
-app.get('/api/stats', async (req, res) => {
+// [GET] /api/stats - 전체 통계 정보 조회 (인증 필요)
+app.get('/api/stats', ClerkExpressRequireAuth(), async (req, res) => {
     try {
+        // 전체 통계 (모든 사용자 데이터 포함)
         const stats = await pool.query(`
             SELECT 
                 COUNT(*) AS total_reports,
@@ -287,6 +326,32 @@ app.get('/api/stats', async (req, res) => {
         res.status(200).json(createResponse(true, stats.rows[0], '통계 정보를 조회했습니다.'));
     } catch (err) {
         console.error('통계 조회 중 오류:', err);
+        res.status(500).json(createResponse(false, null, '', '통계 조회 중 오류가 발생했습니다.'));
+    }
+});
+
+// [GET] /api/my-stats - 내 통계 정보 조회 (인증 필요)
+app.get('/api/my-stats', ClerkExpressRequireAuth(), async (req, res) => {
+    try {
+        const userId = req.auth.userId;
+        // 내 데이터만의 통계
+        const stats = await pool.query(`
+            SELECT 
+                COUNT(*) AS total_reports,
+                COUNT(CASE WHEN type = 'regular' THEN 1 END) AS regular_count,
+                COUNT(CASE WHEN type = 'irregular' THEN 1 END) AS irregular_count,
+                ROUND(AVG(CASE WHEN noise IS NOT NULL THEN noise END), 2) AS avg_noise,
+                ROUND(AVG(CASE WHEN light IS NOT NULL THEN light END), 2) AS avg_light,
+                ROUND(AVG(CASE WHEN odor IS NOT NULL THEN odor END), 2) AS avg_odor,
+                ROUND(AVG(CASE WHEN crowd IS NOT NULL THEN crowd END), 2) AS avg_crowd,
+                COUNT(CASE WHEN wheelchair = true THEN 1 END) AS wheelchair_issues
+            FROM sensory_reports
+            WHERE user_id = $1 AND created_at > NOW() - INTERVAL '7 days'
+        `, [userId]);
+        
+        res.status(200).json(createResponse(true, stats.rows[0], '내 통계 정보를 조회했습니다.'));
+    } catch (err) {
+        console.error('내 통계 조회 중 오류:', err);
         res.status(500).json(createResponse(false, null, '', '통계 조회 중 오류가 발생했습니다.'));
     }
 });
@@ -311,32 +376,28 @@ app.use((error, req, res, next) => {
 });
 
 // --- 서버 시작 및 주기적 작업 설정 ---
-
-// 서버 시작 (Railway 환경에 최적화)
 const server = app.listen(port, '0.0.0.0', async () => {
     console.log(`========================================`);
-    console.log(`🚀 Sensmap 백엔드 서버가 시작되었습니다!`);
+    console.log(`🚀 Sensmap 백엔드 서버가 시작되었습니다! (Clerk 인증 적용)`);
     console.log(`📍 포트: ${port}`);
     console.log(`🌐 환경: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔐 인증: Clerk (Google/Email 로그인 지원)`);
     console.log(`📊 API 엔드포인트:`);
     console.log(`   GET  /api/health - 서버 상태 확인`);
-    console.log(`   GET  /api/reports - 감각 데이터 조회`);
-    console.log(`   POST /api/reports - 감각 데이터 추가`);
-    console.log(`   PUT  /api/reports/:id - 감각 데이터 수정`);
-    console.log(`   DELETE /api/reports/:id - 감각 데이터 삭제`);
-    console.log(`   GET  /api/stats - 통계 정보 조회`);
+    console.log(`   GET  /api/user - 사용자 정보 조회 (🔒 인증 필요)`);
+    console.log(`   GET  /api/reports - 모든 감각 데이터 조회 (🔒 인증 필요, 👁️ 공용)`);
+    console.log(`   GET  /api/my-reports - 내 감각 데이터 조회 (🔒 인증 필요, 👤 개인)`);
+    console.log(`   POST /api/reports - 감각 데이터 추가 (🔒 인증 필요)`);
+    console.log(`   PUT  /api/reports/:id - 감각 데이터 수정 (🔒 인증 필요, 👤 본인만)`);
+    console.log(`   DELETE /api/reports/:id - 감각 데이터 삭제 (🔒 인증 필요, 👤 본인만)`);
+    console.log(`   GET  /api/stats - 전체 통계 정보 조회 (🔒 인증 필요, 👁️ 공용)`);
+    console.log(`   GET  /api/my-stats - 내 통계 정보 조회 (🔒 인증 필요, 👤 개인)`);
     console.log(`========================================`);
 
     try {
-        // 데이터베이스 초기화
         await initializeDatabase();
-
-        // 1시간마다 만료된 데이터 정리
         setInterval(cleanupExpiredData, 3600000);
-        
-        // 서버 시작 시 한번 정리 (5초 후)
         setTimeout(cleanupExpiredData, 5000);
-        
         console.log('✅ 서버 초기화가 완료되었습니다.');
     } catch (error) {
         console.error('❌ 서버 초기화 중 오류:', error);
@@ -344,7 +405,7 @@ const server = app.listen(port, '0.0.0.0', async () => {
     }
 });
 
-// 우아한 종료 처리 (Railway SIGTERM 대응)
+// 우아한 종료 처리
 const gracefulShutdown = (signal) => {
     console.log(`🔄 ${signal} 신호를 받았습니다. 서버를 우아하게 종료합니다...`);
     
@@ -367,23 +428,18 @@ const gracefulShutdown = (signal) => {
         });
     });
     
-    // 30초 후 강제 종료 (Railway 타임아웃 방지)
     setTimeout(() => {
         console.log('⚠️  강제 종료됩니다...');
         process.exit(1);
     }, 30000);
 };
 
-// 종료 신호 처리
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-
-// 처리되지 않은 예외 및 Promise 거부 처리
 process.on('uncaughtException', (error) => {
     console.error('❌ 처리되지 않은 예외:', error);
     gracefulShutdown('uncaughtException');
 });
-
 process.on('unhandledRejection', (reason, promise) => {
     console.error('❌ 처리되지 않은 Promise 거부:', reason);
     gracefulShutdown('unhandledRejection');

@@ -32,7 +32,6 @@
         })();
     </script>
     
-    <!-- 나머지 head 내용은 동일... -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>">
     
     <!-- Meta tags for better SEO and social sharing -->
@@ -49,451 +48,680 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-geosearch@3.11.0/dist/geosearch.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    
+    <!-- Clerk CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/@clerk/clerk-js@4.70.0/dist/clerk.css" />
+    
     <link rel="stylesheet" href="styles.css">
     
     <!-- Preconnect for better performance -->
     <link rel="preconnect" href="https://unpkg.com">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    
+    <style>
+        /* 인증 관련 스타일 */
+        .auth-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+        
+        .auth-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+        
+        .auth-title {
+            margin-bottom: 1rem;
+            color: #333;
+        }
+        
+        .auth-description {
+            margin-bottom: 2rem;
+            color: #666;
+            line-height: 1.5;
+        }
+        
+        .user-info {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .user-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .logout-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+        
+        .logout-btn:hover {
+            background: #c82333;
+        }
+        
+        .loading-auth {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        
+        .loading-auth .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* 히든 클래스 */
+        .hidden {
+            display: none !important;
+        }
+        
+        /* Clerk 컴포넌트 스타일 조정 */
+        .cl-component {
+            width: 100% !important;
+        }
+    </style>
 </head>
 <body>
-    <!-- Tutorial Overlay -->
-    <div class="tutorial-overlay" id="tutorialOverlay">
-        <div class="tutorial-modal">
-            <div class="tutorial-header">
-                <h2><i class="fas fa-graduation-cap"></i> Sensmap 사용법</h2>
-            </div>
-            <div class="tutorial-content">
-                <div class="tutorial-step active" data-step="1">
-                    <div class="tutorial-icon">🗺️</div>
-                    <h3>지도에서 감각 정보 확인</h3>
-                    <p>색상으로 표시된 마커를 통해 각 지역의 소음, 빛, 냄새, 혼잡도 정보를 확인할 수 있습니다. 히트맵과 감각별 보기 모드를 전환해보세요.</p>
-                </div>
-                <div class="tutorial-step" data-step="2">
-                    <div class="tutorial-icon">➕</div>
-                    <h3>감각 정보 추가하기</h3>
-                    <p>지도를 클릭하고 팝업에서 "감각 정보 추가"를 선택하여 현재 위치의 감각 데이터를 입력하세요. 일시적 또는 지속적 정보를 선택할 수 있습니다.</p>
-                </div>
-                <div class="tutorial-step" data-step="3">
-                    <div class="tutorial-icon">🛣️</div>
-                    <h3>감각 친화적 경로 찾기</h3>
-                    <p>경로 버튼을 클릭하고 출발지와 도착지를 선택하면 감각 우선, 균형, 시간 우선 등 다양한 경로 옵션을 제공합니다.</p>
-                </div>
-                <div class="tutorial-step" data-step="4">
-                    <div class="tutorial-icon">⚙️</div>
-                    <h3>개인 프로필 설정</h3>
-                    <p>햄버거 메뉴에서 감각 프로필을 설정하여 개인의 감각 민감도에 맞는 맞춤형 추천을 받으세요. 접근성 옵션도 설정할 수 있습니다.</p>
-                </div>
-            </div>
-            <div class="tutorial-navigation">
-                <button class="tutorial-btn secondary" id="tutorialPrev">이전</button>
-                <div class="tutorial-dots">
-                    <span class="dot active" data-step="1"></span>
-                    <span class="dot" data-step="2"></span>
-                    <span class="dot" data-step="3"></span>
-                    <span class="dot" data-step="4"></span>
-                </div>
-                <button class="tutorial-btn primary" id="tutorialNext">다음</button>
-            </div>
-            <button class="tutorial-skip" id="tutorialSkip">건너뛰기</button>
+    <!-- 로딩 오버레이 (인증 확인 중) -->
+    <div id="authLoadingOverlay" class="loading-auth">
+        <div class="spinner"></div>
+        <div style="font-size: 16px; color: #666;">인증 상태를 확인하는 중...</div>
+    </div>
+
+    <!-- 인증 오버레이 -->
+    <div id="authOverlay" class="auth-overlay hidden">
+        <div class="auth-container">
+            <h2 class="auth-title">🗺️ Sensmap에 오신 것을 환영합니다!</h2>
+            <p class="auth-description">감각 데이터를 기록하고 관리하려면 로그인해주세요.<br>개인 데이터는 안전하게 보호됩니다.</p>
+            <div id="clerk-signin"></div>
         </div>
     </div>
 
-    <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="loading-spinner">
-            <div class="spinner"></div>
-            <div class="loading-text">지도를 불러오는 중...</div>
-        </div>
+    <!-- 사용자 정보 표시 -->
+    <div id="userInfo" class="user-info hidden">
+        <img id="userAvatar" class="user-avatar" src="" alt="사용자 아바타">
+        <span id="userName" class="user-name">사용자</span>
+        <button id="logoutBtn" class="logout-btn">로그아웃</button>
     </div>
 
-    <!-- Error Boundary -->
-    <div class="error-boundary" id="errorBoundary" style="display: none;">
-        <div class="error-content">
-            <i class="fas fa-exclamation-triangle"></i>
-            <h3>오류가 발생했습니다</h3>
-            <p>앱을 불러오는 중 문제가 발생했습니다. 페이지를 새로고침하거나 잠시 후 다시 시도해주세요.</p>
-            <button onclick="location.reload()" class="primary-btn">
-                <i class="fas fa-sync-alt"></i> 새로고침
-            </button>
-        </div>
-    </div>
-
-    <!-- Header Controls -->
-    <header class="header-controls">
-        <div class="header-left">
-            <div class="logo">
-                <i class="fas fa-map-marked-alt"></i>
-                Sensmap
+    <!-- 메인 앱 컨테이너 -->
+    <div id="appContainer" class="hidden">
+        <!-- Tutorial Overlay -->
+        <div class="tutorial-overlay" id="tutorialOverlay">
+            <div class="tutorial-modal">
+                <div class="tutorial-header">
+                    <h2><i class="fas fa-graduation-cap"></i> Sensmap 사용법</h2>
+                </div>
+                <div class="tutorial-content">
+                    <div class="tutorial-step active" data-step="1">
+                        <div class="tutorial-icon">🗺️</div>
+                        <h3>지도에서 감각 정보 확인</h3>
+                        <p>색상으로 표시된 마커를 통해 각 지역의 소음, 빛, 냄새, 혼잡도 정보를 확인할 수 있습니다. 히트맵과 감각별 보기 모드를 전환해보세요.</p>
+                    </div>
+                    <div class="tutorial-step" data-step="2">
+                        <div class="tutorial-icon">➕</div>
+                        <h3>감각 정보 추가하기</h3>
+                        <p>지도를 클릭하고 팝업에서 "감각 정보 추가"를 선택하여 현재 위치의 감각 데이터를 입력하세요. 일시적 또는 지속적 정보를 선택할 수 있습니다.</p>
+                    </div>
+                    <div class="tutorial-step" data-step="3">
+                        <div class="tutorial-icon">🛣️</div>
+                        <h3>감각 친화적 경로 찾기</h3>
+                        <p>경로 버튼을 클릭하고 출발지와 도착지를 선택하면 감각 우선, 균형, 시간 우선 등 다양한 경로 옵션을 제공합니다.</p>
+                    </div>
+                    <div class="tutorial-step" data-step="4">
+                        <div class="tutorial-icon">⚙️</div>
+                        <h3>개인 프로필 설정</h3>
+                        <p>햄버거 메뉴에서 감각 프로필을 설정하여 개인의 감각 민감도에 맞는 맞춤형 추천을 받으세요. 접근성 옵션도 설정할 수 있습니다.</p>
+                    </div>
+                </div>
+                <div class="tutorial-navigation">
+                    <button class="tutorial-btn secondary" id="tutorialPrev">이전</button>
+                    <div class="tutorial-dots">
+                        <span class="dot active" data-step="1"></span>
+                        <span class="dot" data-step="2"></span>
+                        <span class="dot" data-step="3"></span>
+                        <span class="dot" data-step="4"></span>
+                    </div>
+                    <button class="tutorial-btn primary" id="tutorialNext">다음</button>
+                </div>
+                <button class="tutorial-skip" id="tutorialSkip">건너뛰기</button>
             </div>
-            
-            <nav class="hamburger-menu">
-                <button class="hamburger-btn" id="hamburgerBtn" aria-label="메뉴 열기" aria-expanded="false">
-                    <i class="fas fa-bars"></i>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="loading-spinner">
+                <div class="spinner"></div>
+                <div class="loading-text">지도를 불러오는 중...</div>
+            </div>
+        </div>
+
+        <!-- Error Boundary -->
+        <div class="error-boundary" id="errorBoundary" style="display: none;">
+            <div class="error-content">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>오류가 발생했습니다</h3>
+                <p>앱을 불러오는 중 문제가 발생했습니다. 페이지를 새로고침하거나 잠시 후 다시 시도해주세요.</p>
+                <button onclick="location.reload()" class="primary-btn">
+                    <i class="fas fa-sync-alt"></i> 새로고침
                 </button>
-                <div class="hamburger-dropdown" id="hamburgerDropdown" aria-hidden="true">
-                    <div class="menu-item">
-                        <button class="menu-btn" id="profileMenuBtn">
-                            <i class="fas fa-user-cog"></i>
-                            <span>감각 프로필</span>
-                        </button>
-                    </div>
-                    <div class="menu-separator"></div>
-                    <div class="menu-item">
-                        <button class="menu-btn" id="settingsBtn">
-                            <i class="fas fa-cog"></i>
-                            <span>설정</span>
-                        </button>
-                    </div>
-                    <div class="menu-item">
-                        <button class="menu-btn" id="helpBtn">
-                            <i class="fas fa-question-circle"></i>
-                            <span>도움말</span>
-                        </button>
-                    </div>
-                    <div class="menu-item">
-                        <button class="menu-btn" id="contactBtn">
-                            <i class="fas fa-envelope"></i>
-                            <span>문의하기</span>
-                        </button>
-                    </div>
-                </div>
-            </nav>
+            </div>
         </div>
-        
-        <div class="header-center">
-            <div class="display-controls">
-                <button id="heatmapBtn" class="display-btn active" title="히트맵 보기">
-                    <i class="fas fa-fire"></i> 히트맵
-                </button>
-                <div class="sensory-filter">
-                    <button id="sensoryBtn" class="display-btn" title="감각별 보기">
-                        <i class="fas fa-map-pin"></i> 감각별
+
+        <!-- Header Controls -->
+        <header class="header-controls">
+            <div class="header-left">
+                <div class="logo">
+                    <i class="fas fa-map-marked-alt"></i>
+                    Sensmap
+                </div>
+                
+                <nav class="hamburger-menu">
+                    <button class="hamburger-btn" id="hamburgerBtn" aria-label="메뉴 열기" aria-expanded="false">
+                        <i class="fas fa-bars"></i>
                     </button>
-                    <div id="sensoryDropdown" class="sensory-dropdown">
-                         <div class="sensory-option active" data-sensory="all">
-                            <span class="sensory-icon">🌐</span> 전체
+                    <div class="hamburger-dropdown" id="hamburgerDropdown" aria-hidden="true">
+                        <div class="menu-item">
+                            <button class="menu-btn" id="profileMenuBtn">
+                                <i class="fas fa-user-cog"></i>
+                                <span>감각 프로필</span>
+                            </button>
                         </div>
-                        <div class="sensory-option" data-sensory="noise">
-                            <span class="sensory-icon">🔊</span> 소음
+                        <div class="menu-separator"></div>
+                        <div class="menu-item">
+                            <button class="menu-btn" id="settingsBtn">
+                                <i class="fas fa-cog"></i>
+                                <span>설정</span>
+                            </button>
                         </div>
-                        <div class="sensory-option" data-sensory="light">
-                            <span class="sensory-icon">💡</span> 빛
+                        <div class="menu-item">
+                            <button class="menu-btn" id="helpBtn">
+                                <i class="fas fa-question-circle"></i>
+                                <span>도움말</span>
+                            </button>
                         </div>
-                        <div class="sensory-option" data-sensory="odor">
-                            <span class="sensory-icon">👃</span> 냄새
-                        </div>
-                        <div class="sensory-option" data-sensory="crowd">
-                            <span class="sensory-icon">👥</span> 혼잡도
+                        <div class="menu-item">
+                            <button class="menu-btn" id="contactBtn">
+                                <i class="fas fa-envelope"></i>
+                                <span>문의하기</span>
+                            </button>
                         </div>
                     </div>
+                </nav>
+            </div>
+            
+            <div class="header-center">
+                <div class="display-controls">
+                    <button id="heatmapBtn" class="display-btn active" title="히트맵 보기">
+                        <i class="fas fa-fire"></i> 히트맵
+                    </button>
+                    <div class="sensory-filter">
+                        <button id="sensoryBtn" class="display-btn" title="감각별 보기">
+                            <i class="fas fa-map-pin"></i> 감각별
+                        </button>
+                        <div id="sensoryDropdown" class="sensory-dropdown">
+                             <div class="sensory-option active" data-sensory="all">
+                                <span class="sensory-icon">🌍</span> 전체
+                            </div>
+                            <div class="sensory-option" data-sensory="noise">
+                                <span class="sensory-icon">🔊</span> 소음
+                            </div>
+                            <div class="sensory-option" data-sensory="light">
+                                <span class="sensory-icon">💡</span> 빛
+                            </div>
+                            <div class="sensory-option" data-sensory="odor">
+                                <span class="sensory-icon">👃</span> 냄새
+                            </div>
+                            <div class="sensory-option" data-sensory="crowd">
+                                <span class="sensory-icon">👥</span> 혼잡도
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="intensity-control">
+                    <label for="intensitySlider" style="font-size: 12px; color: #6b7280;">표시 강도</label>
+                    <input type="range" class="intensity-slider" id="intensitySlider" min="0.3" max="1" step="0.1" value="0.7" aria-label="표시 강도 조절">
+                    <span id="intensityValue" style="font-size: 12px; font-weight: 600;">0.7</span>
                 </div>
             </div>
             
-            <div class="intensity-control">
-                <label for="intensitySlider" style="font-size: 12px; color: #6b7280;">표시 강도</label>
-                <input type="range" class="intensity-slider" id="intensitySlider" min="0.3" max="1" step="0.1" value="0.7" aria-label="표시 강도 조절">
-                <span id="intensityValue" style="font-size: 12px; font-weight: 600;">0.7</span>
+            <div class="header-right">
+                <button class="icon-btn active" id="showDataBtn" title="데이터 표시/숨김" aria-label="데이터 표시 토글" aria-pressed="true">
+                    <i class="fas fa-eye"></i>
+                </button>
+                <button class="icon-btn" id="routeBtn" title="경로 찾기" aria-label="경로 찾기 모드">
+                    <i class="fas fa-route"></i>
+                </button>
             </div>
-        </div>
-        
-        <div class="header-right">
-            <button class="icon-btn active" id="showDataBtn" title="데이터 표시/숨김" aria-label="데이터 표시 토글" aria-pressed="true">
-                <i class="fas fa-eye"></i>
-            </button>
-            <button class="icon-btn" id="routeBtn" title="경로 찾기" aria-label="경로 찾기 모드">
-                <i class="fas fa-route"></i>
-            </button>
-        </div>
-    </header>
+        </header>
 
-    <!-- Settings Panel -->
-    <aside class="settings-panel" id="settingsPanel">
-        <div class="panel-header">
-            <div class="panel-title">설정</div>
-            <button class="close-btn" id="closeSettingsBtn" aria-label="설정 패널 닫기">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="panel-content">
-            <section class="settings-section">
-                <h3>접근성 옵션</h3>
-                <div class="setting-option">
-                    <label>
-                        <input type="checkbox" id="colorBlindMode">
-                        <span>색맹 친화 모드</span>
-                    </label>
-                </div>
-                <div class="setting-option">
-                    <label>
-                        <input type="checkbox" id="highContrastMode">
-                        <span>고대비 모드</span>
-                    </label>
-                </div>
-                <div class="setting-option">
-                    <label>
-                        <input type="checkbox" id="reducedMotionMode">
-                        <span>애니메이션 줄이기</span>
-                    </label>
-                </div>
-                <div class="setting-option">
-                    <label for="textSizeSlider">텍스트 크기</label>
-                    <input type="range" id="textSizeSlider" min="0.8" max="1.5" step="0.1" value="1">
-                </div>
-            </section>
-        </div>
-    </aside>
-
-    <!-- Contact Modal -->
-    <div class="modal-overlay" id="contactModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>문의하기</h3>
-                <button class="close-btn" id="closeContactBtn" aria-label="문의 모달 닫기">
+        <!-- Settings Panel -->
+        <aside class="settings-panel" id="settingsPanel">
+            <div class="panel-header">
+                <div class="panel-title">설정</div>
+                <button class="close-btn" id="closeSettingsBtn" aria-label="설정 패널 닫기">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <div class="modal-body">
-                <p>Sensmap에 대한 의견이나 문의사항이 있으시면 언제든지 연락해주세요. 여러분의 피드백이 더 나은 서비스를 만드는 데 도움이 됩니다.</p>
-                <div class="contact-methods">
-                    <a href="mailto:support@sensmap.app" class="contact-btn">
-                        <i class="fas fa-envelope"></i>
-                        이메일로 문의하기
-                    </a>
+            <div class="panel-content">
+                <section class="settings-section">
+                    <h3>접근성 옵션</h3>
+                    <div class="setting-option">
+                        <label>
+                            <input type="checkbox" id="colorBlindMode">
+                            <span>색맹 친화 모드</span>
+                        </label>
+                    </div>
+                    <div class="setting-option">
+                        <label>
+                            <input type="checkbox" id="highContrastMode">
+                            <span>고대비 모드</span>
+                        </label>
+                    </div>
+                    <div class="setting-option">
+                        <label>
+                            <input type="checkbox" id="reducedMotionMode">
+                            <span>애니메이션 줄이기</span>
+                        </label>
+                    </div>
+                    <div class="setting-option">
+                        <label for="textSizeSlider">텍스트 크기</label>
+                        <input type="range" id="textSizeSlider" min="0.8" max="1.5" step="0.1" value="1">
+                    </div>
+                </section>
+            </div>
+        </aside>
+
+        <!-- Contact Modal -->
+        <div class="modal-overlay" id="contactModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>문의하기</h3>
+                    <button class="close-btn" id="closeContactBtn" aria-label="문의 모달 닫기">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p>Sensmap에 대한 의견이나 문의사항이 있으시면 언제든지 연락해주세요. 여러분의 피드백이 더 나은 서비스를 만드는 데 도움이 됩니다.</p>
+                    <div class="contact-methods">
+                        <a href="mailto:support@sensmap.app" class="contact-btn">
+                            <i class="fas fa-envelope"></i>
+                            이메일로 문의하기
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Main Map Container -->
-    <main id="map" role="application" aria-label="감각 지도" tabindex="0"></main>
+        <!-- Main Map Container -->
+        <main id="map" role="application" aria-label="감각 지도" tabindex="0"></main>
 
-    <!-- Sensory Data Input Panel -->
-    <aside class="side-panel" id="sidePanel" aria-hidden="true">
-        <div class="panel-header">
-            <div class="panel-title">감각 정보 입력</div>
-            <div class="panel-subtitle">현재 위치의 감각 정보를 기록해주세요</div>
-            <button class="close-btn" id="closePanelBtn" aria-label="패널 닫기">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        
-        <div class="panel-content">
-            <form id="sensoryForm" novalidate>
-                <div class="form-group">
-                    <label class="form-label">정보 유형</label>
-                    <div class="type-selector">
-                        <div class="type-option selected" data-type="irregular" tabindex="0" role="button" aria-pressed="true">
-                            <div class="type-title">⚡ 일시적</div>
-                            <div class="type-desc">공사, 이벤트 등<br>(최대 1시간)</div>
-                        </div>
-                        <div class="type-option" data-type="regular" tabindex="0" role="button" aria-pressed="false">
-                            <div class="type-title">🏢 지속적</div>
-                            <div class="type-desc">건물, 도로 특성<br>(최대 6시간)</div>
+        <!-- Sensory Data Input Panel -->
+        <aside class="side-panel" id="sidePanel" aria-hidden="true">
+            <div class="panel-header">
+                <div class="panel-title">감각 정보 입력</div>
+                <div class="panel-subtitle">현재 위치의 감각 정보를 기록해주세요</div>
+                <button class="close-btn" id="closePanelBtn" aria-label="패널 닫기">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="panel-content">
+                <form id="sensoryForm" novalidate>
+                    <div class="form-group">
+                        <label class="form-label">정보 유형</label>
+                        <div class="type-selector">
+                            <div class="type-option selected" data-type="irregular" tabindex="0" role="button" aria-pressed="true">
+                                <div class="type-title">⚡ 일시적</div>
+                                <div class="type-desc">공사, 이벤트 등<br>(최대 1시간)</div>
+                            </div>
+                            <div class="type-option" data-type="regular" tabindex="0" role="button" aria-pressed="false">
+                                <div class="type-title">🏢 지속적</div>
+                                <div class="type-desc">건물, 도로 특성<br>(최대 6시간)</div>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="smart-form-group" data-field="noise">
-                    <div class="field-header">
-                        <label class="form-label" for="noiseInput">소음 수준</label>
-                        <button type="button" class="skip-btn" data-field="noise">건너뛰기</button>
+                    <div class="smart-form-group" data-field="noise">
+                        <div class="field-header">
+                            <label class="form-label" for="noiseInput">소음 수준</label>
+                            <button type="button" class="skip-btn" data-field="noise">건너뛰기</button>
+                        </div>
+                        <div class="slider-container">
+                            <input type="range" class="range-slider" id="noiseInput" name="noise" min="0" max="10" value="5" aria-describedby="noiseHelp">
+                            <div class="range-value">5</div>
+                        </div>
+                        <small id="noiseHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">0: 매우 조용함, 10: 매우 시끄러움</small>
                     </div>
-                    <div class="slider-container">
-                        <input type="range" class="range-slider" id="noiseInput" name="noise" min="0" max="10" value="5" aria-describedby="noiseHelp">
-                        <div class="range-value">5</div>
-                    </div>
-                    <small id="noiseHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">0: 매우 조용함, 10: 매우 시끄러움</small>
-                </div>
 
-                <div class="smart-form-group" data-field="light">
-                    <div class="field-header">
-                        <label class="form-label" for="lightInput">빛 강도</label>
-                        <button type="button" class="skip-btn" data-field="light">건너뛰기</button>
+                    <div class="smart-form-group" data-field="light">
+                        <div class="field-header">
+                            <label class="form-label" for="lightInput">빛 강도</label>
+                            <button type="button" class="skip-btn" data-field="light">건너뛰기</button>
+                        </div>
+                        <div class="slider-container">
+                            <input type="range" class="range-slider" id="lightInput" name="light" min="0" max="10" value="5" aria-describedby="lightHelp">
+                            <div class="range-value">5</div>
+                        </div>
+                        <small id="lightHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">0: 매우 어두움, 10: 매우 밝음</small>
                     </div>
-                    <div class="slider-container">
-                        <input type="range" class="range-slider" id="lightInput" name="light" min="0" max="10" value="5" aria-describedby="lightHelp">
-                        <div class="range-value">5</div>
+                    
+                    <div class="smart-form-group" data-field="odor">
+                        <div class="field-header">
+                            <label class="form-label" for="odorInput">냄새 정도</label>
+                            <button type="button" class="skip-btn" data-field="odor">건너뛰기</button>
+                        </div>
+                        <div class="slider-container">
+                            <input type="range" class="range-slider" id="odorInput" name="odor" min="0" max="10" value="5" aria-describedby="odorHelp">
+                            <div class="range-value">5</div>
+                        </div>
+                        <small id="odorHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">0: 냄새 없음, 10: 매우 강한 냄새</small>
                     </div>
-                    <small id="lightHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">0: 매우 어두움, 10: 매우 밝음</small>
-                </div>
-                
-                <div class="smart-form-group" data-field="odor">
-                    <div class="field-header">
-                        <label class="form-label" for="odorInput">냄새 정도</label>
-                        <button type="button" class="skip-btn" data-field="odor">건너뛰기</button>
-                    </div>
-                    <div class="slider-container">
-                        <input type="range" class="range-slider" id="odorInput" name="odor" min="0" max="10" value="5" aria-describedby="odorHelp">
-                        <div class="range-value">5</div>
-                    </div>
-                    <small id="odorHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">0: 냄새 없음, 10: 매우 강한 냄새</small>
-                </div>
 
-                <div class="smart-form-group" data-field="crowd">
-                    <div class="field-header">
-                        <label class="form-label" for="crowdInput">혼잡도</label>
-                        <button type="button" class="skip-btn" data-field="crowd">건너뛰기</button>
+                    <div class="smart-form-group" data-field="crowd">
+                        <div class="field-header">
+                            <label class="form-label" for="crowdInput">혼잡도</label>
+                            <button type="button" class="skip-btn" data-field="crowd">건너뛰기</button>
+                        </div>
+                        <div class="slider-container">
+                            <input type="range" class="range-slider" id="crowdInput" name="crowd" min="0" max="10" value="5" aria-describedby="crowdHelp">
+                            <div class="range-value">5</div>
+                        </div>
+                        <small id="crowdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">0: 한적함, 10: 매우 혼잡함</small>
                     </div>
-                    <div class="slider-container">
-                        <input type="range" class="range-slider" id="crowdInput" name="crowd" min="0" max="10" value="5" aria-describedby="crowdHelp">
-                        <div class="range-value">5</div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="durationInput">
+                            예상 지속 시간(분)
+                            <span class="optional-badge">선택</span>
+                        </label>
+                        <input type="number" class="duration-input" id="durationInput" name="duration" min="1" placeholder="예: 30분, 60분 등 (최대 1시간)" aria-describedby="durationHelp">
+                        <small id="durationHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">비워두면 기본값이 적용됩니다</small>
                     </div>
-                    <small id="crowdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">0: 한적함, 10: 매우 혼잡함</small>
-                </div>
 
-                <div class="form-group">
-                    <label class="form-label" for="durationInput">
-                        예상 지속 시간(분)
-                        <span class="optional-badge">선택</span>
-                    </label>
-                    <input type="number" class="duration-input" id="durationInput" name="duration" min="1" placeholder="예: 30분, 60분 등 (최대 1시간)" aria-describedby="durationHelp">
-                    <small id="durationHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">비워두면 기본값이 적용됩니다</small>
-                </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="wheelchair" id="wheelchairInput">
+                            <span>♿ 휠체어 접근 제약</span>
+                        </label>
+                    </div>
 
-                <div class="form-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="wheelchair" id="wheelchairInput">
-                        <span>♿ 휠체어 접근 제약</span>
-                    </label>
-                </div>
+                    <button type="submit" class="primary-btn">
+                        <i class="fas fa-user-check"></i>
+                        프로필 저장
+                    </button>
+                    
+                    <button type="button" class="secondary-btn" id="cancelProfileBtn">
+                        <i class="fas fa-times"></i>
+                        취소
+                    </button>
+                </form>
+            </div>
+        </aside>
 
-                <button type="submit" class="primary-btn">
-                    <i class="fas fa-save"></i>
-                    감각 정보 저장
+        <!-- Route Controls -->
+        <div class="route-controls" id="routeControls" aria-hidden="true">
+            <div class="route-info">
+                <div class="route-badge" id="routeStatus">출발지 선택</div>
+            </div>
+            
+            <div class="route-options" id="routeOptions" style="display: none;">
+                <button class="route-option-btn" id="sensoryRouteBtn">
+                    <i class="fas fa-leaf" style="color:#10b981;"></i>
+                    <div>
+                        <div class="route-option-title">감각 우선</div>
+                        <div class="route-option-desc">가장 쾌적한 경로</div>
+                    </div>
                 </button>
-                
-                <button type="button" class="secondary-btn" id="cancelBtn">
-                    <i class="fas fa-times"></i>
-                    취소
+                <button class="route-option-btn balanced" id="balancedRouteBtn">
+                    <i class="fas fa-balance-scale" style="color:#f59e0b;"></i>
+                    <div>
+                        <div class="route-option-title">균형</div>
+                        <div class="route-option-desc">쾌적함과 시간의 균형</div>
+                    </div>
                 </button>
-            </form>
+                <button class="route-option-btn" id="timeRouteBtn">
+                    <i class="fas fa-clock" style="color:#3b82f6;"></i>
+                    <div>
+                        <div class="route-option-title">시간 우선</div>
+                        <div class="route-option-desc">가장 빠른 경로</div>
+                    </div>
+                </button>
+            </div>
+            
+            <button class="secondary-btn" id="cancelRouteBtn">
+                <i class="fas fa-times"></i>
+                취소
+            </button>
         </div>
-    </aside>
 
-    <!-- Profile Panel -->
-    <aside class="side-panel" id="profilePanel" aria-hidden="true">
-        <div class="panel-header">
-            <div class="panel-title">감각 프로필</div>
-            <div class="panel-subtitle">개인 민감도를 설정하여 맞춤형 경로를 찾아보세요</div>
-            <button class="close-btn" id="closeProfileBtn" aria-label="패널 닫기">
+        <!-- Undo Action -->
+        <div class="undo-action" id="undoAction" style="display: none;">
+            <span class="undo-text">감각 정보가 추가되었습니다</span>
+            <button class="undo-btn" id="undoBtn">
+                <i class="fas fa-undo"></i>
+                실행취소
+            </button>
+        </div>
+
+        <!-- Toast Notifications -->
+        <div class="toast" id="toast" role="alert" aria-live="polite"></div>
+
+        <!-- Alert Banner -->
+        <div class="alert-banner" id="alertBanner" style="display: none;">
+            <div class="alert-content">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span id="alertText"></span>
+            </div>
+            <button class="alert-close" id="alertClose" aria-label="알림 닫기">
                 <i class="fas fa-times"></i>
             </button>
         </div>
-        
-        <div class="panel-content">
-            <form id="profileForm">
-                <div class="form-group">
-                    <label class="form-label" for="noiseThreshold">소음 민감도</label>
-                    <div class="slider-container">
-                        <input type="range" class="range-slider" id="noiseThreshold" name="noiseThreshold" min="0" max="10" value="5" aria-describedby="noiseThresholdHelp">
-                        <div class="range-value">5</div>
-                    </div>
-                    <small id="noiseThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 소음에 민감함</small>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="lightThreshold">빛 민감도</label>
-                    <div class="slider-container">
-                        <input type="range" class="range-slider" id="lightThreshold" name="lightThreshold" min="0" max="10" value="5" aria-describedby="lightThresholdHelp">
-                        <div class="range-value">5</div>
-                    </div>
-                    <small id="lightThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 밝은 빛에 민감함</small>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="odorThreshold">냄새 민감도</label>
-                    <div class="slider-container">
-                        <input type="range" class="range-slider" id="odorThreshold" name="odorThreshold" min="0" max="10" value="5" aria-describedby="odorThresholdHelp">
-                        <div class="range-value">5</div>
-                    </div>
-                    <small id="odorThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 냄새에 민감함</small>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="crowdThreshold">혼잡 민감도</label>
-                    <div class="slider-container">
-                        <input type="range" class="range-slider" id="crowdThreshold" name="crowdThreshold" min="0" max="10" value="5" aria-describedby="crowdThresholdHelp">
-                        <div class="range-value">5</div>
-                    </div>
-                    <small id="crowdThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 혼잡함에 민감함</small>
-                </div>
-
-                <button type="submit" class="primary-btn">
-                    <i class="fas fa-user-check"></i>
-                    프로필 저장
-                </button>
-                
-                <button type="button" class="secondary-btn" id="cancelProfileBtn">
-                    <i class="fas fa-times"></i>
-                    취소
-                </button>
-            </form>
-        </div>
-    </aside>
-
-    <!-- Route Controls -->
-    <div class="route-controls" id="routeControls" aria-hidden="true">
-        <div class="route-info">
-            <div class="route-badge" id="routeStatus">출발지 선택</div>
-        </div>
-        
-        <div class="route-options" id="routeOptions" style="display: none;">
-            <button class="route-option-btn" id="sensoryRouteBtn">
-                <i class="fas fa-leaf" style="color:#10b981;"></i>
-                <div>
-                    <div class="route-option-title">감각 우선</div>
-                    <div class="route-option-desc">가장 쾌적한 경로</div>
-                </div>
-            </button>
-            <button class="route-option-btn balanced" id="balancedRouteBtn">
-                <i class="fas fa-balance-scale" style="color:#f59e0b;"></i>
-                <div>
-                    <div class="route-option-title">균형</div>
-                    <div class="route-option-desc">쾌적함과 시간의 균형</div>
-                </div>
-            </button>
-            <button class="route-option-btn" id="timeRouteBtn">
-                <i class="fas fa-clock" style="color:#3b82f6;"></i>
-                <div>
-                    <div class="route-option-title">시간 우선</div>
-                    <div class="route-option-desc">가장 빠른 경로</div>
-                </div>
-            </button>
-        </div>
-        
-        <button class="secondary-btn" id="cancelRouteBtn">
-            <i class="fas fa-times"></i>
-            취소
-        </button>
-    </div>
-
-    <!-- Undo Action -->
-    <div class="undo-action" id="undoAction" style="display: none;">
-        <span class="undo-text">감각 정보가 추가되었습니다</span>
-        <button class="undo-btn" id="undoBtn">
-            <i class="fas fa-undo"></i>
-            실행취소
-        </button>
-    </div>
-
-    <!-- Toast Notifications -->
-    <div class="toast" id="toast" role="alert" aria-live="polite"></div>
-
-    <!-- Alert Banner -->
-    <div class="alert-banner" id="alertBanner" style="display: none;">
-        <div class="alert-content">
-            <i class="fas fa-exclamation-triangle"></i>
-            <span id="alertText"></span>
-        </div>
-        <button class="alert-close" id="alertClose" aria-label="알림 닫기">
-            <i class="fas fa-times"></i>
-        </button>
     </div>
 
     <!-- JavaScript Dependencies -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-geosearch@3.11.0/dist/geosearch.umd.js"></script>
     <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    
+    <!-- Clerk JavaScript SDK -->
+    <script src="https://unpkg.com/@clerk/clerk-js@4.70.0/dist/clerk.browser.js"></script>
+    
+    <!-- Clerk 초기화 및 인증 스크립트 -->
+    <script>
+        // Clerk 인증 관리 클래스
+        class AuthManager {
+            constructor() {
+                this.clerk = null;
+                this.user = null;
+                this.isAuthenticated = false;
+                this.authToken = null;
+            }
+
+            async initialize() {
+                try {
+                    // Clerk 초기화
+                    this.clerk = new window.Clerk('pk_test_cGVyZmVjdC1zdGFybGluZy05OC5jbGVyay5hY2NvdW50cy5kZXYk');
+                    await this.clerk.load();
+
+                    // 인증 상태 확인
+                    if (this.clerk.user) {
+                        this.user = this.clerk.user;
+                        this.isAuthenticated = true;
+                        this.authToken = await this.clerk.session.getToken();
+                        this.showMainApp();
+                        this.updateUserInfo();
+                    } else {
+                        this.showLoginForm();
+                    }
+
+                    // 인증 상태 변경 리스너
+                    this.clerk.addListener('user', (user) => {
+                        if (user) {
+                            this.user = user;
+                            this.isAuthenticated = true;
+                            this.showMainApp();
+                            this.updateUserInfo();
+                        } else {
+                            this.user = null;
+                            this.isAuthenticated = false;
+                            this.authToken = null;
+                            this.showLoginForm();
+                        }
+                    });
+
+                } catch (error) {
+                    console.error('Clerk 초기화 실패:', error);
+                    this.showError('인증 시스템을 초기화할 수 없습니다.');
+                }
+            }
+
+            showLoginForm() {
+                document.getElementById('authLoadingOverlay').classList.add('hidden');
+                document.getElementById('authOverlay').classList.remove('hidden');
+                document.getElementById('appContainer').classList.add('hidden');
+                document.getElementById('userInfo').classList.add('hidden');
+
+                // Clerk 로그인 컴포넌트 마운트
+                if (this.clerk && !document.querySelector('.cl-component')) {
+                    this.clerk.mountSignIn(document.getElementById('clerk-signin'), {
+                        routing: 'virtual',
+                        appearance: {
+                            elements: {
+                                formButtonPrimary: 'bg-blue-600 hover:bg-blue-700 text-white',
+                                card: 'shadow-lg',
+                                headerTitle: 'text-xl font-semibold',
+                                socialButtonsBlockButton: 'border border-gray-300 hover:bg-gray-50'
+                            }
+                        },
+                        signUpUrl: undefined // 같은 컴포넌트에서 회원가입도 처리
+                    });
+                }
+            }
+
+            showMainApp() {
+                document.getElementById('authLoadingOverlay').classList.add('hidden');
+                document.getElementById('authOverlay').classList.add('hidden');
+                document.getElementById('appContainer').classList.remove('hidden');
+                document.getElementById('userInfo').classList.remove('hidden');
+            }
+
+            updateUserInfo() {
+                if (this.user) {
+                    const userName = this.user.firstName || this.user.emailAddresses[0].emailAddress.split('@')[0];
+                    const userAvatar = this.user.imageUrl || 'https://via.placeholder.com/32';
+
+                    document.getElementById('userName').textContent = userName;
+                    document.getElementById('userAvatar').src = userAvatar;
+                }
+            }
+
+            async getAuthToken() {
+                if (this.clerk && this.clerk.session) {
+                    this.authToken = await this.clerk.session.getToken();
+                }
+                return this.authToken;
+            }
+
+            async logout() {
+                if (this.clerk) {
+                    await this.clerk.signOut();
+                }
+            }
+
+            showError(message) {
+                document.getElementById('authLoadingOverlay').classList.add('hidden');
+                console.error(message);
+                // 간단한 에러 처리 - 실제로는 더 정교한 에러 UI를 보여줄 수 있음
+                alert(message);
+            }
+        }
+
+        // 전역 AuthManager 인스턴스
+        window.authManager = new AuthManager();
+
+        // 페이지 로드 시 인증 초기화
+        document.addEventListener('DOMContentLoaded', async () => {
+            await window.authManager.initialize();
+
+            // 로그아웃 버튼 이벤트 리스너
+            document.getElementById('logoutBtn').addEventListener('click', async () => {
+                await window.authManager.logout();
+            });
+        });
+
+        // API 요청 시 인증 토큰을 포함하는 헬퍼 함수
+        window.authenticatedFetch = async (url, options = {}) => {
+            const token = await window.authManager.getAuthToken();
+            
+            return fetch(url, {
+                ...options,
+                headers: {
+                    ...options.headers,
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+        };
+    </script>
+    
+    <!-- 기존 메인 앱 스크립트 -->
     <script src="script.js"></script>
 
     <!-- Performance monitoring (optional) -->
@@ -521,4 +749,65 @@
         }
     </script>
 </body>
-</html>
+</html>-btn">
+                        <i class="fas fa-save"></i>
+                        감각 정보 저장
+                    </button>
+                    
+                    <button type="button" class="secondary-btn" id="cancelBtn">
+                        <i class="fas fa-times"></i>
+                        취소
+                    </button>
+                </form>
+            </div>
+        </aside>
+
+        <!-- Profile Panel -->
+        <aside class="side-panel" id="profilePanel" aria-hidden="true">
+            <div class="panel-header">
+                <div class="panel-title">감각 프로필</div>
+                <div class="panel-subtitle">개인 민감도를 설정하여 맞춤형 경로를 찾아보세요</div>
+                <button class="close-btn" id="closeProfileBtn" aria-label="패널 닫기">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="panel-content">
+                <form id="profileForm">
+                    <div class="form-group">
+                        <label class="form-label" for="noiseThreshold">소음 민감도</label>
+                        <div class="slider-container">
+                            <input type="range" class="range-slider" id="noiseThreshold" name="noiseThreshold" min="0" max="10" value="5" aria-describedby="noiseThresholdHelp">
+                            <div class="range-value">5</div>
+                        </div>
+                        <small id="noiseThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 소음에 민감함</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="lightThreshold">빛 민감도</label>
+                        <div class="slider-container">
+                            <input type="range" class="range-slider" id="lightThreshold" name="lightThreshold" min="0" max="10" value="5" aria-describedby="lightThresholdHelp">
+                            <div class="range-value">5</div>
+                        </div>
+                        <small id="lightThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 밝은 빛에 민감함</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="odorThreshold">냄새 민감도</label>
+                        <div class="slider-container">
+                            <input type="range" class="range-slider" id="odorThreshold" name="odorThreshold" min="0" max="10" value="5" aria-describedby="odorThresholdHelp">
+                            <div class="range-value">5</div>
+                        </div>
+                        <small id="odorThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 냄새에 민감함</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="crowdThreshold">혼잡 민감도</label>
+                        <div class="slider-container">
+                            <input type="range" class="range-slider" id="crowdThreshold" name="crowdThreshold" min="0" max="10" value="5" aria-describedby="crowdThresholdHelp">
+                            <div class="range-value">5</div>
+                        </div>
+                        <small id="crowdThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 혼잡함에 민감함</small>
+                    </div>
+
+                    <button type="submit" class="primary

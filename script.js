@@ -1,6 +1,21 @@
-// Enhanced Sensmap Application 
+// Enhanced Sensmap Application with Clerk Authentication
 class SensmapApp {
     constructor() {
+        // 인증 상태가 확인될 때까지 초기화 대기
+        this.initializationPromise = this.waitForAuth();
+    }
+
+    async waitForAuth() {
+        // Clerk 인증이 완료될 때까지 대기
+        while (!window.authManager || !window.authManager.isAuthenticated) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        // 인증 완료 후 앱 초기화
+        await this.initializeApp();
+    }
+
+    async initializeApp() {
         this.map = L.map('map').setView([37.5665, 126.9780], 14);
         this.gridData = new Map();
         this.GRID_CELL_SIZE = 15; // meters
@@ -48,47 +63,77 @@ class SensmapApp {
         this.hideLoadingOverlay();
     }
 
-
-
     getServerUrl() {
-    // 1. window 객체에 설정된 전역 변수 확인 (index.html에서 설정)
-    if (window.SENSMAP_SERVER_URL) {
-        return window.SENSMAP_SERVER_URL;
-    }
+        // 1. window 객체에 설정된 전역 변수 확인 (index.html에서 설정)
+        if (window.SENSMAP_SERVER_URL) {
+            return window.SENSMAP_SERVER_URL;
+        }
 
-    // 2. 환경 변수에서 확인 (빌드 시점에 설정)
-    if (typeof process !== 'undefined' && process.env && process.env.REACT_APP_SERVER_URL) {
-        return process.env.REACT_APP_SERVER_URL;
-    }
+        // 2. 환경 변수에서 확인 (빌드 시점에 설정)
+        if (typeof process !== 'undefined' && process.env && process.env.REACT_APP_SERVER_URL) {
+            return process.env.REACT_APP_SERVER_URL;
+        }
 
-    // 3. HTML의 meta 태그에서 확인
-    const metaTag = document.querySelector('meta[name="server-url"]');
-    if (metaTag && metaTag.content && metaTag.content.trim() !== '') {
-        return metaTag.content;
-    }
+        // 3. HTML의 meta 태그에서 확인
+        const metaTag = document.querySelector('meta[name="server-url"]');
+        if (metaTag && metaTag.content && metaTag.content.trim() !== '') {
+            return metaTag.content;
+        }
 
-    // 4. 현재 호스트 기반으로 자동 설정
-    const currentHost = window.location.hostname;
-    const currentProtocol = window.location.protocol;
-    
-    // Railway 배포 환경 감지
-    if (currentHost.includes('railway.app') || currentHost.includes('up.railway.app')) {
-        // Railway에서는 프론트엔드와 백엔드가 같은 도메인을 사용
+        // 4. 현재 호스트 기반으로 자동 설정
+        const currentHost = window.location.hostname;
+        const currentProtocol = window.location.protocol;
+        
+        // Railway 배포 환경 감지
+        if (currentHost.includes('railway.app') || currentHost.includes('up.railway.app')) {
+            // Railway에서는 프론트엔드와 백엔드가 같은 도메인을 사용
+            return `${currentProtocol}//${currentHost}`;
+        }
+        
+        // 로컬 개발 환경
+        if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
+            return 'http://localhost:3000';
+        }
+        
+        // 기타 프로덕션 환경 - 현재 호스트 사용
         return `${currentProtocol}//${currentHost}`;
     }
-    
-    // 로컬 개발 환경
-    if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
-        return 'http://localhost:3000';
-    }
-    
-    // 기타 프로덕션 환경 - 현재 호스트 사용
-    return `${currentProtocol}//${currentHost}`;
-      
+
+    // --- 인증된 API 요청 함수 ---
+    async authenticatedApiRequest(endpoint, options = {}) {
+        try {
+            if (!window.authManager || !window.authManager.isAuthenticated) {
+                throw new Error('사용자가 인증되지 않았습니다.');
+            }
+
+            const token = await window.authManager.getAuthToken();
+            
+            const response = await fetch(`${this.serverUrl}${endpoint}`, {
+                ...options,
+                headers: {
+                    ...options.headers,
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    // 인증 만료 시 다시 로그인 요구
+                    await window.authManager.logout();
+                    throw new Error('인증이 만료되었습니다. 다시 로그인해주세요.');
+                }
+                throw new Error(`API 요청 실패: ${response.status}`);
+            }
+
+            return response.json();
+        } catch (error) {
+            console.error('API 요청 오류:', error);
+            throw error;
+        }
     }
 
     // --- 서버 연결 확인 및 데이터 로딩 ---
-
     async checkServerConnection() {
         try {
             const response = await fetch(`${this.serverUrl}/api/health`, {
@@ -163,7 +208,7 @@ class SensmapApp {
         }
     }
 
-    // 서버에서 모든 감각 데이터를 불러오는 함수
+    // 서버에서 모든 감각 데이터를 불러오는 함수 (인증 적용)
     async loadDataFromServer() {
         if (this.isOfflineMode) {
             this.loadDemoData();
@@ -173,12 +218,7 @@ class SensmapApp {
         try {
             this.showToast('데이터를 불러오는 중...', 'info');
             
-            const response = await fetch(`${this.serverUrl}/api/reports?recent_hours=168`); // 최근 1주일
-            if (!response.ok) {
-                throw new Error(`서버 응답 오류: ${response.status}`);
-            }
-            
-            const result = await response.json();
+            const result = await this.authenticatedApiRequest('/api/reports?recent_hours=168'); // 최근 1주일
             
             if (!result.success) {
                 throw new Error(result.error || '서버에서 오류가 발생했습니다.');
@@ -212,11 +252,15 @@ class SensmapApp {
 
         } catch (error) {
             console.error('서버 데이터 로딩 오류:', error);
-            this.enableOfflineMode();
+            if (error.message.includes('인증')) {
+                this.showToast('인증 오류: 다시 로그인해주세요.', 'error');
+            } else {
+                this.enableOfflineMode();
+            }
         }
     }
 
-    // 새로운 감각 데이터를 서버로 전송하는 함수
+    // 새로운 감각 데이터를 서버로 전송하는 함수 (인증 적용)
     async handleSensorySubmit(e) {
         e.preventDefault();
 
@@ -284,18 +328,13 @@ class SensmapApp {
                 this.addSensoryDataToMap(newReport);
                 this.showToast('오프라인 모드: 데이터가 임시 저장되었습니다', 'info');
             } else {
-                // 서버로 POST 요청 보내기
-                const response = await fetch(`${this.serverUrl}/api/reports`, {
+                // 인증된 API 요청으로 서버에 데이터 전송
+                const result = await this.authenticatedApiRequest('/api/reports', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(reportData),
+                    body: JSON.stringify(reportData)
                 });
 
-                const result = await response.json();
-
-                if (!response.ok || !result.success) {
+                if (!result.success) {
                     throw new Error(result.error || '서버에 데이터를 저장하는 데 실패했습니다.');
                 }
 
@@ -318,7 +357,12 @@ class SensmapApp {
             this.closePanels();
 
         } catch (error) {
-            this.handleError('감각 정보 저장 중 오류가 발생했습니다', error);
+            console.error('감각 정보 저장 오류:', error);
+            if (error.message.includes('인증')) {
+                this.showToast('인증 오류: 다시 로그인해주세요.', 'error');
+            } else {
+                this.handleError('감각 정보 저장 중 오류가 발생했습니다', error);
+            }
         } finally {
             // 버튼 상태 복원
             const submitButton = e.target.querySelector('button[type="submit"]');
@@ -351,7 +395,7 @@ class SensmapApp {
         this.createAdditionEffect(latlng, report.type);
     }
 
-    // 감각 데이터 삭제 함수 (서버 연동)
+    // 감각 데이터 삭제 함수 (서버 연동, 인증 적용)
     async deleteReport(gridKey, reportId) {
         try {
             // 확인 대화창
@@ -379,13 +423,12 @@ class SensmapApp {
                 return;
             }
 
-            const response = await fetch(`${this.serverUrl}/api/reports/${reportId}`, {
-                method: 'DELETE',
+            // 인증된 API 요청으로 서버에서 삭제
+            const result = await this.authenticatedApiRequest(`/api/reports/${reportId}`, {
+                method: 'DELETE'
             });
 
-            const result = await response.json();
-
-            if (!response.ok || !result.success) {
+            if (!result.success) {
                 throw new Error(result.error || '삭제에 실패했습니다.');
             }
 
@@ -416,11 +459,15 @@ class SensmapApp {
 
         } catch (error) {
             console.error('삭제 오류:', error);
-            this.showToast('삭제 중 오류가 발생했습니다: ' + error.message, 'error');
+            if (error.message.includes('인증')) {
+                this.showToast('인증 오류: 다시 로그인해주세요.', 'error');
+            } else {
+                this.showToast('삭제 중 오류가 발생했습니다: ' + error.message, 'error');
+            }
         }
     }
 
-    // 실행취소 기능
+    // 실행취소 기능 (인증 적용)
     async undoLastAction() {
         if (this.undoStack.length === 0) {
             this.showToast('실행취소할 작업이 없습니다', 'warning');
@@ -450,20 +497,23 @@ class SensmapApp {
             
         } catch (error) {
             console.error('실행취소 오류:', error);
-            this.showToast('실행취소 중 오류가 발생했습니다', 'error');
+            if (error.message.includes('인증')) {
+                this.showToast('인증 오류: 다시 로그인해주세요.', 'error');
+            } else {
+                this.showToast('실행취소 중 오류가 발생했습니다', 'error');
+            }
             // 실패시 스택에 다시 추가
             this.undoStack.push(lastAction);
         }
     }
 
-    // 조용한 삭제 (실행취소용)
+    // 조용한 삭제 (실행취소용, 인증 적용)
     async deleteReportSilent(reportId) {
-        const response = await fetch(`${this.serverUrl}/api/reports/${reportId}`, {
-            method: 'DELETE',
+        const result = await this.authenticatedApiRequest(`/api/reports/${reportId}`, {
+            method: 'DELETE'
         });
 
-        const result = await response.json();
-        if (!response.ok || !result.success) {
+        if (!result.success) {
             throw new Error(result.error || '삭제에 실패했습니다.');
         }
 
@@ -480,14 +530,11 @@ class SensmapApp {
         this.refreshVisualization();
     }
 
-    // 삭제된 리포트 복원 (실행취소용)
+    // 삭제된 리포트 복원 (실행취소용, 인증 적용)
     async restoreDeletedReport(reportData) {
         // 서버에서 복원은 불가능하므로 새로 추가
-        const response = await fetch(`${this.serverUrl}/api/reports`, {
+        const result = await this.authenticatedApiRequest('/api/reports', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
             body: JSON.stringify({
                 lat: reportData.lat,
                 lng: reportData.lng,
@@ -498,17 +545,15 @@ class SensmapApp {
                 type: reportData.type,
                 duration: reportData.duration,
                 wheelchair: reportData.wheelchair
-            }),
+            })
         });
 
-        const result = await response.json();
-        if (!response.ok || !result.success) {
+        if (!result.success) {
             throw new Error(result.error || '복원에 실패했습니다.');
         }
 
         this.addSensoryDataToMap(result.data);
     }
-
 
     hideLoadingOverlay() {
         const loadingOverlay = document.getElementById('loadingOverlay');
@@ -1332,68 +1377,87 @@ class SensmapApp {
     }
 
     showLocationPopup(latlng, gridKey, cellData) {
-        const hasData = cellData && cellData.reports && cellData.reports.length > 0;
+            const hasData = cellData && cellData.reports && cellData.reports.length > 0;
 
-        let popupContent = `
-            <div class="popup-header">
-                <div class="popup-title">위치 정보</div>
-                <div class="popup-subtitle">좌표: ${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}</div>
-            </div>
-            <div class="action-grid">
-                <button class="action-btn start" onclick="window.sensmapApp.setRoutePointFromPopup(${latlng.lat}, ${latlng.lng}, 'start')">
-                    <i class="fas fa-play"></i>출발
+            let popupContent = `
+                <div class="popup-header">
+                    <div class="popup-title">위치 정보</div>
+                    <div class="popup-subtitle">좌표: ${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}</div>
+                </div>
+                <div class="action-grid">
+                    <button class="action-btn start" onclick="window.sensmapApp.setRoutePointFromPopup(${latlng.lat}, ${latlng.lng}, 'start')">
+                        <i class="fas fa-play"></i>출발
+                    </button>
+                    <button class="action-btn end" onclick="window.sensmapApp.setRoutePointFromPopup(${latlng.lat}, ${latlng.lng}, 'end')">
+                        <i class="fas fa-flag-checkered"></i>도착
+                    </button>
+                </div>
+                <button class="action-btn add" onclick="window.sensmapApp.openSensoryPanel()">
+                    <i class="fas fa-plus"></i> ${hasData ? '정보 추가' : '감각 정보 등록'}
                 </button>
-                <button class="action-btn end" onclick="window.sensmapApp.setRoutePointFromPopup(${latlng.lat}, ${latlng.lng}, 'end')">
-                    <i class="fas fa-flag-checkered"></i>도착
-                </button>
-            </div>
-            <button class="action-btn add" onclick="window.sensmapApp.openSensoryPanel()">
-                <i class="fas fa-plus"></i> ${hasData ? '정보 추가' : '감각 정보 등록'}
-            </button>
-        `;
+            `;
 
-        if (hasData) {
-            popupContent += `<div class="data-summary">
-                <div class="summary-title">등록된 감각 정보 (${cellData.reports.length}개)</div>`;
+            if (hasData) {
+                popupContent += `<div class="data-summary">
+                    <div class="summary-title">등록된 감각 정보 (${cellData.reports.length}개)</div>`;
 
-            const sortedReports = [...cellData.reports].sort((a, b) => b.timestamp - a.timestamp);
+                const sortedReports = [...cellData.reports].sort((a, b) => b.timestamp - a.timestamp);
 
-            sortedReports.slice(0, 3).forEach((report) => {
-                const timeAgo = this.getTimeAgo(report.timestamp);
-                const typeLabel = report.type === 'irregular' ? '⚡ 일시적' : '🏢 지속적';
+                sortedReports.slice(0, 3).forEach((report) => {
+                    const timeAgo = this.getTimeAgo(report.timestamp);
+                    const typeLabel = report.type === 'irregular' ? '⚡ 일시적' : '🏢 지속적';
+                    
+                    // 현재 로그인한 사용자의 ID 가져오기
+                    const currentUserId = window.authManager?.user?.id;
+                    const isMyData = report.user_id === currentUserId;
 
-                popupContent += `
-                    <div class="data-item">
-                        <div>
-                            <div style="font-size: 10px; color: #6b7280;">${typeLabel} &middot; ${timeAgo}</div>
-                            <div class="data-values">
-                                ${report.noise !== null ? `<span class="data-badge">소음 ${report.noise}</span>` : ''}
-                                ${report.light !== null ? `<span class="data-badge">빛 ${report.light}</span>` : ''}
-                                ${report.odor !== null ? `<span class="data-badge">냄새 ${report.odor}</span>` : ''}
-                                ${report.crowd !== null ? `<span class="data-badge">혼잡 ${report.crowd}</span>` : ''}
-                                ${report.wheelchair ? `<span class="data-badge">♿</span>` : ''}
+                    popupContent += `
+                        <div class="data-item">
+                            <div>
+                                <div style="font-size: 10px; color: #6b7280;">
+                                    ${typeLabel} &middot; ${timeAgo}
+                                    ${isMyData ? '<span style="color: #10b981; font-weight: bold;"> &middot; 내 데이터</span>' : ''}
+                                </div>
+                                <div class="data-values">
+                                    ${report.noise !== null ? `<span class="data-badge">소음 ${report.noise}</span>` : ''}
+                                    ${report.light !== null ? `<span class="data-badge">빛 ${report.light}</span>` : ''}
+                                    ${report.odor !== null ? `<span class="data-badge">냄새 ${report.odor}</span>` : ''}
+                                    ${report.crowd !== null ? `<span class="data-badge">혼잡 ${report.crowd}</span>` : ''}
+                                    ${report.wheelchair ? `<span class="data-badge">♿</span>` : ''}
+                                </div>
                             </div>
+                            ${!this.isOfflineMode && isMyData ? 
+                                `<div class="data-actions">
+                                    <button class="edit-btn" onclick="window.sensmapApp.editReport('${gridKey}', ${report.id})" title="수정">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="delete-btn" onclick="window.sensmapApp.deleteReport('${gridKey}', ${report.id})" title="삭제">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>` : 
+                                ''
+                            }
                         </div>
-                        ${!this.isOfflineMode ? `<button class="delete-btn" onclick="window.sensmapApp.deleteReport('${gridKey}', ${report.id})">삭제</button>` : ''}
-                    </div>
-                `;
-            });
+                    `;
+                });
 
-            if (cellData.reports.length > 3) {
-                popupContent += `<div style="text-align: center; font-size: 11px; color: #6b7280; margin-top: 8px;">+${cellData.reports.length - 3}개 더</div>`;
+                if (cellData.reports.length > 3) {
+                    popupContent += `<div style="text-align: center; font-size: 11px; color: #6b7280; margin-top: 8px;">+${cellData.reports.length - 3}개 더</div>`;
+                }
+
+                popupContent += `</div>`;
             }
 
-            popupContent += `</div>`;
+            const popup = L.popup({
+                maxWidth: 300,
+                className: 'custom-popup'
+            })
+            .setLatLng(latlng)
+            .setContent(popupContent)
+            .openOn(this.map);
         }
 
-        const popup = L.popup({
-            maxWidth: 300,
-            className: 'custom-popup'
-        })
-        .setLatLng(latlng)
-        .setContent(popupContent)
-        .openOn(this.map);
-    }
+    
 
     setRoutePointFromPopup(lat, lng, type) {
         const latlng = L.latLng(lat, lng);
@@ -1957,9 +2021,12 @@ class SensmapApp {
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+// 앱 초기화 - 인증 완료 후에만 실행
+document.addEventListener('DOMContentLoaded', async () => {
     try {
         window.sensmapApp = new SensmapApp();
+        // 인증 대기 후 초기화
+        await window.sensmapApp.initializationPromise;
     } catch (error) {
         console.error('Failed to initialize SensmapApp:', error);
         const errorBoundary = document.getElementById('errorBoundary');
