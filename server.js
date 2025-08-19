@@ -2,8 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
 const { ClerkExpressRequireAuth } = require('@clerk/clerk-sdk-node');
-const fs = require('fs');
-const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -74,11 +72,12 @@ function createResponse(success, data = null, message = '', error = null) {
     };
 }
 
-// --- 데이터베이스 초기화 함수 ---
+// --- 데이터베이스 초기화 함수 (사용자별 데이터 격리를 위해 user_id 컬럼 추가) ---
 async function initializeDatabase() {
     try {
-        console.log('📄 데이터베이스 테이블을 확인하고 생성합니다...');
+        console.log('🔄 데이터베이스 테이블을 확인하고 생성합니다...');
         
+        // 기존 테이블에 user_id 컬럼 추가 (있으면 무시)
         await pool.query(`
             CREATE TABLE IF NOT EXISTS sensory_reports (
                 id SERIAL PRIMARY KEY,
@@ -109,9 +108,11 @@ async function initializeDatabase() {
             }
         }
 
-        // NOT NULL 제약조건 추가
+        // NOT NULL 제약조건 추가 (기존 데이터가 있을 경우를 위해 단계적으로)
         try {
+            // 기존 NULL 값을 임시 값으로 업데이트
             await pool.query(`UPDATE sensory_reports SET user_id = 'anonymous' WHERE user_id IS NULL`);
+            // NOT NULL 제약조건 추가
             await pool.query('ALTER TABLE sensory_reports ALTER COLUMN user_id SET NOT NULL');
         } catch (err) {
             console.log('ℹ️ user_id 제약조건 처리:', err.message);
@@ -130,95 +131,13 @@ async function initializeDatabase() {
     }
 }
 
-// --- 환경변수 주입을 위한 index.html 처리 ---
-app.get('/', (req, res) => {
-    try {
-        // index.html 파일 읽기
-        const indexPath = path.join(__dirname, 'index.html');
-        let html = fs.readFileSync(indexPath, 'utf8');
-        
-        // Clerk publishable key 확인 (여러 환경변수명 지원)
-        const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || 
-                        process.env.CLERK_PUBLISHABLE_KEY || 
-                        process.env.VITE_CLERK_PUBLISHABLE_KEY;
-        
-        if (clerkKey) {
-            console.log('🔑 Clerk publishable key를 클라이언트로 주입합니다:', clerkKey.substring(0, 10) + '...');
-            
-            // <head> 태그 바로 뒤에 환경변수 스크립트 추가
-            html = html.replace(
-                '<head>',
-                `<head>
-                <script>
-                    // 서버에서 주입된 환경변수
-                    window.CLERK_PUBLISHABLE_KEY = '${clerkKey}';
-                    console.log('🔑 Clerk key injected from server:', '${clerkKey.substring(0, 10)}...');
-                </script>`
-            );
-        } else {
-            console.warn('⚠️ Clerk publishable key 환경변수가 설정되지 않았습니다.');
-            console.warn('다음 환경변수 중 하나를 설정해주세요:');
-            console.warn('- NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY');
-            console.warn('- CLERK_PUBLISHABLE_KEY');
-            console.warn('- VITE_CLERK_PUBLISHABLE_KEY');
-        }
-        
-        res.send(html);
-    } catch (error) {
-        console.error('Error serving index.html:', error);
-        
-        // 파일이 없는 경우 기본 HTML 반환
-        if (error.code === 'ENOENT') {
-            return res.status(404).send(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>Sensmap - File Not Found</title>
-                </head>
-                <body>
-                    <h1>index.html 파일을 찾을 수 없습니다</h1>
-                    <p>현재 디렉토리: ${__dirname}</p>
-                    <p>찾는 파일: ${path.join(__dirname, 'index.html')}</p>
-                    <p>서버는 정상 작동 중입니다. API 엔드포인트는 /api/* 경로에서 사용 가능합니다.</p>
-                </body>
-                </html>
-            `);
-        }
-        
-        res.status(500).json(createResponse(false, null, '', 'Internal Server Error'));
-    }
-});
-
-// --- 환경설정 API 엔드포인트 (보조) ---
-app.get('/api/config', (req, res) => {
-    const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || 
-                    process.env.CLERK_PUBLISHABLE_KEY || 
-                    process.env.VITE_CLERK_PUBLISHABLE_KEY;
-    
-    res.json(createResponse(true, {
-        clerkPublishableKey: clerkKey,
-        environment: process.env.NODE_ENV || 'development',
-        hasClerkKey: !!clerkKey
-    }, '환경설정 정보를 조회했습니다.'));
-});
-
 // --- API 엔드포인트 ---
 
 // [GET] /api/health - 서버 상태 확인
 app.get('/api/health', async (req, res) => {
     try {
         await pool.query('SELECT 1');
-        
-        const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || 
-                        process.env.CLERK_PUBLISHABLE_KEY || 
-                        process.env.VITE_CLERK_PUBLISHABLE_KEY;
-        
-        res.status(200).json(createResponse(true, { 
-            status: 'healthy', 
-            database: 'connected',
-            clerkConfigured: !!clerkKey,
-            environment: process.env.NODE_ENV || 'development'
-        }, '서버가 정상 작동 중입니다.'));
+        res.status(200).json(createResponse(true, { status: 'healthy', database: 'connected' }, '서버가 정상 작동 중입니다.'));
     } catch (e) {
         console.error('Health check failed:', e);
         res.status(500).json(createResponse(false, { status: 'unhealthy', database: 'disconnected' }, '', '데이터베이스 연결에 실패했습니다.'));
@@ -236,28 +155,8 @@ app.get('/api/user', ClerkExpressRequireAuth(), async (req, res) => {
     }
 });
 
-// [GET] /api/reports - 모든 사용자의 감각 데이터 조회 (인증 필요, 공용 조회)
+// [GET] /api/reports - 현재 사용자의 감각 데이터 조회 (인증 필요)
 app.get('/api/reports', ClerkExpressRequireAuth(), async (req, res) => {
-    try {
-        const { recent_hours = 168 } = req.query; // 기본 1주일
-        
-        // 모든 사용자의 데이터를 조회 (공용)
-        const result = await pool.query(`
-            SELECT * FROM sensory_reports 
-            WHERE created_at > NOW() - INTERVAL '${parseInt(recent_hours)} hours'
-            ORDER BY created_at DESC 
-            LIMIT 2000
-        `);
-        
-        res.status(200).json(createResponse(true, result.rows, `${result.rows.length}개의 감각 데이터를 조회했습니다.`));
-    } catch (err) {
-        console.error('데이터 조회 중 오류:', err);
-        res.status(500).json(createResponse(false, null, '', '데이터베이스 조회 중 오류가 발생했습니다.'));
-    }
-});
-
-// [GET] /api/my-reports - 내 감각 데이터만 조회 (인증 필요)
-app.get('/api/my-reports', ClerkExpressRequireAuth(), async (req, res) => {
     try {
         const userId = req.auth.userId;
         const { recent_hours = 168 } = req.query; // 기본 1주일
@@ -269,9 +168,9 @@ app.get('/api/my-reports', ClerkExpressRequireAuth(), async (req, res) => {
             LIMIT 2000
         `, [userId]);
         
-        res.status(200).json(createResponse(true, result.rows, `${result.rows.length}개의 내 감각 데이터를 조회했습니다.`));
+        res.status(200).json(createResponse(true, result.rows, `${result.rows.length}개의 감각 데이터를 조회했습니다.`));
     } catch (err) {
-        console.error('내 데이터 조회 중 오류:', err);
+        console.error('데이터 조회 중 오류:', err);
         res.status(500).json(createResponse(false, null, '', '데이터베이스 조회 중 오류가 발생했습니다.'));
     }
 });
@@ -389,36 +288,10 @@ app.put('/api/reports/:id', ClerkExpressRequireAuth(), async (req, res) => {
     }
 });
 
-// [GET] /api/stats - 전체 통계 정보 조회 (인증 필요)
+// [GET] /api/stats - 현재 사용자의 통계 정보 조회 (인증 필요)
 app.get('/api/stats', ClerkExpressRequireAuth(), async (req, res) => {
     try {
-        // 전체 통계 (모든 사용자 데이터 포함)
-        const stats = await pool.query(`
-            SELECT 
-                COUNT(*) AS total_reports,
-                COUNT(CASE WHEN type = 'regular' THEN 1 END) AS regular_count,
-                COUNT(CASE WHEN type = 'irregular' THEN 1 END) AS irregular_count,
-                ROUND(AVG(CASE WHEN noise IS NOT NULL THEN noise END), 2) AS avg_noise,
-                ROUND(AVG(CASE WHEN light IS NOT NULL THEN light END), 2) AS avg_light,
-                ROUND(AVG(CASE WHEN odor IS NOT NULL THEN odor END), 2) AS avg_odor,
-                ROUND(AVG(CASE WHEN crowd IS NOT NULL THEN crowd END), 2) AS avg_crowd,
-                COUNT(CASE WHEN wheelchair = true THEN 1 END) AS wheelchair_issues
-            FROM sensory_reports
-            WHERE created_at > NOW() - INTERVAL '7 days'
-        `);
-        
-        res.status(200).json(createResponse(true, stats.rows[0], '통계 정보를 조회했습니다.'));
-    } catch (err) {
-        console.error('통계 조회 중 오류:', err);
-        res.status(500).json(createResponse(false, null, '', '통계 조회 중 오류가 발생했습니다.'));
-    }
-});
-
-// [GET] /api/my-stats - 내 통계 정보 조회 (인증 필요)
-app.get('/api/my-stats', ClerkExpressRequireAuth(), async (req, res) => {
-    try {
         const userId = req.auth.userId;
-        // 내 데이터만의 통계
         const stats = await pool.query(`
             SELECT 
                 COUNT(*) AS total_reports,
@@ -433,17 +306,20 @@ app.get('/api/my-stats', ClerkExpressRequireAuth(), async (req, res) => {
             WHERE user_id = $1 AND created_at > NOW() - INTERVAL '7 days'
         `, [userId]);
         
-        res.status(200).json(createResponse(true, stats.rows[0], '내 통계 정보를 조회했습니다.'));
+        res.status(200).json(createResponse(true, stats.rows[0], '통계 정보를 조회했습니다.'));
     } catch (err) {
-        console.error('내 통계 조회 중 오류:', err);
+        console.error('통계 조회 중 오류:', err);
         res.status(500).json(createResponse(false, null, '', '통계 조회 중 오류가 발생했습니다.'));
     }
 });
 
-// 정적 파일 제공 (프론트엔드) - 루트 경로 처리 이후에 설정
-app.use(express.static('.', { 
-    index: false // index.html 자동 제공 비활성화 (위에서 수동 처리)
-}));
+// 정적 파일 제공 (프론트엔드)
+app.use(express.static('.'));
+
+// 루트 경로에서 index.html 제공
+app.get('/', (req, res) => {
+    res.sendFile(__dirname + '/index.html');
+});
 
 // 404 처리
 app.use('*', (req, res) => {
@@ -461,36 +337,16 @@ const server = app.listen(port, '0.0.0.0', async () => {
     console.log(`========================================`);
     console.log(`🚀 Sensmap 백엔드 서버가 시작되었습니다! (Clerk 인증 적용)`);
     console.log(`📍 포트: ${port}`);
-    console.log(`🌍 환경: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🌐 환경: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🔐 인증: Clerk (Google/Email 로그인 지원)`);
-    
-    // Clerk 키 상태 확인
-    const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || 
-                    process.env.CLERK_PUBLISHABLE_KEY || 
-                    process.env.VITE_CLERK_PUBLISHABLE_KEY;
-    
-    if (clerkKey) {
-        console.log(`🔑 Clerk Key: ${clerkKey.substring(0, 15)}... (✅ 설정됨)`);
-    } else {
-        console.log(`🔑 Clerk Key: ❌ 설정되지 않음`);
-        console.log(`⚠️  다음 환경변수 중 하나를 설정해주세요:`);
-        console.log(`   - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`);
-        console.log(`   - CLERK_PUBLISHABLE_KEY`);
-        console.log(`   - VITE_CLERK_PUBLISHABLE_KEY`);
-    }
-    
     console.log(`📊 API 엔드포인트:`);
-    console.log(`   GET  / - 메인 페이지 (환경변수 자동 주입)`);
-    console.log(`   GET  /api/config - 환경설정 정보 조회`);
     console.log(`   GET  /api/health - 서버 상태 확인`);
     console.log(`   GET  /api/user - 사용자 정보 조회 (🔒 인증 필요)`);
-    console.log(`   GET  /api/reports - 모든 감각 데이터 조회 (🔒 인증 필요, 👁️ 공용)`);
-    console.log(`   GET  /api/my-reports - 내 감각 데이터 조회 (🔒 인증 필요, 👤 개인)`);
+    console.log(`   GET  /api/reports - 감각 데이터 조회 (🔒 인증 필요)`);
     console.log(`   POST /api/reports - 감각 데이터 추가 (🔒 인증 필요)`);
-    console.log(`   PUT  /api/reports/:id - 감각 데이터 수정 (🔒 인증 필요, 👤 본인만)`);
-    console.log(`   DELETE /api/reports/:id - 감각 데이터 삭제 (🔒 인증 필요, 👤 본인만)`);
-    console.log(`   GET  /api/stats - 전체 통계 정보 조회 (🔒 인증 필요, 👁️ 공용)`);
-    console.log(`   GET  /api/my-stats - 내 통계 정보 조회 (🔒 인증 필요, 👤 개인)`);
+    console.log(`   PUT  /api/reports/:id - 감각 데이터 수정 (🔒 인증 필요)`);
+    console.log(`   DELETE /api/reports/:id - 감각 데이터 삭제 (🔒 인증 필요)`);
+    console.log(`   GET  /api/stats - 통계 정보 조회 (🔒 인증 필요)`);
     console.log(`========================================`);
 
     try {
@@ -506,7 +362,7 @@ const server = app.listen(port, '0.0.0.0', async () => {
 
 // 우아한 종료 처리
 const gracefulShutdown = (signal) => {
-    console.log(`📄 ${signal} 신호를 받았습니다. 서버를 우아하게 종료합니다...`);
+    console.log(`🔄 ${signal} 신호를 받았습니다. 서버를 우아하게 종료합니다...`);
     
     server.close((err) => {
         if (err) {
@@ -528,7 +384,7 @@ const gracefulShutdown = (signal) => {
     });
     
     setTimeout(() => {
-        console.log('⚠️ 강제 종료됩니다...');
+        console.log('⚠️  강제 종료됩니다...');
         process.exit(1);
     }, 30000);
 };
