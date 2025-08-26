@@ -32,7 +32,6 @@
         })();
     </script>
     
-    <!-- 나머지 head 내용은 동일... -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>">
     
     <!-- Meta tags for better SEO and social sharing -->
@@ -49,11 +48,69 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-geosearch@3.11.0/dist/geosearch.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    
     <link rel="stylesheet" href="styles.css">
     
     <!-- Preconnect for better performance -->
     <link rel="preconnect" href="https://unpkg.com">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    
+    <style>
+        /* 히든 클래스 */
+        .hidden {
+            display: none !important;
+        }
+
+        /* 알림 배너 스타일 */
+        .alert-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #fbbf24;
+            color: #92400e;
+            padding: 12px 20px;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 10001;
+            font-size: 14px;
+        }
+
+        .alert-banner.warning {
+            background: #fbbf24;
+            color: #92400e;
+        }
+
+        .alert-banner.error {
+            background: #ef4444;
+            color: white;
+        }
+
+        .alert-banner.info {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .alert-content {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .alert-close {
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+        }
+
+        .alert-close:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
+    </style>
 </head>
 <body>
     <!-- Tutorial Overlay -->
@@ -171,7 +228,7 @@
                     </button>
                     <div id="sensoryDropdown" class="sensory-dropdown">
                          <div class="sensory-option active" data-sensory="all">
-                            <span class="sensory-icon">🌐</span> 전체
+                            <span class="sensory-icon">🌍</span> 전체
                         </div>
                         <div class="sensory-option" data-sensory="noise">
                             <span class="sensory-icon">🔊</span> 소음
@@ -494,31 +551,18 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-geosearch@3.11.0/dist/geosearch.umd.js"></script>
     <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
-    <script src="script.js"></script>
+    
+    <!-- 분리된 JavaScript 모듈들 -->
+    <script type="module" src="js/main.js"></script>
 
-    <!-- Performance monitoring (optional) -->
+    <!-- Performance monitoring -->
     <script>
-        // Simple performance monitoring
         window.addEventListener('load', () => {
             setTimeout(() => {
                 const perfData = performance.getEntriesByType('navigation')[0];
                 console.log('🚀 Page load time:', Math.round(perfData.loadEventEnd - perfData.fetchStart), 'ms');
             }, 100);
         });
-
-        // Service Worker registration for future PWA features
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                // Uncomment when you have a service worker
-                // navigator.serviceWorker.register('/sw.js')
-                //     .then((registration) => {
-                //         console.log('SW registered: ', registration);
-                //     })
-                //     .catch((registrationError) => {
-                //         console.log('SW registration failed: ', registrationError);
-                //     });
-            });
-        }
     </script>
 </body>
 </html>
