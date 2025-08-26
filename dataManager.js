@@ -21,6 +21,7 @@ class DataManager {
 
     getServerUrl() {
         // 1. window 객체에 설정된 전역 변수 확인 (index.html에서 설정)
+        // || 연산자를 사용하여 혹시라도 undefined일 경우를 대비하여 현재 호스트로 폴백
         if (window.SENSMAP_SERVER_URL) {
             return window.SENSMAP_SERVER_URL;
         }
@@ -138,7 +139,7 @@ class DataManager {
         try {
             this.app.showToast('데이터를 불러오는 중...', 'info');
             
-            const response = await fetch(`${this.serverUrl}/api/reports?recent_hours=168`); // 최근 1주일
+            const response = await fetch(`${this.serverUrl}/api/reports?recent_hours=168`);
             if (!response.ok) {
                 throw new Error(`서버 응답 오류: ${response.status}`);
             }
@@ -149,10 +150,8 @@ class DataManager {
                 throw new Error(result.error || '서버에서 오류가 발생했습니다.');
             }
             
-            // 기존 gridData를 초기화
             this.gridData.clear();
 
-            // 서버에서 받은 각 report를 gridData에 추가
             result.data.forEach(report => {
                 const latlng = { lat: report.lat, lng: report.lng };
                 const gridKey = this.getGridKey(latlng);
@@ -184,9 +183,8 @@ class DataManager {
     async submitSensoryData(reportData) {
         try {
             if (this.isOfflineMode) {
-                // 오프라인 모드에서는 로컬에만 저장
                 const newReport = {
-                    id: Date.now(), // 임시 ID
+                    id: Date.now(),
                     ...reportData,
                     created_at: new Date().toISOString()
                 };
@@ -194,7 +192,6 @@ class DataManager {
                 this.app.showToast('오프라인 모드: 데이터가 임시 저장되었습니다', 'info');
                 return { success: true, data: newReport };
             } else {
-                // 서버로 POST 요청 보내기
                 const response = await fetch(`${this.serverUrl}/api/reports`, {
                     method: 'POST',
                     headers: {
@@ -209,11 +206,9 @@ class DataManager {
                     throw new Error(result.error || '서버에 데이터를 저장하는 데 실패했습니다.');
                 }
 
-                // 성공적으로 저장되면, 화면에 즉시 반영
                 this.addSensoryDataToMap(result.data);
                 this.lastAddedData = result.data;
                 
-                // 실행취소 스택에 추가
                 this.undoStack.push({
                     action: 'add',
                     data: result.data,
@@ -250,7 +245,6 @@ class DataManager {
 
     async deleteReport(gridKey, reportId) {
         try {
-            // 확인 대화창
             if (!confirm('이 감각 정보를 삭제하시겠습니까?')) {
                 return;
             }
@@ -258,7 +252,6 @@ class DataManager {
             this.app.showToast('삭제하는 중...', 'info');
 
             if (this.isOfflineMode) {
-                // 오프라인 모드에서는 로컬에서만 삭제
                 const cellData = this.gridData.get(gridKey);
                 if (cellData && cellData.reports) {
                     const reportToDelete = cellData.reports.find(report => report.id === reportId);
@@ -285,18 +278,15 @@ class DataManager {
                 throw new Error(result.error || '삭제에 실패했습니다.');
             }
 
-            // 로컬 데이터에서도 제거
             const cellData = this.gridData.get(gridKey);
             if (cellData && cellData.reports) {
                 cellData.reports = cellData.reports.filter(report => report.id !== reportId);
                 
-                // 리포트가 없으면 그리드 셀 자체를 삭제
                 if (cellData.reports.length === 0) {
                     this.gridData.delete(gridKey);
                 }
             }
 
-            // 실행취소 스택에 추가
             this.undoStack.push({
                 action: 'delete',
                 data: result.data,
@@ -331,12 +321,10 @@ class DataManager {
         
         try {
             if (lastAction.action === 'add') {
-                // 추가 작업 실행취소 (삭제)
                 await this.deleteReportSilent(lastAction.data.id);
                 this.app.showToast('추가 작업이 취소되었습니다', 'info');
                 
             } else if (lastAction.action === 'delete') {
-                // 삭제 작업 실행취소 (다시 추가)
                 await this.restoreDeletedReport(lastAction.data);
                 this.app.showToast('삭제 작업이 취소되었습니다', 'info');
             }
@@ -346,7 +334,6 @@ class DataManager {
         } catch (error) {
             console.error('실행취소 오류:', error);
             this.app.showToast('실행취소 중 오류가 발생했습니다', 'error');
-            // 실패시 스택에 다시 추가
             this.undoStack.push(lastAction);
         }
     }
@@ -361,7 +348,6 @@ class DataManager {
             throw new Error(result.error || '삭제에 실패했습니다.');
         }
 
-        // 로컬 데이터에서 제거
         this.gridData.forEach((cellData, gridKey) => {
             if (cellData.reports) {
                 cellData.reports = cellData.reports.filter(report => report.id !== reportId);
@@ -375,7 +361,6 @@ class DataManager {
     }
 
     async restoreDeletedReport(reportData) {
-        // 서버에서 복원은 불가능하므로 새로 추가
         const response = await fetch(`${this.serverUrl}/api/reports`, {
             method: 'POST',
             headers: {

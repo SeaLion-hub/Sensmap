@@ -1,13 +1,11 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <!-- Railway 배포 시 자동으로 올바른 URL이 설정되도록 수정 -->
     <meta name="server-url" content="">
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sensmap - Advanced Sensory Navigation</title>
     
-    <!-- 동적으로 서버 URL을 감지하는 스크립트 -->
     <script>
         // Railway 배포 환경을 자동으로 감지하여 서버 URL 설정
         (function() {
@@ -32,32 +30,25 @@
         })();
     </script>
     
-    <!-- 나머지 head 내용은 동일... -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>">
     
-    <!-- Meta tags for better SEO and social sharing -->
     <meta name="description" content="Sensmap - 감각 친화적 내비게이션을 통해 더 쾌적한 경로를 찾아보세요">
     <meta name="keywords" content="감각지도, 접근성, 내비게이션, 쾌적한경로, 감각친화적">
     <meta name="author" content="Sensmap Team">
     
-    <!-- Open Graph tags -->
     <meta property="og:title" content="Sensmap - Advanced Sensory Navigation">
     <meta property="og:description" content="감각 친화적 내비게이션을 통해 더 쾌적한 경로를 찾아보세요">
     <meta property="og:type" content="website">
     
-    <!-- CSS Dependencies -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-geosearch@3.11.0/dist/geosearch.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link rel="stylesheet" href="styles.css">
     
-    <!-- Preconnect for better performance -->
     <link rel="preconnect" href="https://unpkg.com">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
 </head>
 <body>
-    <!-- 기존 HTML 내용 모두 동일하게 유지 -->
-    <!-- Tutorial Overlay -->
     <div class="tutorial-overlay" id="tutorialOverlay">
         <div class="tutorial-modal">
             <div class="tutorial-header">
@@ -99,7 +90,6 @@
         </div>
     </div>
 
-    <!-- Loading Overlay -->
     <div class="loading-overlay" id="loadingOverlay">
         <div class="loading-spinner">
             <div class="spinner"></div>
@@ -107,7 +97,6 @@
         </div>
     </div>
 
-    <!-- Error Boundary -->
     <div class="error-boundary" id="errorBoundary" style="display: none;">
         <div class="error-content">
             <i class="fas fa-exclamation-triangle"></i>
@@ -119,7 +108,6 @@
         </div>
     </div>
 
-    <!-- Header Controls -->
     <header class="header-controls">
         <div class="header-left">
             <div class="logo">
@@ -207,7 +195,6 @@
         </div>
     </header>
 
-    <!-- Settings Panel -->
     <aside class="settings-panel" id="settingsPanel">
         <div class="panel-header">
             <div class="panel-title">설정</div>
@@ -244,7 +231,6 @@
         </div>
     </aside>
 
-    <!-- Contact Modal -->
     <div class="modal-overlay" id="contactModal">
         <div class="modal-content">
             <div class="modal-header">
@@ -265,10 +251,8 @@
         </div>
     </div>
 
-    <!-- Main Map Container -->
     <main id="map" role="application" aria-label="감각 지도" tabindex="0"></main>
 
-    <!-- Sensory Data Input Panel -->
     <aside class="side-panel" id="sidePanel" aria-hidden="true">
         <div class="panel-header">
             <div class="panel-title">감각 정보 입력</div>
@@ -371,7 +355,6 @@
         </div>
     </aside>
 
-    <!-- Profile Panel -->
     <aside class="side-panel" id="profilePanel" aria-hidden="true">
         <div class="panel-header">
             <div class="panel-title">감각 프로필</div>
@@ -432,7 +415,6 @@
         </div>
     </aside>
 
-    <!-- Route Controls -->
     <div class="route-controls" id="routeControls" aria-hidden="true">
         <div class="route-info">
             <div class="route-badge" id="routeStatus">출발지 선택</div>
@@ -468,7 +450,6 @@
         </button>
     </div>
 
-    <!-- Undo Action -->
     <div class="undo-action" id="undoAction" style="display: none;">
         <span class="undo-text">감각 정보가 추가되었습니다</span>
         <button class="undo-btn" id="undoBtn">
@@ -477,10 +458,8 @@
         </button>
     </div>
 
-    <!-- Toast Notifications -->
     <div class="toast" id="toast" role="alert" aria-live="polite"></div>
 
-    <!-- Alert Banner -->
     <div class="alert-banner" id="alertBanner" style="display: none;">
         <div class="alert-content">
             <i class="fas fa-exclamation-triangle"></i>
@@ -491,22 +470,17 @@
         </button>
     </div>
 
-    <!-- JavaScript Dependencies -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-geosearch@3.11.0/dist/geosearch.umd.js"></script>
     <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
     
-    <!-- 모듈화된 JavaScript 파일들 (순서 중요!) -->
     <script src="mapManager.js"></script>
     <script src="dataManager.js"></script>
     <script src="visualizationManager.js"></script>
     <script src="routeManager.js"></script>
     <script src="uiHandler.js"></script>
     <script src="utils.js"></script>
-    <script src="script.js"></script> <!-- 메인 애플리케이션은 마지막에 로드 -->
-
-    <!-- Performance monitoring (optional) -->
-    <script>
+    <script src="script.js"></script> <script>
         // Simple performance monitoring
         window.addEventListener('load', () => {
             setTimeout(() => {
