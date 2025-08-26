@@ -5,7 +5,7 @@ class DataManager {
         this.gridData = new Map();
         this.GRID_CELL_SIZE = 15; // meters
         this.isOfflineMode = false;
-        this.serverUrl = this.getServerUrl();
+        this.baseUrl = this.getServerUrl();
         this.undoStack = [];
         this.lastAddedData = null;
 
@@ -21,8 +21,7 @@ class DataManager {
 
     getServerUrl() {
         // 1. window 객체에 설정된 전역 변수 확인 (index.html에서 설정)
-        // || 연산자를 사용하여 혹시라도 undefined일 경우를 대비하여 현재 호스트로 폴백
-        if (window.SENSMAP_SERVER_URL) {
+        if (window.SENSMAP_SERVER_URL && window.SENSMAP_SERVER_URL !== 'undefined') {
             return window.SENSMAP_SERVER_URL;
         }
 
@@ -52,13 +51,17 @@ class DataManager {
             return 'http://localhost:3000';
         }
         
-        // 기타 프로덕션 환경 - 현재 호스트 사용
-        return `${currentProtocol}//${currentHost}`;
+        // 기타 프로덕션 환경 - 기본값 반환
+        return 'https://sensmap-production.up.railway.app';
     }
 
     async checkServerConnection() {
         try {
-            const response = await fetch(`${this.serverUrl}/api/health`, {
+            // URL 안전하게 구성
+            const healthUrl = `${this.baseUrl}/api/health`;
+            console.log('헬스체크 URL:', healthUrl);
+            
+            const response = await fetch(healthUrl, {
                 method: 'GET',
                 timeout: 5000
             });
@@ -67,14 +70,14 @@ class DataManager {
                 const result = await response.json();
                 if (result.success) {
                     this.isOfflineMode = false;
-                    console.log('✅ 서버 연결 성공');
+                    console.log('서버 연결 성공');
                     this.loadDataFromServer();
                     return;
                 }
             }
             throw new Error('Server health check failed');
         } catch (error) {
-            console.warn('⚠️ 서버 연결 실패, 오프라인 모드로 전환:', error.message);
+            console.warn('서버 연결 실패, 오프라인 모드로 전환:', error.message);
             this.enableOfflineMode();
         }
     }
@@ -139,7 +142,10 @@ class DataManager {
         try {
             this.app.showToast('데이터를 불러오는 중...', 'info');
             
-            const response = await fetch(`${this.serverUrl}/api/reports?recent_hours=168`);
+            const reportsUrl = `${this.baseUrl}/api/reports?recent_hours=168`;
+            console.log('데이터 요청 URL:', reportsUrl);
+            
+            const response = await fetch(reportsUrl);
             if (!response.ok) {
                 throw new Error(`서버 응답 오류: ${response.status}`);
             }
@@ -192,7 +198,10 @@ class DataManager {
                 this.app.showToast('오프라인 모드: 데이터가 임시 저장되었습니다', 'info');
                 return { success: true, data: newReport };
             } else {
-                const response = await fetch(`${this.serverUrl}/api/reports`, {
+                const submitUrl = `${this.baseUrl}/api/reports`;
+                console.log('데이터 제출 URL:', submitUrl);
+                
+                const response = await fetch(submitUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -268,7 +277,8 @@ class DataManager {
                 return;
             }
 
-            const response = await fetch(`${this.serverUrl}/api/reports/${reportId}`, {
+            const deleteUrl = `${this.baseUrl}/api/reports/${reportId}`;
+            const response = await fetch(deleteUrl, {
                 method: 'DELETE',
             });
 
@@ -339,7 +349,8 @@ class DataManager {
     }
 
     async deleteReportSilent(reportId) {
-        const response = await fetch(`${this.serverUrl}/api/reports/${reportId}`, {
+        const deleteUrl = `${this.baseUrl}/api/reports/${reportId}`;
+        const response = await fetch(deleteUrl, {
             method: 'DELETE',
         });
 
@@ -361,7 +372,8 @@ class DataManager {
     }
 
     async restoreDeletedReport(reportData) {
-        const response = await fetch(`${this.serverUrl}/api/reports`, {
+        const submitUrl = `${this.baseUrl}/api/reports`;
+        const response = await fetch(submitUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -407,7 +419,7 @@ class DataManager {
     }
 
     getServerUrl() {
-        return this.serverUrl;
+        return this.baseUrl;
     }
 
     isOffline() {
