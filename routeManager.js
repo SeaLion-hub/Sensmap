@@ -1,4 +1,4 @@
-// routeManager.js - 경로 찾기 및 관리
+// routeManager.js - 경로 찾기 및 관리 (접근성 수정)
 class RouteManager {
     constructor(app) {
         this.app = app;
@@ -15,7 +15,7 @@ class RouteManager {
         if (this.isRouteMode) {
             btn.classList.add('active');
             controls.classList.add('show');
-            controls.setAttribute('aria-hidden', 'false');
+            controls.setAttribute('aria-hidden', 'false'); // 수정: aria-hidden을 false로 설정
             document.getElementById('routeStatus').textContent = '출발지 선택';
             document.getElementById('routeOptions').style.display = 'none';
             this.app.showToast('지도를 클릭하여 출발지를 선택하세요', 'info');
@@ -31,7 +31,7 @@ class RouteManager {
 
         btn.classList.remove('active');
         controls.classList.remove('show');
-        controls.setAttribute('aria-hidden', 'true');
+        controls.setAttribute('aria-hidden', 'true'); // 수정: 완전히 숨길 때만 true로 설정
 
         Object.values(this.routeMarkers).forEach(marker => {
             if (marker) this.app.mapManager.getMap().removeLayer(marker);
