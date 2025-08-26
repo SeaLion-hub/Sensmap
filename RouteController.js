@@ -1,9 +1,9 @@
 // js/components/RouteController.js - "경로 찾기" 유스케이스 제어 (UI ↔ 서비스 연결)
-import { EventEmitter } from '../utils/EventEmitter.js';
-import { RouteService } from '../services/RouteService.js';
-import { ScoringService } from '../services/ScoringService.js';
-import { RouteEngine } from '../algorithms/RouteEngine.js';
-import { helpers } from '../utils/helpers.js';
+import { EventEmitter } from './EventEmitter.js';
+import { RouteService } from './RouteService.js';
+import { ScoringService } from './ScoringService.js';
+import { RouteEngine } from './algorithms/RouteEngine.js';
+import { helpers } from './helpers.js';
 
 export class RouteController extends EventEmitter {
     constructor(mapManager, dataManager) {

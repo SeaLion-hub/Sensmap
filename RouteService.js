@@ -1,5 +1,5 @@
 // js/services/RouteService.js - 외부 라우팅 API(OSRM/ORS) 호출 + 후보경로 획득
-import { OSRM_BASE_URL } from '../utils/constants.js';
+import { OSRM_BASE_URL } from './constants.js';
 
 export class RouteService {
     constructor() {

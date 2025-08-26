@@ -1,5 +1,5 @@
 // js/algorithms/RouteEngine.js - 순수 경로 선택 로직(후보경로 → 최적경로)
-import { WALKING_SPEED } from '../utils/constants.js';
+import { WALKING_SPEED } from './constants.js';
 
 export class RouteEngine {
     constructor() {

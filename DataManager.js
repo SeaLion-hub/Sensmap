@@ -1,8 +1,8 @@
 // js/core/DataManager.js - 그리드/캐시/오프라인 데모 데이터
-import { EventEmitter } from '../utils/EventEmitter.js';
-import { GRID_CELL_SIZE, DEMO_DATA, STORAGE_KEYS } from '../utils/constants.js';
-import { helpers } from '../utils/helpers.js';
-import { validators } from '../utils/validators.js';
+import { EventEmitter } from './EventEmitter.js';
+import { GRID_CELL_SIZE, DEMO_DATA, STORAGE_KEYS } from './constants.js';
+import { helpers } from './helpers.js';
+import { validators } from './validators.js';
 
 export class DataManager extends EventEmitter {
     constructor(apiService) {

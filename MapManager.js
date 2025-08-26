@@ -1,7 +1,7 @@
 // js/core/MapManager.js - 지도/레이어/팝업 렌더링 (수정됨)
-import { EventEmitter } from '../utils/EventEmitter.js';
-import { DISPLAY_MODES, SENSORY_FILTERS, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM } from '../utils/constants.js';
-import { helpers } from '../utils/helpers.js';
+import { EventEmitter } from './EventEmitter.js';
+import { DISPLAY_MODES, SENSORY_FILTERS, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM } from './constants.js';
+import { helpers } from './helpers.js';
 
 export class MapManager extends EventEmitter {
     constructor() {

@@ -1,8 +1,8 @@
 // js/components/ProfilePanel.js - 프로필 설정 패널
-import { EventEmitter } from '../utils/EventEmitter.js';
-import { STORAGE_KEYS } from '../utils/constants.js';
-import { helpers } from '../utils/helpers.js';
-import { validators } from '../utils/validators.js';
+import { EventEmitter } from './EventEmitter.js';
+import { STORAGE_KEYS } from './constants.js';
+import { helpers } from './helpers.js';
+import { validators } from './validators.js';
 
 export class ProfilePanel extends EventEmitter {
     constructor() {

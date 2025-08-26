@@ -1,8 +1,8 @@
 // js/components/SensoryPanel.js - 감각 입력 패널
-import { EventEmitter } from '../utils/EventEmitter.js';
-import { DURATION_SETTINGS } from '../utils/constants.js';
-import { validators } from '../utils/validators.js';
-import { helpers } from '../utils/helpers.js';
+import { EventEmitter } from './EventEmitter.js';
+import { DURATION_SETTINGS } from '../constants.js';
+import { validators } from './validators.js';
+import { helpers } from './helpers.js';
 
 export class SensoryPanel extends EventEmitter {
     constructor(dataManager) {

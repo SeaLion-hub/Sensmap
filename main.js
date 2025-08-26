@@ -1,5 +1,5 @@
 // js/main.js - 애플리케이션 진입점 (수정됨)
-import { SensmapApp } from './core/SensmapApp.js';
+import { SensmapApp } from './SensmapApp.js';
 
 // 전역 앱 인스턴스
 let sensmapApp = null;

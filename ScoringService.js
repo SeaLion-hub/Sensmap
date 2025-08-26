@@ -1,5 +1,5 @@
 // js/services/ScoringService.js - 감각 점수 계산(프로필/시간감쇠/그리드 조회)
-import { helpers } from '../utils/helpers.js';
+import { helpers } from './helpers.js';
 
 export class ScoringService {
     constructor(dataManager) {

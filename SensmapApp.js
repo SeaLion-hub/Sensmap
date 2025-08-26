@@ -2,13 +2,13 @@
 import { MapManager } from './MapManager.js';
 import { DataManager } from './DataManager.js';
 import { UIManager } from './UIManager.js';
-import { Tutorial } from '../components/Tutorial.js';
-import { RouteController } from '../components/RouteController.js';
-import { SensoryPanel } from '../components/SensoryPanel.js';
-import { ProfilePanel } from '../components/ProfilePanel.js';
-import { SettingsPanel } from '../components/SettingsPanel.js';
-import { ApiService } from '../services/ApiService.js';
-import { helpers } from '../utils/helpers.js';
+import { Tutorial } from './Tutorial.js';
+import { RouteController } from './RouteController.js';
+import { SensoryPanel } from './SensoryPanel.js';
+import { ProfilePanel } from './ProfilePanel.js';
+import { SettingsPanel } from './SettingsPanel.js';
+import { ApiService } from './ApiService.js';
+import { helpers } from './helpers.js';
 
 export class SensmapApp {
     constructor() {

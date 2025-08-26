@@ -1,7 +1,7 @@
 // js/components/Tutorial.js - 튜토리얼 관련
-import { EventEmitter } from '../utils/EventEmitter.js';
-import { TUTORIAL_STEPS, STORAGE_KEYS } from '../utils/constants.js';
-import { helpers } from '../utils/helpers.js';
+import { EventEmitter } from './EventEmitter.js';
+import { TUTORIAL_STEPS, STORAGE_KEYS } from './constants.js';
+import { helpers } from './helpers.js';
 
 export class Tutorial extends EventEmitter {
     constructor() {

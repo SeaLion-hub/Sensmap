@@ -1,7 +1,7 @@
 // js/core/UIManager.js - 패널/토스트/키보드 등 UI 이벤트 (수정됨)
-import { EventEmitter } from '../utils/EventEmitter.js';
-import { TOAST_TYPES, DISPLAY_MODES, SENSORY_FILTERS } from '../utils/constants.js';
-import { helpers } from '../utils/helpers.js';
+import { EventEmitter } from './EventEmitter.js';
+import { TOAST_TYPES, DISPLAY_MODES, SENSORY_FILTERS } from './constants.js';
+import { helpers } from './helpers.js';
 
 export class UIManager extends EventEmitter {
     constructor() {

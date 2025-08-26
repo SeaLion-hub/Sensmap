@@ -1,5 +1,5 @@
 // js/services/ApiService.js - 서버 API 통신 (인증 없음)
-import { API_ENDPOINTS } from '../utils/constants.js';
+import { API_ENDPOINTS } from './constants.js';
 
 export class ApiService {
     constructor(serverUrl) {
