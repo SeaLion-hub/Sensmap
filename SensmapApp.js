@@ -1,4 +1,4 @@
-// js/core/SensmapApp.js - 메인 애플리케이션 클래스 (인증 없음)
+// js/core/SensmapApp.js - 메인 애플리케이션 클래스 (수정됨)
 import { MapManager } from './MapManager.js';
 import { DataManager } from './DataManager.js';
 import { UIManager } from './UIManager.js';
@@ -65,7 +65,13 @@ export class SensmapApp {
     setupModuleConnections() {
         // 지도 클릭 이벤트 → UI 관리자
         this.mapManager.on('locationClicked', (data) => {
-            this.uiManager.handleLocationClick(data);
+            this.handleLocationClick(data);
+        });
+
+        // 지도 마커 클릭 이벤트
+        this.mapManager.on('markerClicked', (data) => {
+            const cellData = this.dataManager.getCellData(data.gridKey);
+            this.mapManager.showLocationPopup(data.center, data.gridKey, cellData);
         });
 
         // 경로 모드 이벤트
@@ -73,25 +79,44 @@ export class SensmapApp {
             this.routeController.handleRoutePointSelection(data);
         });
 
+        this.routeController.on('routePointSet', (data) => {
+            this.mapManager.setRoutePoint(data.type, data.latlng);
+        });
+
+        this.routeController.on('routeDisplayed', (data) => {
+            this.mapManager.displayRoute(data.route, data.routeType);
+        });
+
+        this.routeController.on('routeCleared', () => {
+            this.mapManager.clearRoute();
+        });
+
         // 데이터 업데이트 → 지도 시각화 갱신
-        this.dataManager.on('dataUpdated', (data) => {
-            this.mapManager.refreshVisualization(data);
+        this.dataManager.on('dataUpdated', (gridData) => {
+            this.mapManager.refreshVisualization(gridData);
         });
 
-        // 감각 데이터 제출 이벤트
-        this.sensoryPanel.on('dataSubmitted', async (data) => {
-            await this.dataManager.submitSensoryData(data);
+        this.dataManager.on('dataAdded', (data) => {
+            this.mapManager.createAdditionEffect(
+                { lat: data.lat, lng: data.lng },
+                data.type
+            );
+            this.uiManager.showUndoAction();
+            this.uiManager.showToast('감각 정보가 추가되었습니다', 'success');
         });
 
-        // 프로필 저장 이벤트
-        this.profilePanel.on('profileSaved', (profile) => {
-            this.dataManager.updateSensitivityProfile(profile);
-            this.mapManager.refreshVisualization();
+        this.dataManager.on('dataDeleted', (data) => {
+            this.uiManager.showUndoAction();
+            this.uiManager.showToast('감각 정보가 삭제되었습니다', 'success');
+        });
+
+        this.dataManager.on('offlineModeEnabled', () => {
+            this.uiManager.showOfflineBanner();
         });
 
         // UI 이벤트들
         this.uiManager.on('sensoryPanelRequested', (location) => {
-            this.sensoryPanel.open(location);
+            this.openSensoryPanel(location);
         });
 
         this.uiManager.on('profilePanelRequested', () => {
@@ -108,18 +133,75 @@ export class SensmapApp {
 
         this.uiManager.on('routeModeToggled', (isActive) => {
             this.routeController.setRouteMode(isActive);
+            this.mapManager.setRouteMode(isActive);
+        });
+
+        this.uiManager.on('routeModeCancelled', () => {
+            this.routeController.cancelRouteMode();
+            this.mapManager.setRouteMode(false);
         });
 
         this.uiManager.on('displayModeChanged', (mode, filter) => {
             this.mapManager.setDisplayMode(mode, filter);
+            this.mapManager.refreshVisualization(this.dataManager.getGridData());
         });
 
         this.uiManager.on('dataVisibilityToggled', (visible) => {
             this.mapManager.setDataVisibility(visible);
+            if (visible) {
+                this.mapManager.refreshVisualization(this.dataManager.getGridData());
+            }
         });
 
         this.uiManager.on('intensityChanged', (intensity) => {
             this.mapManager.setIntensity(intensity);
+            this.mapManager.refreshVisualization(this.dataManager.getGridData());
+        });
+
+        this.uiManager.on('routeTypeSelected', (routeType) => {
+            this.routeController.calculateRoute(routeType);
+        });
+
+        this.uiManager.on('undoRequested', async () => {
+            try {
+                await this.dataManager.undoLastAction();
+                this.uiManager.hideUndoAction();
+                this.uiManager.showToast('작업이 취소되었습니다', 'info');
+            } catch (error) {
+                this.uiManager.showToast(error.message || '실행취소 중 오류가 발생했습니다', 'error');
+            }
+        });
+
+        // 패널 이벤트들
+        this.sensoryPanel.on('dataSubmitted', (data) => {
+            // DataManager가 자동으로 처리하므로 여기서는 패널만 닫음
+            this.sensoryPanel.close();
+        });
+
+        this.sensoryPanel.on('error', (message) => {
+            this.uiManager.showToast(message, 'error');
+        });
+
+        this.sensoryPanel.on('success', (message) => {
+            this.uiManager.showToast(message, 'success');
+        });
+
+        this.profilePanel.on('profileSaved', (profile) => {
+            this.dataManager.updateSensitivityProfile(profile);
+            this.mapManager.refreshVisualization(this.dataManager.getGridData());
+        });
+
+        this.profilePanel.on('error', (message) => {
+            this.uiManager.showToast(message, 'error');
+        });
+
+        this.profilePanel.on('success', (message) => {
+            this.uiManager.showToast(message, 'success');
+        });
+
+        // 튜토리얼 이벤트들
+        this.tutorial.on('tutorialCompleted', () => {
+            this.uiManager.showToast('튜토리얼이 완료되었습니다', 'success');
         });
     }
 
@@ -141,12 +223,46 @@ export class SensmapApp {
             } else {
                 console.warn('⚠️ Server connection failed, switching to offline mode');
                 this.dataManager.enableOfflineMode();
-                this.uiManager.showOfflineBanner();
             }
         } catch (error) {
             console.error('❌ Server connection check failed:', error);
             this.dataManager.enableOfflineMode();
-            this.uiManager.showOfflineBanner();
+        }
+    }
+
+    handleLocationClick(data) {
+        const cellData = this.dataManager.getCellData(data.gridKey);
+        this.mapManager.showLocationPopup(data.latlng, data.gridKey, cellData);
+    }
+
+    // HTML onclick에서 사용하는 전역 함수들
+    setRoutePointFromPopup(lat, lng, type) {
+        const latlng = { lat, lng };
+        if (!this.routeController.isInRouteMode()) {
+            this.uiManager.toggleRouteMode();
+        }
+        this.routeController.setRoutePoint(type, latlng);
+        this.mapManager.map.closePopup();
+    }
+
+    openSensoryPanel(location = null) {
+        if (location) {
+            this.mapManager.clickedLocation = location;
+        }
+        this.sensoryPanel.open(this.mapManager.clickedLocation);
+        this.mapManager.map.closePopup();
+    }
+
+    async deleteReport(gridKey, reportId) {
+        try {
+            if (!confirm('이 감각 정보를 삭제하시겠습니까?')) {
+                return;
+            }
+            
+            await this.dataManager.deleteReport(gridKey, reportId);
+            this.mapManager.map.closePopup();
+        } catch (error) {
+            this.uiManager.showToast('삭제 중 오류가 발생했습니다', 'error');
         }
     }
 
@@ -207,7 +323,7 @@ export class SensmapApp {
     }
 
     checkTutorialCompletion() {
-        const completed = localStorage.getItem('tutorialCompleted') === 'true';
+        const completed = helpers.storage.get('tutorialCompleted', false);
         if (!completed) {
             setTimeout(() => this.tutorial.show(), 1000);
         }
@@ -232,23 +348,5 @@ export class SensmapApp {
         if (errorBoundary) {
             errorBoundary.style.display = 'flex';
         }
-    }
-
-    // 전역 함수들을 위한 메서드들 (하위 호환성)
-    setRoutePointFromPopup(lat, lng, type) {
-        const latlng = { lat, lng };
-        this.routeController.setRoutePointFromPopup(latlng, type);
-    }
-
-    openSensoryPanel() {
-        this.sensoryPanel.open();
-    }
-
-    editReport(gridKey, reportId) {
-        this.sensoryPanel.editReport(gridKey, reportId);
-    }
-
-    deleteReport(gridKey, reportId) {
-        this.dataManager.deleteReport(gridKey, reportId);
     }
 }

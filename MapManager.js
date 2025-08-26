@@ -1,4 +1,4 @@
-// js/core/MapManager.js - 지도/레이어/팝업 렌더링
+// js/core/MapManager.js - 지도/레이어/팝업 렌더링 (수정됨)
 import { EventEmitter } from '../utils/EventEmitter.js';
 import { DISPLAY_MODES, SENSORY_FILTERS, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM } from '../utils/constants.js';
 import { helpers } from '../utils/helpers.js';
@@ -450,7 +450,7 @@ export class MapManager extends EventEmitter {
 
             sortedReports.slice(0, 3).forEach((report) => {
                 const timeAgo = helpers.getTimeAgo(report.timestamp);
-                const typeLabel = report.type === 'irregular' ? '⚡ 일시적' : '🏢 지속적';
+                const typeLabel = report.type === 'irregular' ? '⚡ 일시적' : '🟢 지속적';
 
                 popupContent += `
                     <div class="data-item">
@@ -466,11 +466,9 @@ export class MapManager extends EventEmitter {
                                 ${report.wheelchair ? `<span class="data-badge">♿</span>` : ''}
                             </div>
                         </div>
-                        <div class="data-actions">
-                            <button class="delete-btn" onclick="window.sensmapApp.deleteReport('${gridKey}', ${report.id})" title="삭제">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
+                        <button class="delete-btn" onclick="window.sensmapApp.deleteReport('${gridKey}', ${report.id})" title="삭제">
+                            <i class="fas fa-trash"></i>
+                        </button>
                     </div>
                 `;
             });

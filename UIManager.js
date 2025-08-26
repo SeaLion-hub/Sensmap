@@ -1,4 +1,4 @@
-// js/core/UIManager.js - 패널/토스트/키보드 등 UI 이벤트
+// js/core/UIManager.js - 패널/토스트/키보드 등 UI 이벤트 (수정됨)
 import { EventEmitter } from '../utils/EventEmitter.js';
 import { TOAST_TYPES, DISPLAY_MODES, SENSORY_FILTERS } from '../utils/constants.js';
 import { helpers } from '../utils/helpers.js';
@@ -21,23 +21,6 @@ export class UIManager extends EventEmitter {
 
     setupEventListeners() {
         try {
-            // Tutorial controls
-            document.getElementById('tutorialNext')?.addEventListener('click', () => {
-                this.emit('tutorialNextRequested');
-            });
-            document.getElementById('tutorialPrev')?.addEventListener('click', () => {
-                this.emit('tutorialPrevRequested');
-            });
-            document.getElementById('tutorialSkip')?.addEventListener('click', () => {
-                this.emit('tutorialSkipRequested');
-            });
-
-            document.querySelectorAll('.tutorial-dots .dot').forEach((dot, index) => {
-                dot.addEventListener('click', () => {
-                    this.emit('tutorialStepRequested', index + 1);
-                });
-            });
-
             // Display mode controls
             document.getElementById('heatmapBtn')?.addEventListener('click', () => {
                 this.setDisplayMode(DISPLAY_MODES.HEATMAP);
@@ -102,26 +85,6 @@ export class UIManager extends EventEmitter {
             document.getElementById('closeContactBtn')?.addEventListener('click', () => {
                 this.closeContactModal();
             });
-            
-            document.getElementById('closePanelBtn')?.addEventListener('click', () => {
-                this.emit('panelCloseRequested');
-            });
-            
-            document.getElementById('cancelBtn')?.addEventListener('click', () => {
-                this.emit('panelCloseRequested');
-            });
-            
-            document.getElementById('closeProfileBtn')?.addEventListener('click', () => {
-                this.emit('panelCloseRequested');
-            });
-            
-            document.getElementById('cancelProfileBtn')?.addEventListener('click', () => {
-                this.emit('panelCloseRequested');
-            });
-            
-            document.getElementById('cancelRouteBtn')?.addEventListener('click', () => {
-                this.cancelRouteMode();
-            });
 
             // Route controls
             document.getElementById('sensoryRouteBtn')?.addEventListener('click', () => {
@@ -136,6 +99,10 @@ export class UIManager extends EventEmitter {
                 this.emit('routeTypeSelected', 'time');
             });
 
+            document.getElementById('cancelRouteBtn')?.addEventListener('click', () => {
+                this.emit('routeModeCancelled');
+            });
+
             // Undo action
             document.getElementById('undoBtn')?.addEventListener('click', () => {
                 this.emit('undoRequested');
@@ -144,63 +111,6 @@ export class UIManager extends EventEmitter {
             // Alert banner
             document.getElementById('alertClose')?.addEventListener('click', () => {
                 this.hideAlertBanner();
-            });
-
-            // Forms
-            document.getElementById('sensoryForm')?.addEventListener('submit', (e) => {
-                this.emit('sensoryFormSubmitted', e);
-            });
-            
-            document.getElementById('profileForm')?.addEventListener('submit', (e) => {
-                this.emit('profileFormSubmitted', e);
-            });
-
-            // Slider updates
-            document.querySelectorAll('.range-slider').forEach(slider => {
-                slider.addEventListener('input', (e) => {
-                    const valueElement = e.target.parentNode?.querySelector('.range-value');
-                    if (valueElement) {
-                        valueElement.textContent = e.target.value;
-                    }
-                });
-            });
-
-            // Skip toggle buttons
-            document.querySelectorAll('.skip-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    this.emit('fieldSkipToggled', e.target.dataset.field);
-                });
-            });
-
-            // Type selector
-            document.querySelectorAll('.type-option').forEach(option => {
-                option.addEventListener('click', () => {
-                    this.emit('dataTypeSelected', option);
-                });
-                
-                option.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        this.emit('dataTypeSelected', option);
-                    }
-                });
-            });
-
-            // Settings controls
-            document.getElementById('colorBlindMode')?.addEventListener('change', (e) => {
-                this.emit('accessibilitySettingChanged', { setting: 'colorBlind', value: e.target.checked });
-            });
-            
-            document.getElementById('highContrastMode')?.addEventListener('change', (e) => {
-                this.emit('accessibilitySettingChanged', { setting: 'highContrast', value: e.target.checked });
-            });
-            
-            document.getElementById('reducedMotionMode')?.addEventListener('change', (e) => {
-                this.emit('accessibilitySettingChanged', { setting: 'reducedMotion', value: e.target.checked });
-            });
-            
-            document.getElementById('textSizeSlider')?.addEventListener('input', (e) => {
-                this.emit('accessibilitySettingChanged', { setting: 'textSize', value: e.target.value });
             });
 
             // Global event listeners
@@ -220,20 +130,11 @@ export class UIManager extends EventEmitter {
                 if (e.key === 'Escape') {
                     this.emit('escapePressed');
                     this.closePanels();
-                    this.cancelRouteMode();
+                    this.emit('routeModeCancelled');
                     this.closeHamburgerMenu();
                     this.closeContactModal();
                     this.closeSensoryDropdown();
                 }
-            });
-
-            // Error handling
-            window.addEventListener('error', (e) => {
-                this.handleError('예상치 못한 오류가 발생했습니다', e.error);
-            });
-            
-            window.addEventListener('unhandledrejection', (e) => {
-                this.handleError('비동기 작업 중 오류가 발생했습니다', e.reason);
             });
 
         } catch (error) {
@@ -324,15 +225,8 @@ export class UIManager extends EventEmitter {
             controls?.classList.add('show');
             controls?.setAttribute('aria-hidden', 'false');
             
-            const statusElement = document.getElementById('routeStatus');
-            if (statusElement) {
-                statusElement.textContent = '출발지 선택';
-            }
-            
-            const optionsElement = document.getElementById('routeOptions');
-            if (optionsElement) {
-                optionsElement.style.display = 'none';
-            }
+            this.updateRouteStatus('출발지 선택');
+            this.hideRouteOptions();
             
             this.showToast('지도를 클릭하여 출발지를 선택하세요', TOAST_TYPES.INFO);
         } else {
@@ -351,11 +245,7 @@ export class UIManager extends EventEmitter {
         controls?.classList.remove('show');
         controls?.setAttribute('aria-hidden', 'true');
 
-        const optionsElement = document.getElementById('routeOptions');
-        if (optionsElement) {
-            optionsElement.style.display = 'none';
-        }
-
+        this.hideRouteOptions();
         this.emit('routeModeCancelled');
     }
 
@@ -475,10 +365,6 @@ export class UIManager extends EventEmitter {
         this.emit('errorOccurred', { message, error });
     }
 
-    handleLocationClick(data) {
-        this.emit('sensoryPanelRequested', data.latlng);
-    }
-
     updateRouteStatus(status) {
         const statusElement = document.getElementById('routeStatus');
         if (statusElement) {
@@ -506,14 +392,5 @@ export class UIManager extends EventEmitter {
         document.body.classList.toggle('high-contrast-mode', settings.highContrastMode);
         document.body.classList.toggle('reduced-motion-mode', settings.reducedMotionMode);
         document.documentElement.style.setProperty('--text-size', `${settings.textSize}rem`);
-    }
-
-    // 전역 함수 지원 (하위 호환성)
-    setRoutePointFromPopup(lat, lng, type) {
-        this.emit('routePointFromPopupRequested', { lat, lng, type });
-    }
-
-    openSensoryPanel() {
-        this.emit('sensoryPanelRequested');
     }
 }
