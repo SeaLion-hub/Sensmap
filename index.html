@@ -7,27 +7,9 @@
     <title>Sensmap - Advanced Sensory Navigation</title>
     
     <script>
-        // Railway 배포 환경을 자동으로 감지하여 서버 URL 설정
-        (function() {
-            const currentHost = window.location.hostname;
-            const currentProtocol = window.location.protocol;
-            
-            // Railway 배포 환경 감지
-            if (currentHost.includes('railway.app') || currentHost.includes('up.railway.app')) {
-                // Railway 환경: 같은 도메인 사용
-                window.SENSMAP_SERVER_URL = `${currentProtocol}//${currentHost}`;
-            }
-            // 로컬 개발 환경
-            else if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
-                window.SENSMAP_SERVER_URL = 'http://localhost:3000';
-            }
-            // 기타 프로덕션 환경
-            else {
-                window.SENSMAP_SERVER_URL = `${currentProtocol}//${currentHost}`;
-            }
-            
-            console.log('🔗 서버 URL 설정:', window.SENSMAP_SERVER_URL);
-        })();
+        // 서버 URL 직접 설정
+        window.SENSMAP_SERVER_URL = 'https://sensmap-production.up.railway.app';
+        console.log('서버 URL 설정:', window.SENSMAP_SERVER_URL);
     </script>
     
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>">
