@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
+const userRoutes = require('./User');
+const { connectDB, getDB } = require('./db');
 require('dotenv').config();
 
 const app = express();
@@ -9,6 +11,9 @@ const port = process.env.PORT || 3000;
 // --- 미들웨어 설정 ---
 app.use(cors());
 app.use(express.json());
+
+// --- 라우트 설정 ---
+app.use('/api/users', userRoutes);
 
 // --- 데이터베이스 연결 풀 설정 ---
 const pool = new Pool({
@@ -228,6 +233,9 @@ const server = app.listen(port, '0.0.0.0', async () => {
     console.log(`   GET  /api/reports - 감각 데이터 조회`);
     console.log(`   POST /api/reports - 감각 데이터 추가`);
     console.log(`   GET  /api/stats - 통계 정보 조회`);
+    console.log(`   POST /api/users/signup - 회원가입`);
+    console.log(`   POST /api/users/signin - 로그인`);
+    console.log(`   GET  /api/users/profile - 사용자 프로필 (인증 필요)`);
     console.log(`========================================`);
 
     try {
