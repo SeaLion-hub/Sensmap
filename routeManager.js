@@ -248,4 +248,43 @@ class RouteManager {
     getRoutePoints() {
         return this.routePoints;
     }
+
+    setRoutePointFromPopup(lat, lng, type) {
+        const latlng = { lat, lng };
+        
+        if (type === 'start') {
+            // 출발지로 설정
+            if (!this.isRouteMode) {
+                this.toggleRouteMode(); // 경로 모드 활성화
+            }
+            
+            // 기존 경로와 마커 정리
+            this.clearRoute();
+            this.routePoints = [latlng];
+            this.addRouteMarker(latlng, 'start');
+            this.updateRouteStatus('도착지 선택');
+            
+            this.app.mapManager.getMap().closePopup();
+            this.app.showToast('출발지가 설정되었습니다. 도착지를 선택하세요.', 'success');
+            
+        } else if (type === 'end') {
+            if (!this.isRouteMode || this.routePoints.length === 0) {
+                this.app.showToast('먼저 출발지를 설정해주세요.', 'warning');
+                return;
+            }
+            
+            if (this.routePoints.length === 1) {
+                // 도착지 설정
+                this.routePoints.push(latlng);
+                this.addRouteMarker(latlng, 'end');
+                this.showRouteOptions();
+                this.updateRouteStatus('경로 유형 선택');
+                
+                this.app.mapManager.getMap().closePopup();
+                this.app.showToast('도착지가 설정되었습니다. 경로 유형을 선택하세요.', 'success');
+            } else {
+                this.app.showToast('이미 경로가 설정되어 있습니다.', 'warning');
+            }
+        }
+    }
 }
