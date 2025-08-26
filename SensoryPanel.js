@@ -1,6 +1,6 @@
 // js/components/SensoryPanel.js - 감각 입력 패널
 import { EventEmitter } from './EventEmitter.js';
-import { DURATION_SETTINGS } from '../constants.js';
+import { DURATION_SETTINGS } from './constants.js';
 import { validators } from './validators.js';
 import { helpers } from './helpers.js';
 
