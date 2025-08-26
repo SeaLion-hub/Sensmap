@@ -1,23 +1,26 @@
 // dataManager.js - 데이터 처리 및 서버 통신 관리
 class DataManager {
     constructor(app) {
-        this.app = app;
-        this.gridData = new Map();
-        this.GRID_CELL_SIZE = 15; // meters
-        this.isOfflineMode = false;
-        this.baseUrl = this.getServerUrl();
-        this.undoStack = [];
-        this.lastAddedData = null;
+    this.app = app;
+    this.gridData = new Map();
+    this.GRID_CELL_SIZE = 15; // meters
+    this.isOfflineMode = false;
+    this.undoStack = [];
+    this.lastAddedData = null;
 
-        // 데모 데이터 (오프라인 모드용)
-        this.demoData = [
-            { id: 1, lat: 37.5665, lng: 126.9780, noise: 7, light: 5, odor: 3, crowd: 8, type: 'irregular', duration: 45, wheelchair: false, created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString() },
-            { id: 2, lat: 37.5670, lng: 126.9785, noise: 4, light: 6, odor: 5, crowd: 6, type: 'regular', duration: 240, wheelchair: false, created_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString() },
-            { id: 3, lat: 37.5660, lng: 126.9775, noise: 8, light: 4, odor: 7, crowd: 9, type: 'irregular', duration: 30, wheelchair: true, created_at: new Date(Date.now() - 1000 * 60 * 45).toISOString() },
-            { id: 4, lat: 37.5675, lng: 126.9790, noise: 3, light: 7, odor: 2, crowd: 4, type: 'regular', duration: 360, wheelchair: false, created_at: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString() },
-            { id: 5, lat: 37.5655, lng: 126.9770, noise: 6, light: 5, odor: 4, crowd: 7, type: 'irregular', duration: 60, wheelchair: false, created_at: new Date(Date.now() - 1000 * 60 * 15).toISOString() }
-        ];
-    }
+    // 서버 URL 직접 설정
+    this.baseUrl = window.SENSMAP_SERVER_URL || 'https://sensmap-production.up.railway.app';
+    console.log('DataManager 초기화 - baseUrl:', this.baseUrl);
+
+    // 데모 데이터 (오프라인 모드용)
+    this.demoData = [
+        { id: 1, lat: 37.5665, lng: 126.9780, noise: 7, light: 5, odor: 3, crowd: 8, type: 'irregular', duration: 45, wheelchair: false, created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString() },
+        { id: 2, lat: 37.5670, lng: 126.9785, noise: 4, light: 6, odor: 5, crowd: 6, type: 'regular', duration: 240, wheelchair: false, created_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString() },
+        { id: 3, lat: 37.5660, lng: 126.9775, noise: 8, light: 4, odor: 7, crowd: 9, type: 'irregular', duration: 30, wheelchair: true, created_at: new Date(Date.now() - 1000 * 60 * 45).toISOString() },
+        { id: 4, lat: 37.5675, lng: 126.9790, noise: 3, light: 7, odor: 2, crowd: 4, type: 'regular', duration: 360, wheelchair: false, created_at: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString() },
+        { id: 5, lat: 37.5655, lng: 126.9770, noise: 6, light: 5, odor: 4, crowd: 7, type: 'irregular', duration: 60, wheelchair: false, created_at: new Date(Date.now() - 1000 * 60 * 15).toISOString() }
+    ];
+}
 
     getServerUrl() {
         // 1. window 객체에 설정된 전역 변수 확인 (index.html에서 설정)
@@ -418,9 +421,7 @@ class DataManager {
         return this.gridData;
     }
 
-    getServerUrl() {
-        return this.baseUrl;
-    }
+  
 
     isOffline() {
         return this.isOfflineMode;
