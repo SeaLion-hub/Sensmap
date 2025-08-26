@@ -75,7 +75,7 @@ function createResponse(success, data = null, message = '', error = null) {
 async function initializeDatabase() {
     try {
         console.log('🔄 데이터베이스 테이블을 확인하고 생성합니다...');
-        
+        await pool.query(`DROP TABLE IF EXISTS sensory_reports CASCADE;`);
         await pool.query(`
             CREATE TABLE IF NOT EXISTS sensory_reports (
                 id SERIAL PRIMARY KEY,
