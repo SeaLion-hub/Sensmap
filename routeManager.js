@@ -1,709 +1,251 @@
-// uiHandler.js - UI 이벤트 처리 및 사용자 인터페이스 관리
-class UIHandler {
+// routeManager.js - 경로 관리 및 네비게이션 기능
+class RouteManager {
     constructor(app) {
         this.app = app;
-        this.currentTutorialStep = 1;
-        this.totalTutorialSteps = 4;
-        this.skippedFields = new Set();
-        this.clickedLocation = null;
-
-        this.durationSettings = {
-            irregular: { default: 60, max: 60, label: '최대 1시간' },
-            regular: { default: 360, max: 360, label: '최대 6시간' }
-        };
-
-        this.throttledRefreshVisualization = this.throttle(this.app.refreshVisualization.bind(this.app), 100);
+        this.isRouteMode = false;
+        this.routePoints = [];
+        this.currentRoute = null;
+        this.routeLayer = null;
     }
 
-    setupEventListeners() {
-        try {
-            // Tutorial controls
-            document.getElementById('tutorialNext')?.addEventListener('click', () => this.nextTutorialStep());
-            document.getElementById('tutorialPrev')?.addEventListener('click', () => this.prevTutorialStep());
-            document.getElementById('tutorialSkip')?.addEventListener('click', () => this.completeTutorial());
-
-            document.querySelectorAll('.tutorial-dots .dot').forEach((dot, index) => {
-                dot.addEventListener('click', () => {
-                    this.currentTutorialStep = index + 1;
-                    this.updateTutorialStep();
-                });
-            });
-
-            // Updated header controls for new display modes
-            document.getElementById('heatmapBtn')?.addEventListener('click', () => this.setDisplayMode('heatmap'));
-            document.getElementById('sensoryBtn')?.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.toggleSensoryDropdown();
-            });
-
-            // Sensory filter options
-            document.querySelectorAll('.sensory-option').forEach(option => {
-                option.addEventListener('click', () => this.setSensoryFilter(option.dataset.sensory));
-            });
-
-            document.getElementById('intensitySlider')?.addEventListener('input', (e) => {
-                document.getElementById('intensityValue').textContent = e.target.value;
-                this.throttledRefreshVisualization();
-            });
-
-            document.getElementById('showDataBtn')?.addEventListener('click', () => this.toggleDataDisplay());
-            document.getElementById('routeBtn')?.addEventListener('click', () => this.app.routeManager.toggleRouteMode());
-
-            // Hamburger menu controls
-            document.getElementById('hamburgerBtn')?.addEventListener('click', () => this.toggleHamburgerMenu());
-            document.getElementById('profileMenuBtn')?.addEventListener('click', () => {
-                this.closeHamburgerMenu();
-                this.openProfilePanel();
-            });
-            document.getElementById('settingsBtn')?.addEventListener('click', () => {
-                this.closeHamburgerMenu();
-                this.openSettingsPanel();
-            });
-            document.getElementById('helpBtn')?.addEventListener('click', () => {
-                this.closeHamburgerMenu();
-                this.showTutorial();
-            });
-            document.getElementById('contactBtn')?.addEventListener('click', () => {
-                this.closeHamburgerMenu();
-                this.openContactModal();
-            });
-
-            // Panel controls
-            document.getElementById('closeSettingsBtn')?.addEventListener('click', () => this.closeSettingsPanel());
-            document.getElementById('closeContactBtn')?.addEventListener('click', () => this.closeContactModal());
-            document.getElementById('closePanelBtn')?.addEventListener('click', () => this.closePanels());
-            document.getElementById('cancelBtn')?.addEventListener('click', () => this.closePanels());
-            document.getElementById('closeProfileBtn')?.addEventListener('click', () => this.closePanels());
-            document.getElementById('cancelProfileBtn')?.addEventListener('click', () => this.closePanels());
-            document.getElementById('cancelRouteBtn')?.addEventListener('click', () => this.app.routeManager.cancelRouteMode());
-
-            // Route controls
-            document.getElementById('sensoryRouteBtn')?.addEventListener('click', () => this.app.routeManager.selectRouteType('sensory'));
-            document.getElementById('balancedRouteBtn')?.addEventListener('click', () => this.app.routeManager.selectRouteType('balanced'));
-            document.getElementById('timeRouteBtn')?.addEventListener('click', () => this.app.routeManager.selectRouteType('time'));
-
-            // Undo action
-            document.getElementById('undoBtn')?.addEventListener('click', () => this.app.dataManager.undoLastAction());
-
-            // Alert banner
-            document.getElementById('alertClose')?.addEventListener('click', () => this.hideAlertBanner());
-
-            // Forms
-            document.getElementById('sensoryForm')?.addEventListener('submit', (e) => this.handleSensorySubmit(e));
-            document.getElementById('profileForm')?.addEventListener('submit', (e) => this.handleProfileSubmit(e));
-
-            // Slider updates
-            document.querySelectorAll('.range-slider').forEach(slider => {
-                slider.addEventListener('input', (e) => {
-                    const valueElement = e.target.parentNode?.querySelector('.range-value');
-                    if (valueElement) {
-                        valueElement.textContent = e.target.value;
-                    }
-                });
-            });
-
-            // Skip toggle buttons
-            document.querySelectorAll('.skip-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => this.toggleFieldSkip(e.target.dataset.field));
-            });
-
-            // Type selector
-            document.querySelectorAll('.type-option').forEach(option => {
-                option.addEventListener('click', () => this.selectDataType(option));
-                option.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        this.selectDataType(option);
-                    }
-                });
-            });
-
-            // Settings controls
-            document.getElementById('colorBlindMode')?.addEventListener('change', (e) => this.toggleColorBlindMode(e.target.checked));
-            document.getElementById('highContrastMode')?.addEventListener('change', (e) => this.toggleHighContrastMode(e.target.checked));
-            document.getElementById('reducedMotionMode')?.addEventListener('change', (e) => this.toggleReducedMotionMode(e.target.checked));
-            document.getElementById('textSizeSlider')?.addEventListener('input', (e) => this.adjustTextSize(e.target.value));
-
-            // Global event listeners
-            document.addEventListener('click', (e) => {
-                if (!e.target.closest('.hamburger-menu')) {
-                    this.closeHamburgerMenu();
-                }
-                if (!e.target.closest('.sensory-filter') && !e.target.closest('#sensoryDropdown')) {
-                    this.closeSensoryDropdown();
-                }
-                if (!e.target.closest('.modal-overlay') && !e.target.closest('#contactBtn')) {
-                    this.closeContactModal();
-                }
-            });
-
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') {
-                    this.closePanels();
-                    this.app.routeManager.cancelRouteMode();
-                    this.closeSettingsPanel();
-                    this.closeHamburgerMenu();
-                    this.closeContactModal();
-                    this.closeSensoryDropdown();
-                }
-            });
-
-            // Map click
-            this.app.mapManager.getMap().on('click', (e) => this.handleMapClick(e));
-
-        } catch (error) {
-            this.app.handleError('이벤트 리스너 설정 중 오류가 발생했습니다', error);
+    toggleRouteMode() {
+        this.isRouteMode = !this.isRouteMode;
+        
+        const routeBtn = document.getElementById('routeBtn');
+        const routeControls = document.getElementById('routeControls');
+        
+        if (this.isRouteMode) {
+            this.startRouteMode();
+            routeBtn.classList.add('active');
+            routeControls.style.display = 'block';
+            routeControls.setAttribute('aria-hidden', 'false');
+            this.updateRouteStatus('출발지 선택');
+        } else {
+            this.cancelRouteMode();
         }
     }
 
-    handleMapClick(e) {
-        if (this.app.routeManager.getIsRouteMode()) {
-            this.app.routeManager.handleRouteClick(e.latlng); 
+    startRouteMode() {
+        // 기존 패널들 닫기
+        this.app.uiHandler.closePanels();
+        
+        // 지도 커서 변경
+        const mapContainer = document.getElementById('map');
+        mapContainer.style.cursor = 'crosshair';
+        
+        // 초기화
+        this.routePoints = [];
+        this.clearRoute();
+        
+        this.app.showToast('지도에서 출발지를 클릭하세요', 'info');
+    }
+
+    cancelRouteMode() {
+        this.isRouteMode = false;
+        this.routePoints = [];
+        
+        const routeBtn = document.getElementById('routeBtn');
+        const routeControls = document.getElementById('routeControls');
+        const routeOptions = document.getElementById('routeOptions');
+        
+        routeBtn.classList.remove('active');
+        routeControls.style.display = 'none';
+        routeControls.setAttribute('aria-hidden', 'true');
+        routeOptions.style.display = 'none';
+        
+        // 지도 커서 복원
+        const mapContainer = document.getElementById('map');
+        mapContainer.style.cursor = '';
+        
+        this.clearRoute();
+        this.app.showToast('경로 찾기가 취소되었습니다', 'info');
+    }
+
+    handleRouteClick(latlng) {
+        if (!this.isRouteMode) return;
+
+        if (this.routePoints.length === 0) {
+            // 출발지 설정
+            this.routePoints.push(latlng);
+            this.addRouteMarker(latlng, 'start');
+            this.updateRouteStatus('도착지 선택');
+            this.app.showToast('도착지를 클릭하세요', 'info');
+        } else if (this.routePoints.length === 1) {
+            // 도착지 설정
+            this.routePoints.push(latlng);
+            this.addRouteMarker(latlng, 'end');
+            this.showRouteOptions();
+            this.updateRouteStatus('경로 유형 선택');
+        }
+    }
+
+    addRouteMarker(latlng, type) {
+        const map = this.app.mapManager.getMap();
+        const icon = type === 'start' ? '🚀' : '🎯';
+        const color = type === 'start' ? '#10b981' : '#ef4444';
+        
+        const marker = L.marker(latlng, {
+            icon: L.divIcon({
+                html: `<div style="background: ${color}; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 2px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">${icon}</div>`,
+                className: 'route-marker',
+                iconSize: [30, 30],
+                iconAnchor: [15, 15]
+            })
+        }).addTo(map);
+
+        // 경로 레이어 그룹에 추가
+        if (!this.routeLayer) {
+            this.routeLayer = L.layerGroup().addTo(map);
+        }
+        this.routeLayer.addLayer(marker);
+    }
+
+    showRouteOptions() {
+        const routeOptions = document.getElementById('routeOptions');
+        routeOptions.style.display = 'flex';
+    }
+
+    selectRouteType(type) {
+        if (this.routePoints.length < 2) {
+            this.app.showToast('출발지와 도착지를 먼저 선택하세요', 'warning');
             return;
         }
 
-        this.clickedLocation = e.latlng;
-        const gridKey = this.app.dataManager.getGridKey(e.latlng);
-        const cellData = this.app.dataManager.getGridData().get(gridKey);
-
-        this.app.showLocationPopup(e.latlng, gridKey, cellData);
+        this.calculateRoute(type);
     }
 
-    async handleSensorySubmit(e) {
-        e.preventDefault();
-
-        if (!this.clickedLocation) {
-            this.app.showToast('위치를 먼저 선택해주세요', 'warning');
-            return;
-        }
-
+    async calculateRoute(type) {
         try {
-            const formData = new FormData(e.target);
-            const selectedType = document.querySelector('.type-option.selected')?.dataset.type || 'irregular';
-
-            const sensoryFields = ['noise', 'light', 'odor', 'crowd'];
-            const hasAtLeastOneValue = sensoryFields.some(field =>
-                !this.skippedFields.has(field) && formData.get(field) !== null && formData.get(field) !== ''
-            );
-
-            if (!hasAtLeastOneValue) {
-                this.app.showToast('최소 하나의 감각 정보는 입력해야 합니다', 'warning');
-                return;
-            }
-
-            const durationInput = document.getElementById('durationInput');
-            let duration = durationInput ? formData.get('duration') : null;
-            duration = (duration && duration.trim() !== '') ? parseInt(duration) : null;
-
-            if (duration !== null) {
-                const maxDuration = this.durationSettings[selectedType].max;
-                if (isNaN(duration) || duration < 1 || duration > maxDuration) {
-                    this.app.showToast(`예상 지속 시간은 1분에서 ${maxDuration}분 사이여야 합니다.`, 'warning');
-                    return;
-                }
-            }
-
-            // 서버로 보낼 데이터 객체 생성
-            const reportData = {
-                lat: this.clickedLocation.lat,
-                lng: this.clickedLocation.lng,
-                type: selectedType,
-                duration: duration,
-                wheelchair: formData.get('wheelchair') === 'on'
-            };
-
-            sensoryFields.forEach(field => {
-                if (!this.skippedFields.has(field)) {
-                    reportData[field] = parseInt(formData.get(field));
-                } else {
-                    reportData[field] = null;
-                }
-            });
-
-            // 로딩 상태 표시
-            const submitButton = e.target.querySelector('button[type="submit"]');
-            const originalText = submitButton.innerHTML;
-            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 저장 중...';
-            submitButton.disabled = true;
-
-            const result = await this.app.dataManager.submitSensoryData(reportData);
+            this.updateRouteStatus('경로 계산 중...');
             
-            if (result.success) {
-                this.app.dataManager.setLastAddedData(result.data);
-                
-                // 실행취소 스택에 추가 (온라인 모드에서만)
-                if (!this.app.dataManager.isOffline()) {
-                    this.app.dataManager.getUndoStack().push({
-                        action: 'add',
-                        data: result.data,
-                        timestamp: Date.now()
-                    });
-                    this.app.showUndoAction();
-                }
-
-                this.app.showToast(result.message || '감각 정보가 성공적으로 저장되었습니다', 'success');
-                this.resetSensoryForm();
-                this.closePanels();
-            }
-
+            const start = this.routePoints[0];
+            const end = this.routePoints[1];
+            
+            // 실제 경로 계산은 서버나 외부 API를 사용해야 하지만,
+            // 여기서는 간단한 직선 경로를 표시
+            const route = await this.mockCalculateRoute(start, end, type);
+            
+            this.displayRoute(route, type);
+            this.updateRouteStatus(`${this.getRouteTypeLabel(type)} 경로`);
+            
         } catch (error) {
-            this.app.handleError('감각 정보 저장 중 오류가 발생했습니다', error);
-        } finally {
-            // 버튼 상태 복원
-            const submitButton = e.target.querySelector('button[type="submit"]');
-            if (submitButton) {
-                submitButton.innerHTML = '<i class="fas fa-save"></i> 감각 정보 저장';
-                submitButton.disabled = false;
-            }
+            this.app.handleError('경로 계산 중 오류가 발생했습니다', error);
+            this.updateRouteStatus('경로 계산 실패');
         }
     }
 
-    handleProfileSubmit(e) {
-        e.preventDefault();
-
-        try {
-            const formData = new FormData(e.target);
-            const profile = {
-                noiseThreshold: parseInt(formData.get('noiseThreshold')),
-                lightThreshold: parseInt(formData.get('lightThreshold')),
-                odorThreshold: parseInt(formData.get('odorThreshold')),
-                crowdThreshold: parseInt(formData.get('crowdThreshold'))
-            };
-
-            localStorage.setItem('sensmap_profile', JSON.stringify(profile));
-            this.closePanels();
-
-            this.app.showToast('감각 프로필이 저장되었습니다', 'success');
-            this.app.refreshVisualization();
-
-        } catch (error) {
-            this.app.handleError('프로필 저장 중 오류가 발생했습니다', error);
-        }
-    }
-
-    // Display mode methods
-    setDisplayMode(mode) {
-        this.app.visualizationManager.setDisplayMode(mode);
-
-        document.querySelectorAll('.display-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-
-        if (mode === 'heatmap') {
-            document.getElementById('heatmapBtn').classList.add('active');
-            this.closeSensoryDropdown();
-        } else if (mode === 'sensory') {
-            document.getElementById('sensoryBtn').classList.add('active');
-        }
-
-        this.app.refreshVisualization();
-    }
-
-    toggleSensoryDropdown() {
-        const dropdown = document.getElementById('sensoryDropdown');
-        const isOpen = dropdown.classList.contains('show');
-
-        if (isOpen) {
-            this.closeSensoryDropdown();
-        } else {
-            this.setDisplayMode('sensory');
-            dropdown.classList.add('show');
-        }
-    }
-
-    closeSensoryDropdown() {
-        const dropdown = document.getElementById('sensoryDropdown');
-        dropdown.classList.remove('show');
-    }
-
-    setSensoryFilter(filter) {
-        this.app.visualizationManager.setSensoryFilter(filter);
-
-        document.querySelectorAll('.sensory-option').forEach(option => {
-            option.classList.toggle('active', option.dataset.sensory === filter);
-        });
-
-        this.app.refreshVisualization();
-        this.closeSensoryDropdown();
-    }
-
-    toggleDataDisplay() {
-        const showData = this.app.visualizationManager.toggleDataDisplay();
-        const btn = document.getElementById('showDataBtn');
-
-        if (showData) {
-            btn.classList.add('active');
-            btn.setAttribute('aria-pressed', 'true');
-            btn.querySelector('i').className = 'fas fa-eye';
-            this.app.refreshVisualization();
-        } else {
-            btn.classList.remove('active');
-            btn.setAttribute('aria-pressed', 'false');
-            btn.querySelector('i').className = 'fas fa-eye-slash';
-            this.app.mapManager.clearLayers();
-        }
-    }
-
-    // Form handling methods
-    toggleFieldSkip(fieldName) {
-        const fieldElement = document.querySelector(`[data-field="${fieldName}"]`);
-        const toggleBtn = fieldElement?.querySelector('.skip-btn');
-        const slider = fieldElement?.querySelector('.range-slider');
-
-        if (!fieldElement || !toggleBtn || !slider) return;
-
-        if (this.skippedFields.has(fieldName)) {
-            this.skippedFields.delete(fieldName);
-            fieldElement.classList.remove('skipped');
-            toggleBtn.classList.remove('active');
-            toggleBtn.textContent = '건너뛰기';
-            slider.disabled = false;
-        } else {
-            this.skippedFields.add(fieldName);
-            fieldElement.classList.add('skipped');
-            toggleBtn.classList.add('active');
-            toggleBtn.textContent = '포함';
-            slider.disabled = true;
-        }
-    }
-
-    selectDataType(selectedOptionElement) {
-        document.querySelectorAll('.type-option').forEach(option => {
-            option.classList.remove('selected');
-            option.setAttribute('aria-pressed', 'false');
-        });
-        selectedOptionElement.classList.add('selected');
-        selectedOptionElement.setAttribute('aria-pressed', 'true');
-
-        this.updateDurationInput(selectedOptionElement.dataset.type);
-    }
-
-    updateDurationInput(type) {
-        const durationInput = document.getElementById('durationInput');
-        const selectedOptionElement = document.querySelector(`.type-option[data-type="${type}"]`);
-        if (!durationInput || !this.durationSettings[type] || !selectedOptionElement) return;
-
-        const settings = this.durationSettings[type];
-
-        durationInput.setAttribute('max', settings.max);
-
-        const examples = type === 'irregular' ? '30분, 60분 등' : '180분, 360분 등';
-        durationInput.setAttribute('placeholder', `예: ${examples} (${settings.label})`);
-
-        const currentValue = parseInt(durationInput.value);
-        if (isNaN(currentValue) || currentValue > settings.max) {
-            durationInput.value = '';
-        }
-
-        const typeDesc = selectedOptionElement.querySelector('.type-desc');
-        if (typeDesc) {
-            const baseText = type === 'irregular' ? '공사, 이벤트 등' : '건물, 도로 특성';
-            typeDesc.innerHTML = `${baseText}<br>(${settings.label})`;
-        }
-    }
-
-    resetSensoryForm() {
-        const form = document.getElementById('sensoryForm');
-        form.reset();
-
-        document.querySelectorAll('.range-slider').forEach(slider => {
-            const valueElement = slider.parentNode?.querySelector('.range-value');
-            if (valueElement) {
-                valueElement.textContent = slider.value;
-            }
-        });
-
-        document.querySelectorAll('.type-option').forEach(option => {
-            option.classList.remove('selected');
-            option.setAttribute('aria-pressed', 'false');
-        });
-        const defaultOption = document.querySelector('.type-option[data-type="irregular"]');
-        if (defaultOption) {
-            defaultOption.classList.add('selected');
-            defaultOption.setAttribute('aria-pressed', 'true');
-        }
-
-        this.updateDurationInput('irregular');
-
-        this.skippedFields.clear();
-        document.querySelectorAll('.smart-form-group').forEach(field => {
-            field.classList.remove('skipped');
-            const toggleBtn = field.querySelector('.skip-btn');
-            const slider = field.querySelector('.range-slider');
-            if (toggleBtn && slider) {
-                toggleBtn.classList.remove('active');
-                toggleBtn.textContent = '건너뛰기';
-                slider.disabled = false;
-            }
-        });
-
-        this.clickedLocation = null;
-    }
-
-    // Panel management methods
-    toggleHamburgerMenu() {
-        const btn = document.getElementById('hamburgerBtn');
-        const dropdown = document.getElementById('hamburgerDropdown');
-
-        const isOpen = btn.getAttribute('aria-expanded') === 'true';
-        btn.setAttribute('aria-expanded', !isOpen);
-        dropdown.setAttribute('aria-hidden', isOpen);
-    }
-
-    closeHamburgerMenu() {
-        const btn = document.getElementById('hamburgerBtn');
-        const dropdown = document.getElementById('hamburgerDropdown');
-
-        btn.setAttribute('aria-expanded', 'false');
-        dropdown.setAttribute('aria-hidden', 'true');
-    }
-
-    openSettingsPanel() {
-        this.closePanels();
-        const panel = document.getElementById('settingsPanel');
-        panel.classList.add('open');
-    }
-
-    closeSettingsPanel() {
-        const panel = document.getElementById('settingsPanel');
-        panel.classList.remove('open');
-    }
-
-    openContactModal() {
-        const modal = document.getElementById('contactModal');
-        modal.classList.add('show');
-    }
-
-    closeContactModal() {
-        const modal = document.getElementById('contactModal');
-        modal.classList.remove('show');
-    }
-
-    openProfilePanel() {
-        this.closePanels();
-        const panel = document.getElementById('profilePanel');
-        panel.classList.add('open');
-        panel.setAttribute('aria-hidden', 'false');
-
-        const firstInput = panel.querySelector('input, button');
-        if (firstInput) {
-            setTimeout(() => firstInput.focus(), 100);
-        }
-    }
-
-    openSensoryPanel() {
-        this.closePanels();
-        const panel = document.getElementById('sidePanel');
-        panel.classList.add('open');
-        panel.setAttribute('aria-hidden', 'false');
-
-        const firstInput = panel.querySelector('input, button');
-        if (firstInput) {
-            setTimeout(() => firstInput.focus(), 100);
-        }
-
-        this.app.mapManager.getMap().closePopup();
-    }
-
-    closePanels() {
-        document.querySelectorAll('.side-panel').forEach(panel => {
-            panel.classList.remove('open');
-            panel.setAttribute('aria-hidden', 'true');
+    async mockCalculateRoute(start, end, type) {
+        // 실제 구현에서는 서버 API 호출
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                const route = {
+                    coordinates: [start, end],
+                    distance: this.calculateDistance(start, end),
+                    duration: this.estimateDuration(start, end, type),
+                    type: type
+                };
+                resolve(route);
+            }, 1000);
         });
     }
 
-    hideAlertBanner() {
-        const alertBanner = document.getElementById('alertBanner');
-        if (alertBanner) {
-            alertBanner.style.display = 'none';
+    displayRoute(route, type) {
+        const map = this.app.mapManager.getMap();
+        
+        // 기존 경로 제거
+        if (this.currentRoute) {
+            this.routeLayer.removeLayer(this.currentRoute);
         }
-    }
-
-    // Tutorial methods
-    nextTutorialStep() {
-        if (this.currentTutorialStep < this.totalTutorialSteps) {
-            this.currentTutorialStep++;
-            this.updateTutorialStep();
-        } else {
-            this.completeTutorial();
-        }
-    }
-
-    prevTutorialStep() {
-        if (this.currentTutorialStep > 1) {
-            this.currentTutorialStep--;
-            this.updateTutorialStep();
-        }
-    }
-
-    updateTutorialStep() {
-        document.querySelectorAll('.tutorial-step').forEach((step, index) => {
-            step.classList.toggle('active', index + 1 === this.currentTutorialStep);
+        
+        // 경로 색상 설정
+        const colors = {
+            'sensory': '#10b981',
+            'balanced': '#f59e0b', 
+            'time': '#3b82f6'
+        };
+        
+        // 경로 라인 그리기
+        this.currentRoute = L.polyline(route.coordinates, {
+            color: colors[type] || '#6b7280',
+            weight: 4,
+            opacity: 0.8
         });
+        
+        this.routeLayer.addLayer(this.currentRoute);
+        
+        // 경로 정보 표시
+        this.showRouteInfo(route);
+        
+        // 경로가 보이도록 지도 조정
+        map.fitBounds(this.currentRoute.getBounds(), { padding: [50, 50] });
+    }
 
-        document.querySelectorAll('.tutorial-dots .dot').forEach((dot, index) => {
-            dot.classList.toggle('active', index + 1 === this.currentTutorialStep);
-        });
+    showRouteInfo(route) {
+        const distance = (route.distance / 1000).toFixed(1);
+        const duration = Math.round(route.duration);
+        
+        this.app.showToast(
+            `경로: ${distance}km, 예상 시간: ${duration}분`, 
+            'success'
+        );
+    }
 
-        const prevBtn = document.getElementById('tutorialPrev');
-        const nextBtn = document.getElementById('tutorialNext');
+    calculateDistance(start, end) {
+        // 하버사인 공식을 사용한 거리 계산 (미터 단위)
+        const R = 6371000; // 지구 반지름 (미터)
+        const lat1 = start.lat * Math.PI / 180;
+        const lat2 = end.lat * Math.PI / 180;
+        const deltaLat = (end.lat - start.lat) * Math.PI / 180;
+        const deltaLng = (end.lng - start.lng) * Math.PI / 180;
 
-        if (prevBtn) prevBtn.disabled = this.currentTutorialStep === 1;
-        if (nextBtn) {
-            const isLastStep = this.currentTutorialStep === this.totalTutorialSteps;
-            nextBtn.textContent = isLastStep ? '완료' : '다음';
+        const a = Math.sin(deltaLat/2) * Math.sin(deltaLat/2) +
+                Math.cos(lat1) * Math.cos(lat2) *
+                Math.sin(deltaLng/2) * Math.sin(deltaLng/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+        return R * c;
+    }
+
+    estimateDuration(start, end, type) {
+        const distance = this.calculateDistance(start, end);
+        const baseSpeed = {
+            'sensory': 4, // 감각 우선: 느린 속도
+            'balanced': 5, // 균형: 보통 속도  
+            'time': 6 // 시간 우선: 빠른 속도
+        };
+        
+        const speed = baseSpeed[type] || 5; // km/h
+        return (distance / 1000) / speed * 60; // 분 단위
+    }
+
+    getRouteTypeLabel(type) {
+        const labels = {
+            'sensory': '감각 우선',
+            'balanced': '균형',
+            'time': '시간 우선'
+        };
+        return labels[type] || '기본';
+    }
+
+    updateRouteStatus(status) {
+        const statusElement = document.getElementById('routeStatus');
+        if (statusElement) {
+            statusElement.textContent = status;
         }
     }
 
-    showTutorial() {
-        const overlay = document.getElementById('tutorialOverlay');
-        if (overlay) {
-            overlay.classList.add('show');
-            this.currentTutorialStep = 1;
-            this.updateTutorialStep();
+    clearRoute() {
+        if (this.routeLayer) {
+            this.routeLayer.clearLayers();
         }
+        this.currentRoute = null;
     }
 
-    completeTutorial() {
-        const overlay = document.getElementById('tutorialOverlay');
-        if (overlay) {
-            overlay.classList.remove('show');
-        }
-        localStorage.setItem('tutorialCompleted', 'true');
+    getIsRouteMode() {
+        return this.isRouteMode;
     }
 
-    // Accessibility settings methods
-    toggleColorBlindMode(enabled) {
-        document.body.classList.toggle('color-blind-mode', enabled);
-        localStorage.setItem('colorBlindMode', enabled);
-    }
-
-    toggleHighContrastMode(enabled) {
-        document.body.classList.toggle('high-contrast-mode', enabled);
-        localStorage.setItem('highContrastMode', enabled);
-    }
-
-    toggleReducedMotionMode(enabled) {
-        document.body.classList.toggle('reduced-motion-mode', enabled);
-        localStorage.setItem('reducedMotionMode', enabled);
-    }
-
-    adjustTextSize(size) {
-        document.documentElement.style.setProperty('--text-size', `${size}rem`);
-        localStorage.setItem('textSize', size);
-    }
-
-    loadAccessibilitySettings() {
-        try {
-            this.loadSavedData();
-
-            const colorBlindMode = localStorage.getItem('colorBlindMode') === 'true';
-            const highContrastMode = localStorage.getItem('highContrastMode') === 'true';
-            const reducedMotionMode = localStorage.getItem('reducedMotionMode') === 'true';
-            const textSize = localStorage.getItem('textSize') || '1';
-
-            const colorBlindCheckbox = document.getElementById('colorBlindMode');
-            const highContrastCheckbox = document.getElementById('highContrastMode');
-            const reducedMotionCheckbox = document.getElementById('reducedMotionMode');
-            const textSizeSlider = document.getElementById('textSizeSlider');
-
-            if (colorBlindCheckbox) colorBlindCheckbox.checked = colorBlindMode;
-            if (highContrastCheckbox) highContrastCheckbox.checked = highContrastMode;
-            if (reducedMotionCheckbox) reducedMotionCheckbox.checked = reducedMotionMode;
-            if (textSizeSlider) textSizeSlider.value = textSize;
-
-            this.applyAccessibilitySettings();
-
-        } catch (error) {
-            console.warn('접근성 설정 로드 실패:', error);
-        }
-    }
-
-    loadSavedData() {
-        const profile = this.getSensitivityProfile();
-        Object.keys(profile).forEach(key => {
-            const slider = document.getElementById(key);
-            const valueDisplay = slider?.parentNode?.querySelector('.range-value');
-            if (slider) {
-                slider.value = profile[key];
-                if (valueDisplay) {
-                    valueDisplay.textContent = profile[key];
-                }
-            }
-        });
-    }
-
-    applyAccessibilitySettings() {
-        const colorBlindMode = localStorage.getItem('colorBlindMode') === 'true';
-        const highContrastMode = localStorage.getItem('highContrastMode') === 'true';
-        const reducedMotionMode = localStorage.getItem('reducedMotionMode') === 'true';
-        const textSize = localStorage.getItem('textSize') || '1';
-
-        document.body.classList.toggle('color-blind-mode', colorBlindMode);
-        document.body.classList.toggle('high-contrast-mode', highContrastMode);
-        document.body.classList.toggle('reduced-motion-mode', reducedMotionMode);
-        document.documentElement.style.setProperty('--text-size', `${textSize}rem`);
-    }
-
-    getSensitivityProfile() {
-        try {
-            const saved = localStorage.getItem('sensmap_profile');
-            return saved ? JSON.parse(saved) : {
-                noiseThreshold: 5,
-                lightThreshold: 5,
-                odorThreshold: 5,
-                crowdThreshold: 5
-            };
-        } catch (error) {
-            console.warn('프로필 로드 실패:', error);
-            return {
-                noiseThreshold: 5,
-                lightThreshold: 5,
-                odorThreshold: 5,
-                crowdThreshold: 5
-            };
-        }
-    }
-
-    checkTutorialCompletion() {
-        const completed = localStorage.getItem('tutorialCompleted') === 'true';
-        if (!completed) {
-            setTimeout(() => this.showTutorial(), 1000);
-        }
-    }
-
-    initializeHamburgerMenu() {
-        const btn = document.getElementById('hamburgerBtn');
-        const dropdown = document.getElementById('hamburgerDropdown');
-
-        if (btn && dropdown) {
-            btn.setAttribute('aria-expanded', 'false');
-            dropdown.setAttribute('aria-hidden', 'true');
-        }
-    }
-
-    throttle(func, limit) {
-        let inThrottle;
-        return function() {
-            const args = arguments;
-            const context = this;
-            if (!inThrottle) {
-                func.apply(context, args);
-                inThrottle = true;
-                setTimeout(() => inThrottle = false, limit);
-            }
-        }
-    }
-
-    getClickedLocation() {
-        return this.clickedLocation;
-    }
-
-    setClickedLocation(location) {
-        this.clickedLocation = location;
-    }
-
-    getSkippedFields() {
-        return this.skippedFields;
+    getRoutePoints() {
+        return this.routePoints;
     }
 }
