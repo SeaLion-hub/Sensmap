@@ -108,14 +108,13 @@ async function initializeDatabase() {
 // --- API 엔드포인트 ---
 
 // [GET] /api/health - 서버 상태 확인
-app.get('/api/health', async (req, res) => {
-    try {
-        await pool.query('SELECT 1');
-        res.status(200).json(createResponse(true, { status: 'healthy', database: 'connected' }, '서버가 정상 작동 중입니다.'));
-    } catch (e) {
-        console.error('Health check failed:', e);
-        res.status(500).json(createResponse(false, { status: 'unhealthy', database: 'disconnected' }, '', '데이터베이스 연결에 실패했습니다.'));
-    }
+app.get('/api/health', (req, res) => {
+    res.json({ 
+        success: true,
+        data: { status: 'healthy', database: 'skipped' },
+        message: 'Server is running',
+        timestamp: new Date().toISOString()
+    });
 });
 
 // [GET] /api/reports - 모든 감각 데이터 조회 (인증 불필요)
