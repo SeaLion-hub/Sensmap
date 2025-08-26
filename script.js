@@ -19,6 +19,7 @@ class SensmapApp {
         this.undoStack = []; // 실행취소를 위한 스택
         this.isOfflineMode = false; // 오프라인 모드 플래그
         this.serverUrl = this.getServerUrl(); // 서버 URL 동적으로
+        this.config = this.getORSConfig(); // ← ORS 설정 로드(키/베이스URL/기본값
 
         this.durationSettings = {
             irregular: { default: 60, max: 60, label: '최대 1시간' },
@@ -48,7 +49,41 @@ class SensmapApp {
         this.hideLoadingOverlay();
     }
 
+    getORSConfig() {
+        // 1) window 전역에서
+        const winKey = window.ORS_API_KEY || window.OPENROUTESERVICE_API_KEY;
+        const winBase = window.ORS_BASE_URL;
 
+        // 2) meta 태그에서 (예: <meta name="ors-api-key" content="...">)
+        const metaKey = document.querySelector('meta[name="ors-api-key"]')?.content?.trim();
+        const metaBase = document.querySelector('meta[name="ors-base-url"]')?.content?.trim();
+
+        // 3) 빌드 타임(.env)에서
+        const envKey =
+            (typeof process !== 'undefined' && process?.env?.VITE_ORS_KEY) ||
+            (typeof process !== 'undefined' && process?.env?.NEXT_PUBLIC_ORS_KEY) ||
+            (typeof process !== 'undefined' && process?.env?.ORS_API_KEY);
+
+        const orsApiKey  = winKey || metaKey || envKey || '';
+        const orsBaseUrl = winBase || metaBase || 'https://api.openrouteservice.org';
+
+        if (!orsApiKey) {
+            console.warn('⚠️ ORS API Key 미설정: this.config.orsApiKey가 비어 있습니다.');
+            this.showToast('ORS API 키가 설정되지 않았습니다. 설정 패널에서 키를 입력하세요.', 'warning');
+        }
+
+        return {
+            orsApiKey,
+            orsBaseUrl,
+            orsAlternates: 3,     // ORS 대안 경로 요청 수(최대 3)
+            balancedAlpha: 0.5    // balanced 가중합 비율
+        };
+    }
+
+    getGridBoundsFromKey(key) {
+        // 기존 코드 대부분은 getGridBounds(key)를 쓰므로, 이 이름도 그대로 지원
+        return this.getGridBounds(key);
+    }
 
     getServerUrl() {
     // 1. window 객체에 설정된 전역 변수 확인 (index.html에서 설정)
@@ -90,10 +125,12 @@ class SensmapApp {
     // --- 서버 연결 확인 및 데이터 로딩 ---
 
     async checkServerConnection() {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 5000);
         try {
             const response = await fetch(`${this.serverUrl}/api/health`, {
                 method: 'GET',
-                timeout: 5000
+                signal: controller.signal
             });
 
             if (response.ok) {
@@ -109,6 +146,8 @@ class SensmapApp {
         } catch (error) {
             console.warn('⚠️ 서버 연결 실패, 오프라인 모드로 전환:', error.message);
             this.enableOfflineMode();
+        } finally {
+            clearTimeout(timer);
         }
     }
 
@@ -1072,7 +1111,7 @@ class SensmapApp {
     }
 
     async calculateRoute(routeType = 'sensory') {
-        if (!this.routePoints.start || !this.routePoints.end) {
+        if (!this.routePoints?.start || !this.routePoints?.end) {
             this.showToast('출발지와 도착지를 모두 설정해주세요', 'warning');
             return;
         }
@@ -1081,17 +1120,22 @@ class SensmapApp {
             this.showToast(`${this.getRouteTypeLabel(routeType)} 경로를 계산하고 있습니다...`, 'info');
 
             const start = this.routePoints.start;
-            const end = this.routePoints.end;
+            const end   = this.routePoints.end;
 
-            const routes = await this.getRouteAlternatives(start, end);
+            // (A) Baseline: 회피 없이 ORS alternates로 후보 받고, "가장 빠른" 경로 확보
+            const baselineJson   = await this._callORSAlternates(start, end, { alternates: 2 });
+            const baselinePool   = this._dedupeRoutesBySignature(this._normalizeORSGeoJSON(baselineJson));
+            if (!baselinePool.length) throw new Error('기본 경로를 찾을 수 없습니다');
+            const baseline = baselinePool.reduce((a,b)=> a.duration <= b.duration ? a : b);
 
-            if (!routes || routes.length === 0) {
-                throw new Error('경로를 찾을 수 없습니다');
-            }
+            // (B) Detour-aware 대안 탐색(적응형 퍼센타일/클러스터링/회피 → alternates → 재평가)
+            const altRoutes = await this.getRouteAlternatives(start, end, routeType, { baseline });
 
-            const bestRoute = this.selectBestRoute(routes, routeType);
-            this.displayRoute(bestRoute, routeType);
+            // (C) 최종 선택: baseline + 대안 후보 풀에서 네 기존 로직으로 선택
+            const pool = [baseline, ...(altRoutes || [])];
+            const best = this.selectBestRoute(pool, routeType);
 
+            this.displayRoute(best, routeType);
             document.getElementById('routeStatus').textContent = '경로 생성 완료';
             this.showToast(`${this.getRouteTypeLabel(routeType)} 경로를 찾았습니다!`, 'success');
 
@@ -1110,29 +1154,82 @@ class SensmapApp {
             default: return '최적';
         }
     }
+    
+    /* =========[ 2) getRouteAlternatives: 적응형 퍼센타일 + k-means + 소프트/하드 회피 + 완화루프 ]========= */
+    // 반환: [{ distance, duration, geometry:{type:'LineString', coordinates:[[lng,lat],...]}, source:'ors', comfort? }, ...]
+    async getRouteAlternatives(start, end, routeType = 'sensory', { baseline } = {}) {
+        if (!baseline) {
+            // 방어적: baseline 없으면 최소한 하나 계산
+            const bj = await this._callORSAlternates(start, end, { alternates: 2 });
+            const bp = this._dedupeRoutesBySignature(this._normalizeORSGeoJSON(bj));
+            if (!bp.length) return [];
+            baseline = bp.reduce((a,b)=> a.duration <= b.duration ? a : b);
+        }
 
-    async getRouteAlternatives(start, end) {
-        try {
-            const url = `https://router.project-osrm.org/route/v1/walking/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson&alternatives=true`;
+        // routeType별 가드레일 & 초기 퍼센타일/시도 횟수
+        const km = baseline.distance / 1000;
+        const cfg = {
+            sensory:  { p0: 0.30, rCap: 1.25, minGain: 0.08, tries: 3, corridorM: 300, kSigma: 0.7 },
+            balanced: { p0: 0.20, rCap: 1.15, minGain: 0.05, tries: 3, corridorM: 220, kSigma: 0.9 },
+            time:     { p0: 0.05, rCap: 1.05, minGain: 0.00, tries: 2, corridorM: 160, kSigma: 1.2 }
+        }[routeType];
 
-            const response = await fetch(url);
-            const data = await response.json();
+        // 거리가 길수록 p 축소 (우회 억제)
+        const scale = km <= 2 ? 1 : Math.max(0.5, 2 / km);
+        let p = +(cfg.p0 * scale).toFixed(2);
+        let buffers = this._buffersForType(routeType); // 소프트/하드(완충) 거리(m)
 
-            if (data.routes && data.routes.length > 0) {
-                return data.routes;
+        let best = null;
+        const prof = this.getSensitivityProfile?.();
+        const baseComfort = this.calculateRouteSensoryScore?.(baseline.geometry, prof) ?? 0;
+
+        for (let t = 0; t < cfg.tries; t++) {
+            // 1) 코리도 분석
+            const comfort = this._analyzeCorridorComfort(start, end, cfg.corridorM);
+
+            // 2) 하이브리드 회피 폴리곤(하드=극단값/큰버퍼, 소프트=하위p%/작은버퍼) 생성
+            const avoid_polygons = this._buildHybridPolygonsORS(comfort, { p, kSigma: cfg.kSigma, routeType, buffers });
+
+            // 3) ORS 대안 경로 호출(회피 적용)
+            const json   = await this._callORSAlternates(start, end, { avoidPolygons: avoid_polygons, alternates: this.config?.orsAlternates ?? 3 });
+            const routes = this._dedupeRoutesBySignature(this._normalizeORSGeoJSON(json));
+
+            // 4) 재평가 + 가드레일 필터 (detour & comfort gain)
+            for (const r of routes) r.comfort = this.calculateRouteSensoryScore?.(r.geometry, prof) ?? 0;
+            const filtered = routes.filter(r => {
+                const detour = r.duration / baseline.duration;
+                const gain   = (baseComfort === 0) ? (r.comfort > 0 ? 1 : 0) : (r.comfort - baseComfort) / Math.abs(baseComfort);
+                return detour <= cfg.rCap && (routeType === 'time' ? true : gain >= cfg.minGain);
+            });
+
+            const candidatePool = filtered.length ? filtered : routes;
+            if (candidatePool.length) {
+                // 라운드 베스트(간단 기준): sensory=comfort↑, time=duration↓, balanced=가중합
+                const roundBest = (routeType === 'time')
+                    ? candidatePool.reduce((a,b)=> a.duration <= b.duration ? a : b)
+                    : (routeType === 'sensory')
+                        ? candidatePool.reduce((a,b)=> (a.comfort ?? 0) >= (b.comfort ?? 0) ? a : b)
+                        : (()=>{ // balanced
+                                const alpha = this.config?.balancedAlpha ?? 0.5;
+                                const ds = candidatePool.map(x=>x.duration), cs = candidatePool.map(x=>x.comfort ?? 0);
+                                const dmin=Math.min(...ds), dmax=Math.max(...ds), cmin=Math.min(...cs), cmax=Math.max(...cs);
+                                const J = r => (alpha * ((dmax===dmin)?0:(r.duration-dmin)/(dmax-dmin))) + (1-alpha) * (1 - ((cmax===cmin)?0.5:((r.comfort ?? 0)-cmin)/(cmax-cmin)));
+                                return candidatePool.reduce((a,b)=> J(a) <= J(b) ? a : b);
+                            })();
+
+                best = best ? this.selectBestRoute([best, roundBest], routeType) : roundBest;
+
+                // detour 한도 내에서 하나라도 확보되면 종료, 아니면 완화
+                const ok = (roundBest.duration / baseline.duration) <= cfg.rCap && (routeType==='time' || ((roundBest.comfort - baseComfort)/Math.abs(baseComfort || 1)) >= cfg.minGain);
+                if (ok) return candidatePool; // 여러 후보를 pool로 반환(최종 선택은 calculateRoute에서)
             }
 
-            throw new Error('No routes found');
-        } catch (error) {
-            console.warn('OSRM failed, using fallback:', error);
-            return [{
-                geometry: {
-                    coordinates: [[start.lng, start.lat], [end.lng, end.lat]]
-                },
-                distance: start.distanceTo(end),
-                duration: start.distanceTo(end) / 1.4, // Approximate walking speed of 1.4 m/s
-            }];
+            // 5) 완화: p·버퍼·폴리곤 수 축소해서 다음 라운드
+            p = Math.max(0.05, +(p * 0.7).toFixed(2));
+            buffers = { soft: Math.max(5, Math.round(buffers.soft * 0.7)), hard: Math.max(8, Math.round(buffers.hard * 0.7)), polyMax: Math.max(4, Math.floor(buffers.polyMax * 0.8)) };
         }
+
+        return best ? [best] : [];
     }
 
     selectBestRoute(routes, routeType) {
@@ -1140,39 +1237,377 @@ class SensmapApp {
         let bestRoute = routes[0];
         let bestScore = Infinity;
 
-        const walkingSpeed = 1.1;
-
+        // duration은 ORS가 초 단위로 제공 → 그대로 사용
         routes.forEach(route => {
             const sensoryScore = this.calculateRouteSensoryScore(route.geometry, profile);
-            const time = route.distance / walkingSpeed;
+            const durationSec  = (typeof route.duration === 'number' && route.duration > 0)
+                ? route.duration
+                : (() => {
+                        // 혹시 duration이 없는 비정상 응답 대비: 거리/보행속도로 근사
+                        const walkingSpeedMps = 1.1; // m/s
+                        return (route.distance || 0) / walkingSpeedMps;
+                    })();
 
             let totalScore;
-
             switch (routeType) {
                 case 'sensory':
-                    totalScore = (sensoryScore * 0.7) + (time * 0.0003);
+                    totalScore = (sensoryScore * 0.7) + (durationSec * 0.0003);
                     break;
                 case 'balanced':
-                    totalScore = (sensoryScore * 0.5) + (time * 0.0005);
+                    totalScore = (sensoryScore * 0.5) + (durationSec * 0.0005);
                     break;
                 case 'time':
-                    totalScore = (time * 0.0008) + (sensoryScore * 0.2);
+                    totalScore = (durationSec * 0.0008) + (sensoryScore * 0.2);
                     break;
                 default:
-                    totalScore = (sensoryScore * 0.5) + (time * 0.0005);
+                    totalScore = (sensoryScore * 0.5) + (durationSec * 0.0005);
             }
 
             if (totalScore < bestScore) {
                 bestScore = totalScore;
-                bestRoute = route;
-                bestRoute.routeType = routeType;
-                bestRoute.sensoryScore = sensoryScore;
-                bestRoute.totalScore = totalScore;
-                bestRoute.duration = time;
+                bestRoute = {
+                    ...route,
+                    routeType,
+                    sensoryScore,
+                    totalScore,
+                    // duration은 ORS 값 유지(필요 시 위 근사치가 들어간 상태)
+                    duration: durationSec
+                };
             }
         });
 
         return bestRoute;
+    }
+
+    /* ===========[ 3) 회피 폴리곤(소프트/하드) 생성: percentile + k-means + hull ]=========== */
+    // 반환: ORS body의 MultiPolygon.coordinates 에 들어갈 배열 형태 → [ [ [ring] ], [ [ring] ], ... ]
+    _buildHybridPolygonsORS(comfort, { p, kSigma, routeType, buffers }) {
+        const { items, stats:{ mean, std } } = comfort;
+        if (!items.length) return [];
+
+        // 1) 극단값(하드): 평균 - kSigma*std 이하
+        const hardThr = mean - (kSigma * (std || 0));
+        const extremes = items.filter(i => i.score <= hardThr);
+
+        // 2) 퍼센타일(소프트): 하위 p% (극단값 제외)
+        const scores  = items.map(i => i.score).sort((a,b)=>a-b);
+        const idx     = Math.max(0, Math.min(scores.length-1, Math.floor(p * (scores.length-1))));
+        const pThr    = scores[idx];
+        const softPts = items.filter(i => i.score <= pThr && i.score > hardThr);
+
+        // 3) 각 집합을 k-means로 묶고 → hull → 버퍼 팽창(하드=큰버퍼, 소프트=작은버퍼)
+        const polys = [];
+
+        const pushClusterPolys = (pts, bufferM, kMax, polyMax) => {
+            if (!pts.length) return;
+            const K = Math.max(1, Math.min(kMax, Math.round(Math.sqrt(pts.length/3))));
+            const clusters = this._kmeansOnLngLat(pts, K);
+            for (const c of clusters) {
+                if (!c.points.length) continue;
+                const ring = this._convexHullLngLat(c.points.map(p => [p.center.lng, p.center.lat]));
+                if (ring.length >= 3) {
+                    const inflated = this._inflateRingLngLat([...ring, ring[0]], bufferM);
+                    polys.push([ [ ...inflated ] ]);
+                } else {
+                    const box = this._tinyBoxAroundPoints(c.points.map(p => p.center), Math.max(10, bufferM*0.6));
+                    polys.push([ [ ...box, box[0] ] ]);
+                }
+                if (polys.length >= polyMax) break;
+            }
+        };
+
+        // routeType별 최대 폴리곤 수(넓을수록 많이)
+        const polyMaxByType = { sensory: buffers.polyMax ?? 12, balanced: buffers.polyMax ?? 8, time: buffers.polyMax ?? 6 };
+        const polyMax = polyMaxByType[routeType] ?? 8;
+
+        // 하드(극단) 먼저 큰 버퍼, 남은 슬롯으로 소프트
+        pushClusterPolys(extremes, buffers.hard, 8, Math.ceil(polyMax * 0.6));
+        if (polys.length < polyMax) {
+            pushClusterPolys(softPts, buffers.soft, 10, polyMax - polys.length);
+        }
+        return polys;
+    }
+
+    /* =====================[ 4) ORS 호출부 + 정규화 + 디듀프 ]===================== */
+    async _callORSAlternates(start, end, { avoidPolygons = [], alternates = 3 } = {}) {
+        const api = (this.config && this.config.orsBaseUrl) || 'https://api.openrouteservice.org';
+        const key = this.config?.orsApiKey;
+        if (!key) {
+            this.showToast('ORS API Key가 설정되지 않았습니다', 'error');
+            throw new Error('ORS API Key missing');
+        }
+
+        const url = `${api}/v2/directions/foot-walking/geojson`;
+        const body = {
+            coordinates: [[start.lng, start.lat], [end.lng, end.lat]],
+            alternative_routes: {
+                target_count: Math.max(1, Math.min(3, alternates)),
+                share_factor: 0.6,
+                weight_factor: 1.4
+            },
+            instructions: false,
+            options: {}
+        };
+        if (avoidPolygons.length) {
+            body.options.avoid_polygons = { type: 'MultiPolygon', coordinates: avoidPolygons };
+        }
+
+        // 간단 재시도(429/5xx): 최대 2회, 지수 백오프
+        const maxRetry = 2;
+        let attempt = 0;
+        let lastErr;
+        while (attempt <= maxRetry) {
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Authorization': key, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                if (res.status === 401 || res.status === 403) {
+                    this.showToast('ORS API 인증 오류(키 확인 필요)', 'error');
+                    throw new Error(`ORS auth error ${res.status}`);
+                }
+                if (res.status === 429 || res.status >= 500) {
+                    // 레이트리밋/서버오류 → 재시도
+                    const data = await res.json().catch(()=> ({}));
+                    lastErr = new Error(`ORS retryable ${res.status}: ${data?.error || ''}`);
+                    attempt++;
+                    if (attempt > maxRetry) break;
+                    const delay = 500 * Math.pow(2, attempt - 1); // 500, 1000ms
+                    await new Promise(r => setTimeout(r, delay));
+                    continue;
+                }
+                if (!res.ok) {
+                    const data = await res.json().catch(()=> ({}));
+                    throw new Error(`ORS HTTP ${res.status}: ${data?.error || ''}`);
+                }
+                return await res.json();
+            } catch (e) {
+                lastErr = e;
+                attempt++;
+                if (attempt > maxRetry) break;
+                await new Promise(r => setTimeout(r, 400 * attempt));
+            }
+        }
+        console.error('ORS 요청 실패:', lastErr);
+        this.showToast('경로 서비스 호출에 실패했습니다(네트워크/쿼터)', 'error');
+        throw lastErr || new Error('ORS request failed');
+    }
+
+    _normalizeORSGeoJSON(json) {
+        const out = [];
+        if (json?.type !== 'FeatureCollection' || !Array.isArray(json.features)) return out;
+        for (const f of json.features) {
+            if (f.geometry?.type !== 'LineString') continue;
+            const coords = f.geometry.coordinates;
+            let distance = 0, duration = 0;
+            const sum = f.properties?.summary;
+            if (sum) { distance = sum.distance ?? 0; duration = sum.duration ?? 0; }
+            else if (Array.isArray(f.properties?.segments)) {
+                for (const s of f.properties.segments) { distance += (s.distance||0); duration += (s.duration||0); }
+            }
+            out.push({ distance, duration, geometry: { type:'LineString', coordinates: coords }, source: 'ors' });
+        }
+        return out;
+    }
+
+    _dedupeRoutesBySignature(routes) {
+        const seen = new Set(), out = [];
+        for (const r of routes) {
+            const sig = signature(r.geometry?.coordinates);
+            if (!sig || seen.has(sig)) continue;
+            seen.add(sig); out.push(r);
+        }
+        return out;
+        function signature(coords) {
+            if (!Array.isArray(coords) || !coords.length) return null;
+            const step = Math.max(1, Math.floor(coords.length / 80));
+            return coords.filter((_,i)=>i%step===0).map(([x,y])=>`${x.toFixed(5)},${y.toFixed(5)}`).join('|');
+        }
+    }
+
+    _computeCellPersonalizedScore(cellData, profile) {
+        if (!cellData?.reports?.length) return 0;
+        const now = Date.now();
+        let total = 0, weightSum = 0;
+        for (const report of cellData.reports) {
+            const w = this.calculateTimeDecay(report.timestamp, report.type, now);
+            if (w > 0.1) {
+                const score = this.calculatePersonalizedScore(report, profile);
+                total += score * w;
+                weightSum += w;
+            }
+        }
+        return weightSum > 0 ? (total / weightSum) : 0;
+    }
+
+    /** 코리도(출발–도착 주변 폭 widthM) 안의 셀을 수집하고 개인화 점수를 계산 */
+    _analyzeCorridorComfort(start, end, widthM) {
+        const profile = this.getSensitivityProfile ? this.getSensitivityProfile() : {};
+        const cells = this._collectCellsInCorridor(start, end, widthM);
+
+        const items = cells.map(({ key, bounds, center }) => {
+            const cell = (this.gridData && this.gridData.get) ? this.gridData.get(key) : null;
+            const score = this._computeCellPersonalizedScore(cell, profile);
+            return { key, bounds, center, score };
+        });
+
+        const scores = items.map(i => i.score);
+        const mean = scores.length ? (scores.reduce((a,b)=>a+b,0) / scores.length) : 0;
+        const std  = scores.length ? Math.sqrt(scores.reduce((s,v)=> s + (v-mean)*(v-mean), 0) / scores.length) : 0;
+
+        return { items, stats: { mean, std } };
+    }
+
+    /** 매우 단순화된 ‘코리도’: 시작–끝 라인을 둘러싼 폭 widthM의 확장 bbox 안의 셀을 모두 가져옴 */
+    _collectCellsInCorridor(start, end, widthM) {
+        if (!this.gridData || !this.getGridBounds) return [];
+        const midLat = (start.lat + end.lat) / 2;
+        const mPerDegLat = 111320;
+        const mPerDegLng = 111320 * Math.cos(midLat * Math.PI/180);
+
+        const dLng = widthM / mPerDegLng;
+        const dLat = widthM / mPerDegLat;
+
+        const minLng = Math.min(start.lng, end.lng) - dLng;
+        const maxLng = Math.max(start.lng, end.lng) + dLng;
+        const minLat = Math.min(start.lat, end.lat) - dLat;
+        const maxLat = Math.max(start.lat, end.lat) + dLat;
+
+        const out = [];
+        for (const [key] of this.gridData.entries()) {
+            const b = this.getGridBounds(key);
+            const center = { lng: (b.getWest()+b.getEast())/2, lat: (b.getSouth()+b.getNorth())/2 };
+            if (center.lng >= minLng && center.lng <= maxLng && center.lat >= minLat && center.lat <= maxLat) {
+                out.push({ key, bounds: { minLng:b.getWest(), minLat:b.getSouth(), maxLng:b.getEast(), maxLat:b.getNorth() }, center });
+            }
+        }
+        return out;
+    }
+
+    /** k-means (경위도를 ‘미터’ 평면으로 근사 변환해 사용) */
+    _kmeansOnLngLat(items, K, maxIter = 40) {
+        if (!items?.length || K <= 0) return [];
+        const lat0 = items.reduce((s,i)=>s+i.center.lat,0)/items.length;
+        const mPerDegLat = 111320;
+        const mPerDegLng = 111320 * Math.cos(lat0 * Math.PI/180);
+
+        // 초기 중심: 무작위 K개
+        let centers = items.slice().sort(()=>Math.random()-0.5).slice(0, K)
+            .map(i => ({ x: i.center.lng * mPerDegLng, y: i.center.lat * mPerDegLat }));
+
+        let assign = new Array(items.length).fill(0);
+
+        for (let it=0; it<maxIter; it++) {
+            // 1) 할당 단계
+            for (let idx=0; idx<items.length; idx++) {
+                const x = items[idx].center.lng * mPerDegLng;
+                const y = items[idx].center.lat * mPerDegLat;
+                let best = 0, bestD = Infinity;
+                for (let c=0; c<K; c++) {
+                    const dx = x - centers[c].x, dy = y - centers[c].y;
+                    const d = dx*dx + dy*dy;
+                    if (d < bestD) { bestD = d; best = c; }
+                }
+                assign[idx] = best;
+            }
+
+            // 2) 중심 재계산
+            const sums = Array.from({length:K}, ()=>({x:0,y:0,n:0}));
+            for (let idx=0; idx<items.length; idx++) {
+                const a = assign[idx];
+                sums[a].x += items[idx].center.lng * mPerDegLng;
+                sums[a].y += items[idx].center.lat * mPerDegLat;
+                sums[a].n++;
+            }
+            const nextCenters = centers.map((c,i)=> sums[i].n
+                ? { x: sums[i].x/sums[i].n, y: sums[i].y/sums[i].n }
+                : c
+            );
+
+            // 3) 수렴 검사
+            let moved = 0;
+            for (let i=0; i<K; i++) moved += Math.hypot(nextCenters[i].x - centers[i].x, nextCenters[i].y - centers[i].y);
+            centers = nextCenters;
+            if (moved < 1e-3) break;
+        }
+
+        // 결과 클러스터
+        const clusters = Array.from({length:K}, ()=>({ points: [] }));
+        for (let i=0; i<items.length; i++) clusters[assign[i]].points.push(items[i]);
+        return clusters.filter(c => c.points.length > 0);
+    }
+
+    /** Convex Hull (Monotone chain) — 입력: [lng,lat] 배열, 출력: hull 점들의 링(닫히지 않은 상태) */
+    _convexHullLngLat(points) {
+        if (!points?.length) return [];
+        if (points.length <= 1) return points.slice();
+
+        const ps = points.slice().sort((a,b)=> a[0]===b[0] ? a[1]-b[1] : a[0]-b[0]);
+        const cross = (o,a,b)=> (a[0]-o[0])*(b[1]-o[1]) - (a[1]-o[1])*(b[0]-o[0]);
+
+        const lower = [];
+        for (const p of ps) {
+            while (lower.length >= 2 && cross(lower[lower.length-2], lower[lower.length-1], p) <= 0) lower.pop();
+            lower.push(p);
+        }
+        const upper = [];
+        for (let i=ps.length-1; i>=0; i--) {
+            const p = ps[i];
+            while (upper.length >= 2 && cross(upper[upper.length-2], upper[upper.length-1], p) <= 0) upper.pop();
+            upper.push(p);
+        }
+        upper.pop(); lower.pop();
+        return lower.concat(upper); // 닫힘 X (사용처에서 [.., first]로 닫으세요)
+    }
+
+    /** 점이 1~2개뿐일 때 작은 박스(버퍼 m)로 대체 — 반환: 닫히지 않은 사각 링 */
+    _tinyBoxAroundPoints(centers, bufferM = 20) {
+        if (!centers?.length) return [];
+        const lat0 = centers.reduce((s,c)=>s+c.lat,0)/centers.length;
+        const mPerDegLat = 111320;
+        const mPerDegLng = 111320 * Math.cos(lat0 * Math.PI/180);
+        const dLng = bufferM / mPerDegLng;
+        const dLat = bufferM / mPerDegLat;
+        const c = centers[0]; // 하나만 써도 충분
+
+        return [
+            [c.lng - dLng, c.lat - dLat],
+            [c.lng + dLng, c.lat - dLat],
+            [c.lng + dLng, c.lat + dLat],
+            [c.lng - dLng, c.lat + dLat]
+        ]; // 닫힘 X (사용처에서 [.., first]로 닫으세요)
+    }
+
+    /** 링을 바깥으로 ‘팽창’(bufferM, 미터) — 간단 근사(센트로이드 기준 방사 확장 + 축 보정) */
+    _inflateRingLngLat(ring, bufferM = 20) {
+        if (!Array.isArray(ring) || ring.length < 3) return ring;
+        // ring 은 닫힌/미닫힌 아무거나 가능. 내부에서 그대로 매핑.
+        const cx = ring.reduce((s,p)=>s + p[0], 0) / ring.length;
+        const cy = ring.reduce((s,p)=>s + p[1], 0) / ring.length;
+
+        const mPerDegLat = 111320;
+        const mPerDegLng = 111320 * Math.cos(cy * Math.PI/180);
+        const dx = bufferM / mPerDegLng;
+        const dy = bufferM / mPerDegLat;
+
+        return ring.map(([x,y]) => {
+            let vx = x - cx, vy = y - cy;
+            const norm = Math.hypot(vx, vy) || 1e-9;
+            const ux = vx / norm, uy = vy / norm; // 바깥 방향 단위벡터
+            // 바깥으로 bufferM 만큼, 약간의 축 보정(동서/남북 방향에서 버퍼가 너무 작아지는 걸 방지)
+            return [
+                x + ux*dx + Math.sign(ux)*dx*0.2,
+                y + uy*dy + Math.sign(uy)*dy*0.2
+            ];
+        });
+    }
+
+    // routeType별 기본 버퍼(폴리곤 면적만 다르게)
+    _buffersForType(routeType){
+        if (routeType === 'sensory')  return { soft: 25, hard: 45, polyMax: 12 }; // m
+        if (routeType === 'time')     return { soft: 10, hard: 20, polyMax: 6  };
+        return { soft: 18, hard: 30, polyMax: 8 }; // balanced
     }
 
     calculateRouteSensoryScore(geometry, profile) {
@@ -1940,9 +2375,8 @@ class SensmapApp {
     async getAddressFromLatLng(latlng) {
         try {
             const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latlng.lat}&lon=${latlng.lng}&zoom=18&addressdetails=1`;
-            const response = await fetch(url, {
-                headers: { 'User-Agent': 'SensmapApp/1.0 (dev@sensmap.app)' }
-            });
+            // ❌ headers: { 'User-Agent': ... } 제거
+            const response = await fetch(url);
             const data = await response.json();
 
             if (data.display_name) {
