@@ -9,33 +9,32 @@ export class ApiService {
 
     // 일반 API 요청
     async request(endpoint, options = {}) {
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), this.defaultTimeout);
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), this.defaultTimeout);
 
-            const response = await fetch(`${this.serverUrl}${endpoint}`, {
-                signal: controller.signal,
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...options.headers
-                },
-                ...options
-            });
+        const response = await fetch(`${this.serverUrl}${endpoint}`, {
+        signal: controller.signal,
+        headers: {
+            'Content-Type': 'application/json',
+            ...(options.headers || {}),   // ← 문제였던 .options.headers 교체
+        },
+        ...options,                     // ← 문제였던 .options 교체
+        });
 
-            clearTimeout(timeoutId);
+        clearTimeout(timeoutId);
 
-            if (!response.ok) {
-                throw new Error(`API 요청 실패: ${response.status}`);
-            }
-
-            return response.json();
-        } catch (error) {
-            if (error.name === 'AbortError') {
-                throw new Error('요청 시간이 초과되었습니다');
-            }
-            console.error('API 요청 오류:', error);
-            throw error;
+        if (!response.ok) {
+        throw new Error(`API 요청 실패: ${response.status}`);
         }
+        return response.json();
+    } catch (error) {
+        if (error.name === 'AbortError') {
+        throw new Error('요청 시간이 초과되었습니다');
+        }
+        console.error('API 요청 오류:', error);
+        throw error;
+    }
     }
 
     // 서버 연결 확인
