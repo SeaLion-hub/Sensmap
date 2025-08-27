@@ -81,7 +81,7 @@ class RouteManager {
 
     addRouteMarker(latlng, type) {
         const map = this.app.mapManager.getMap();
-        const icon = type === 'start' ? '🚀' : '🎯';
+        const icon = type === 'start' ? '🟢' : '🔴';
         const color = type === 'start' ? '#10b981' : '#ef4444';
         
         const marker = L.marker(latlng, {
