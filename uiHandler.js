@@ -1,4 +1,4 @@
-// uiHandler.js - UI 이벤트 처리 및 사용자 인터페이스 관리
+// uiHandler.js - UI 이벤트 처리 및 사용자 인터페이스 관리 (튜토리얼 및 패널 관리 개선)
 class UIHandler {
     constructor(app) {
         this.app = app;
@@ -6,6 +6,10 @@ class UIHandler {
         this.totalTutorialSteps = 4;
         this.skippedFields = new Set();
         this.clickedLocation = null;
+
+        // 패널 상태 추적
+        this.openPanels = new Set();
+        this.panelStack = [];
 
         this.durationSettings = {
             irregular: { default: 60, max: 60, label: '최대 1시간' },
@@ -17,8 +21,8 @@ class UIHandler {
 
     setupEventListeners() {
         try {
-            // Tutorial controls
-            document.getElementById('tutorialNext')?.addEventListener('click', () => this.nextTutorialStep());
+            // Tutorial controls - 개선된 이벤트 처리
+            document.getElementById('tutorialNext')?.addEventListener('click', () => this.handleTutorialNext());
             document.getElementById('tutorialPrev')?.addEventListener('click', () => this.prevTutorialStep());
             document.getElementById('tutorialSkip')?.addEventListener('click', () => this.completeTutorial());
 
@@ -68,13 +72,13 @@ class UIHandler {
                 this.openContactModal();
             });
 
-            // Panel controls
+            // Panel controls - 개선된 닫기 로직
             document.getElementById('closeSettingsBtn')?.addEventListener('click', () => this.closeSettingsPanel());
             document.getElementById('closeContactBtn')?.addEventListener('click', () => this.closeContactModal());
-            document.getElementById('closePanelBtn')?.addEventListener('click', () => this.closePanels());
-            document.getElementById('cancelBtn')?.addEventListener('click', () => this.closePanels());
-            document.getElementById('closeProfileBtn')?.addEventListener('click', () => this.closePanels());
-            document.getElementById('cancelProfileBtn')?.addEventListener('click', () => this.closePanels());
+            document.getElementById('closePanelBtn')?.addEventListener('click', () => this.closeCurrentPanel());
+            document.getElementById('cancelBtn')?.addEventListener('click', () => this.closeCurrentPanel());
+            document.getElementById('closeProfileBtn')?.addEventListener('click', () => this.closeCurrentPanel());
+            document.getElementById('cancelProfileBtn')?.addEventListener('click', () => this.closeCurrentPanel());
             document.getElementById('cancelRouteBtn')?.addEventListener('click', () => this.app.routeManager.cancelRouteMode());
 
             // Route controls
@@ -124,7 +128,7 @@ class UIHandler {
             document.getElementById('reducedMotionMode')?.addEventListener('change', (e) => this.toggleReducedMotionMode(e.target.checked));
             document.getElementById('textSizeSlider')?.addEventListener('input', (e) => this.adjustTextSize(e.target.value));
 
-            // Global event listeners
+            // Global event listeners - 개선된 조건부 처리
             document.addEventListener('click', (e) => {
                 if (!e.target.closest('.hamburger-menu')) {
                     this.closeHamburgerMenu();
@@ -139,25 +143,73 @@ class UIHandler {
 
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') {
-                    this.closePanels();
-                    this.app.routeManager.cancelRouteMode();
-                    this.closeSettingsPanel();
-                    this.closeHamburgerMenu();
-                    this.closeContactModal();
-                    this.closeSensoryDropdown();
+                    this.handleEscapeKey();
                 }
             });
 
-            // Map click
-            this.app.mapManager.getMap().on('click', (e) => this.handleMapClick(e));
+            // Map click - 안전성 검사 추가
+            if (this.app.mapManager && this.app.mapManager.getMap()) {
+                this.app.mapManager.getMap().on('click', (e) => this.handleMapClick(e));
+            }
 
         } catch (error) {
             this.app.handleError('이벤트 리스너 설정 중 오류가 발생했습니다', error);
         }
     }
 
+    /**
+     * ESC 키 처리 - 우선순위에 따라 단계적으로 닫기
+     */
+    handleEscapeKey() {
+        // 1. 튜토리얼이 열려있으면 튜토리얼만 닫기
+        const tutorialOverlay = document.getElementById('tutorialOverlay');
+        if (tutorialOverlay && tutorialOverlay.classList.contains('show')) {
+            this.completeTutorial();
+            return;
+        }
+
+        // 2. Contact 모달이 열려있으면 모달만 닫기
+        const contactModal = document.getElementById('contactModal');
+        if (contactModal && contactModal.classList.contains('show')) {
+            this.closeContactModal();
+            return;
+        }
+
+        // 3. 센서리 드롭다운이 열려있으면 드롭다운만 닫기
+        const sensoryDropdown = document.getElementById('sensoryDropdown');
+        if (sensoryDropdown && sensoryDropdown.classList.contains('show')) {
+            this.closeSensoryDropdown();
+            return;
+        }
+
+        // 4. 햄버거 메뉴가 열려있으면 메뉴만 닫기
+        const hamburgerBtn = document.getElementById('hamburgerBtn');
+        if (hamburgerBtn && hamburgerBtn.getAttribute('aria-expanded') === 'true') {
+            this.closeHamburgerMenu();
+            return;
+        }
+
+        // 5. 라우트 모드가 활성화되어 있으면 라우트 모드 취소
+        if (this.app.routeManager && this.app.routeManager.getIsRouteMode()) {
+            this.app.routeManager.cancelRouteMode();
+            return;
+        }
+
+        // 6. 설정 패널이 열려있으면 설정 패널만 닫기
+        const settingsPanel = document.getElementById('settingsPanel');
+        if (settingsPanel && settingsPanel.classList.contains('open')) {
+            this.closeSettingsPanel();
+            return;
+        }
+
+        // 7. 마지막으로 사이드 패널들 닫기
+        if (this.panelStack.length > 0) {
+            this.closeCurrentPanel();
+        }
+    }
+
     handleMapClick(e) {
-        if (this.app.routeManager.getIsRouteMode()) {
+        if (this.app.routeManager && this.app.routeManager.getIsRouteMode()) {
             this.app.routeManager.handleRouteClick(e.latlng); 
             return;
         }
@@ -243,7 +295,7 @@ class UIHandler {
 
                 this.app.showToast(result.message || '감각 정보가 성공적으로 저장되었습니다', 'success');
                 this.resetSensoryForm();
-                this.closePanels();
+                this.closeCurrentPanel();
             }
 
         } catch (error) {
@@ -271,7 +323,7 @@ class UIHandler {
             };
 
             localStorage.setItem('sensmap_profile', JSON.stringify(profile));
-            this.closePanels();
+            this.closeCurrentPanel();
 
             this.app.showToast('감각 프로필이 저장되었습니다', 'success');
             this.app.refreshVisualization();
@@ -440,7 +492,22 @@ class UIHandler {
         this.clickedLocation = null;
     }
 
-    // Panel management methods
+    // Panel management methods - 개선된 패널 관리
+    addPanelToStack(panelId) {
+        if (!this.panelStack.includes(panelId)) {
+            this.panelStack.push(panelId);
+        }
+        this.openPanels.add(panelId);
+    }
+
+    removePanelFromStack(panelId) {
+        const index = this.panelStack.indexOf(panelId);
+        if (index > -1) {
+            this.panelStack.splice(index, 1);
+        }
+        this.openPanels.delete(panelId);
+    }
+
     toggleHamburgerMenu() {
         const btn = document.getElementById('hamburgerBtn');
         const dropdown = document.getElementById('hamburgerDropdown');
@@ -459,31 +526,36 @@ class UIHandler {
     }
 
     openSettingsPanel() {
-        this.closePanels();
+        this.closeAllPanels();
         const panel = document.getElementById('settingsPanel');
         panel.classList.add('open');
+        this.addPanelToStack('settingsPanel');
     }
 
     closeSettingsPanel() {
         const panel = document.getElementById('settingsPanel');
         panel.classList.remove('open');
+        this.removePanelFromStack('settingsPanel');
     }
 
     openContactModal() {
         const modal = document.getElementById('contactModal');
         modal.classList.add('show');
+        this.addPanelToStack('contactModal');
     }
 
     closeContactModal() {
         const modal = document.getElementById('contactModal');
         modal.classList.remove('show');
+        this.removePanelFromStack('contactModal');
     }
 
     openProfilePanel() {
-        this.closePanels();
+        this.closeAllPanels();
         const panel = document.getElementById('profilePanel');
         panel.classList.add('open');
         panel.setAttribute('aria-hidden', 'false');
+        this.addPanelToStack('profilePanel');
 
         const firstInput = panel.querySelector('input, button');
         if (firstInput) {
@@ -492,24 +564,52 @@ class UIHandler {
     }
 
     openSensoryPanel() {
-        this.closePanels();
+        this.closeAllPanels();
         const panel = document.getElementById('sidePanel');
         panel.classList.add('open');
         panel.setAttribute('aria-hidden', 'false');
+        this.addPanelToStack('sidePanel');
 
         const firstInput = panel.querySelector('input, button');
         if (firstInput) {
             setTimeout(() => firstInput.focus(), 100);
         }
 
-        this.app.mapManager.getMap().closePopup();
+        if (this.app.mapManager && this.app.mapManager.getMap()) {
+            this.app.mapManager.getMap().closePopup();
+        }
     }
 
-    closePanels() {
+    /**
+     * 현재 최상위 패널만 닫기
+     */
+    closeCurrentPanel() {
+        if (this.panelStack.length === 0) return;
+
+        const currentPanelId = this.panelStack[this.panelStack.length - 1];
+        const panel = document.getElementById(currentPanelId);
+        
+        if (panel) {
+            panel.classList.remove('open');
+            panel.classList.remove('show');
+            panel.setAttribute('aria-hidden', 'true');
+        }
+
+        this.removePanelFromStack(currentPanelId);
+    }
+
+    /**
+     * 모든 사이드 패널 닫기 (기존 closePanels 대체)
+     */
+    closeAllPanels() {
         document.querySelectorAll('.side-panel').forEach(panel => {
             panel.classList.remove('open');
             panel.setAttribute('aria-hidden', 'true');
         });
+        
+        // 패널 스택 초기화
+        this.panelStack = [];
+        this.openPanels.clear();
     }
 
     hideAlertBanner() {
@@ -519,13 +619,20 @@ class UIHandler {
         }
     }
 
-    // Tutorial methods
+    // Tutorial methods - 개선된 튜토리얼 로직
+    handleTutorialNext() {
+        if (this.currentTutorialStep < this.totalTutorialSteps) {
+            this.nextTutorialStep();
+        } else {
+            // 마지막 단계에서 "완료" 버튼을 눌렀을 때
+            this.completeTutorial();
+        }
+    }
+
     nextTutorialStep() {
         if (this.currentTutorialStep < this.totalTutorialSteps) {
             this.currentTutorialStep++;
             this.updateTutorialStep();
-        } else {
-            this.completeTutorial();
         }
     }
 
@@ -551,7 +658,10 @@ class UIHandler {
         if (prevBtn) prevBtn.disabled = this.currentTutorialStep === 1;
         if (nextBtn) {
             const isLastStep = this.currentTutorialStep === this.totalTutorialSteps;
-            nextBtn.textContent = isLastStep ? '완료' : '다음';
+            nextBtn.innerHTML = isLastStep ? 
+                '<i class="fas fa-check"></i> 완료' : 
+                '<i class="fas fa-arrow-right"></i> 다음';
+            nextBtn.setAttribute('data-action', isLastStep ? 'complete' : 'next');
         }
     }
 
@@ -570,6 +680,11 @@ class UIHandler {
             overlay.classList.remove('show');
         }
         localStorage.setItem('tutorialCompleted', 'true');
+        
+        // 튜토리얼 완료 후 사용자에게 피드백 제공
+        setTimeout(() => {
+            this.app.showToast('튜토리얼이 완료되었습니다! 이제 감각지도를 사용해보세요.', 'success');
+        }, 300);
     }
 
     // Accessibility settings methods
@@ -705,5 +820,52 @@ class UIHandler {
 
     getSkippedFields() {
         return this.skippedFields;
+    }
+
+    /**
+     * 현재 열린 패널 목록 반환
+     */
+    getOpenPanels() {
+        return Array.from(this.openPanels);
+    }
+
+    /**
+     * 특정 패널이 열려있는지 확인
+     */
+    isPanelOpen(panelId) {
+        return this.openPanels.has(panelId);
+    }
+
+    /**
+     * 패널 스택 상태 반환 (디버깅용)
+     */
+    getPanelStack() {
+        return [...this.panelStack];
+    }
+
+    /**
+     * UI 상태 초기화 (앱 재시작 시 사용)
+     */
+    resetUIState() {
+        this.closeAllPanels();
+        this.closeHamburgerMenu();
+        this.closeSensoryDropdown();
+        this.closeContactModal();
+        this.completeTutorial();
+        this.skippedFields.clear();
+        this.clickedLocation = null;
+        this.currentTutorialStep = 1;
+    }
+
+    /**
+     * 접근성 모드 상태 확인
+     */
+    getAccessibilityState() {
+        return {
+            colorBlind: localStorage.getItem('colorBlindMode') === 'true',
+            highContrast: localStorage.getItem('highContrastMode') === 'true',
+            reducedMotion: localStorage.getItem('reducedMotionMode') === 'true',
+            textSize: localStorage.getItem('textSize') || '1'
+        };
     }
 }
