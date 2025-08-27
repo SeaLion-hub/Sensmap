@@ -1,4 +1,4 @@
-// script.js - 메인 애플리케이션 클래스 
+// script.js - 메인 애플리케이션 클래스 (초기화 순서 및 에러 처리 개선)
 class SensmapApp {
     constructor() {
         // 초기화 상태 추적
@@ -27,7 +27,17 @@ class SensmapApp {
 
             // 1. 기본 유틸리티 설정 (로딩 오버레이 표시용)
             this.utils.setupErrorHandling();
-            this.utils.showLoadingOverlay();
+            
+            // 로딩 오버레이 표시 (메서드 존재 확인)
+            if (typeof this.utils.showLoadingOverlay === 'function') {
+                this.utils.showLoadingOverlay();
+            } else {
+                // 폴백: 직접 로딩 오버레이 표시
+                const loadingOverlay = document.getElementById('loadingOverlay');
+                if (loadingOverlay) {
+                    loadingOverlay.style.display = 'flex';
+                }
+            }
 
             // 2. 지도 초기화 (가장 먼저 실행)
             console.log('📍 지도 초기화 중...');
@@ -67,7 +77,17 @@ class SensmapApp {
 
             // 10. 초기화 완료
             this.initializationState.complete = true;
-            this.utils.hideLoadingOverlay();
+            
+            // 로딩 오버레이 숨김 (메서드 존재 확인)
+            if (typeof this.utils.hideLoadingOverlay === 'function') {
+                this.utils.hideLoadingOverlay();
+            } else {
+                // 폴백: 직접 로딩 오버레이 숨김
+                const loadingOverlay = document.getElementById('loadingOverlay');
+                if (loadingOverlay) {
+                    loadingOverlay.style.display = 'none';
+                }
+            }
             
             console.log('🎉 Sensmap 애플리케이션 초기화 완료');
             this.showToast('애플리케이션이 성공적으로 시작되었습니다', 'success');
@@ -88,8 +108,11 @@ class SensmapApp {
         // 사용자에게 친화적인 에러 메시지 표시
         this.showToast(errorMessage, 'error');
         
-        // 로딩 오버레이 숨김
-        this.utils.hideLoadingOverlay();
+        // 로딩 오버레이 숨김 (안전하게)
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        if (loadingOverlay) {
+            loadingOverlay.style.display = 'none';
+        }
         
         // 에러 바운더리 표시
         this.utils.showErrorBoundary(error, errorDetails);
