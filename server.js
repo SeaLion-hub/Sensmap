@@ -75,7 +75,17 @@ function createResponse(success, data = null, message = '', error = null) {
 async function initializeDatabase() {
     try {
         console.log('🔄 데이터베이스 테이블을 확인하고 생성합니다...');
-        await pool.query(`DROP TABLE IF EXISTS sensory_reports CASCADE;`);
+        
+        // 개발/테스트 환경에서만 테이블 초기화
+        const isDevelopment = process.env.NODE_ENV === 'development' || 
+                             process.env.NODE_ENV === 'test' || 
+                             !process.env.NODE_ENV;
+        
+        if (isDevelopment && process.env.RESET_DB === 'true') {
+            console.log('🔄 개발 환경: 기존 테이블을 삭제하고 재생성합니다...');
+            await pool.query(`DROP TABLE IF EXISTS sensory_reports CASCADE;`);
+        }
+        
         await pool.query(`
             CREATE TABLE IF NOT EXISTS sensory_reports (
                 id SERIAL PRIMARY KEY,
@@ -172,6 +182,79 @@ app.post('/api/reports', async (req, res) => {
     }
 });
 
+// [DELETE] /api/reports/:id - 특정 감각 데이터 삭제
+app.delete('/api/reports/:id', async (req, res) => {
+    try {
+        const reportId = parseInt(req.params.id);
+        
+        if (isNaN(reportId) || reportId <= 0) {
+            return res.status(400).json(createResponse(false, null, '', '유효하지 않은 ID입니다.'));
+        }
+
+        const result = await pool.query(
+            'DELETE FROM sensory_reports WHERE id = $1 RETURNING *',
+            [reportId]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(404).json(createResponse(false, null, '', '삭제할 데이터를 찾을 수 없습니다.'));
+        }
+
+        res.status(200).json(createResponse(true, result.rows[0], '감각 데이터가 성공적으로 삭제되었습니다.'));
+    } catch (err) {
+        console.error('데이터 삭제 중 오류:', err);
+        res.status(500).json(createResponse(false, null, '', '데이터베이스 삭제 중 오류가 발생했습니다.'));
+    }
+});
+
+// [PUT] /api/reports/:id - 특정 감각 데이터 수정 (추가 기능)
+app.put('/api/reports/:id', async (req, res) => {
+    try {
+        const reportId = parseInt(req.params.id);
+        
+        if (isNaN(reportId) || reportId <= 0) {
+            return res.status(400).json(createResponse(false, null, '', '유효하지 않은 ID입니다.'));
+        }
+
+        const validation = validateSensoryData(req.body);
+        if (!validation.valid) {
+            return res.status(400).json(createResponse(false, null, '', validation.message));
+        }
+
+        const { lat, lng, noise, light, odor, crowd, type, duration, wheelchair } = req.body;
+        
+        const cleanData = {
+            lat: parseFloat(lat),
+            lng: parseFloat(lng),
+            noise: noise !== null && noise !== undefined ? parseInt(noise) : null,
+            light: light !== null && light !== undefined ? parseInt(light) : null,
+            odor: odor !== null && odor !== undefined ? parseInt(odor) : null,
+            crowd: crowd !== null && crowd !== undefined ? parseInt(crowd) : null,
+            type: type,
+            duration: duration && duration > 0 ? parseInt(duration) : null,
+            wheelchair: Boolean(wheelchair)
+        };
+
+        const result = await pool.query(
+            `UPDATE sensory_reports 
+             SET lat = $1, lng = $2, noise = $3, light = $4, odor = $5, crowd = $6, 
+                 type = $7, duration = $8, wheelchair = $9, updated_at = NOW()
+             WHERE id = $10 RETURNING *`,
+            [cleanData.lat, cleanData.lng, cleanData.noise, cleanData.light, cleanData.odor, 
+             cleanData.crowd, cleanData.type, cleanData.duration, cleanData.wheelchair, reportId]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(404).json(createResponse(false, null, '', '수정할 데이터를 찾을 수 없습니다.'));
+        }
+
+        res.status(200).json(createResponse(true, result.rows[0], '감각 데이터가 성공적으로 수정되었습니다.'));
+    } catch (err) {
+        console.error('데이터 수정 중 오류:', err);
+        res.status(500).json(createResponse(false, null, '', '데이터베이스 수정 중 오류가 발생했습니다.'));
+    }
+});
+
 // [GET] /api/stats - 모든 데이터 통계 정보 조회 (인증 불필요)
 app.get('/api/stats', async (req, res) => {
     try {
@@ -223,10 +306,12 @@ const server = app.listen(port, '0.0.0.0', async () => {
     console.log(`🌐 환경: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🔐 인증: 비활성화`);
     console.log(`📊 API 엔드포인트:`);
-    console.log(`   GET  /api/health - 서버 상태 확인`);
-    console.log(`   GET  /api/reports - 감각 데이터 조회`);
-    console.log(`   POST /api/reports - 감각 데이터 추가`);
-    console.log(`   GET  /api/stats - 통계 정보 조회`);
+    console.log(`   GET    /api/health - 서버 상태 확인`);
+    console.log(`   GET    /api/reports - 감각 데이터 조회`);
+    console.log(`   POST   /api/reports - 감각 데이터 추가`);
+    console.log(`   PUT    /api/reports/:id - 감각 데이터 수정`);
+    console.log(`   DELETE /api/reports/:id - 감각 데이터 삭제`);
+    console.log(`   GET    /api/stats - 통계 정보 조회`);
     console.log(`========================================`);
 
     try {
