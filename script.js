@@ -1,4 +1,4 @@
-// script.js - 메인 애플리케이션 클래스 (기존 기능 완전 보존)
+// script.js - 메인 애플리케이션 클래스 
 class SensmapApp {
     constructor() {
         // 모든 매니저 클래스 초기화
@@ -138,4 +138,5 @@ window.addEventListener('error', (e) => {
 
 window.addEventListener('unhandledrejection', (e) => {
     console.error('처리되지 않은 Promise 거부:', e.reason);
+
 });
