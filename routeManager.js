@@ -27,7 +27,7 @@ class RouteManager {
 
     startRouteMode() {
         // 기존 패널들 닫기
-        this.app.uiHandler.closePanels();
+        this.app.uiHandler.closeAllPanels();
         
         // 지도 커서 변경
         const mapContainer = document.getElementById('map');
