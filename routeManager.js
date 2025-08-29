@@ -1,5 +1,5 @@
 // routeManager.js - 경로 관리 및 네비게이션 기능
-class RouteManager {
+export class RouteManager {
     constructor(app) {
         this.app = app;
         this.isRouteMode = false;

@@ -1,5 +1,5 @@
 // uiHandler.js - UI 이벤트 처리 및 사용자 인터페이스 관리 (튜토리얼 및 패널 관리 개선)
-class UIHandler {
+export class UIHandler {
     constructor(app) {
         this.app = app;
         this.currentTutorialStep = 1;

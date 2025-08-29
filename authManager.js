@@ -1,5 +1,5 @@
 // authManager.js - 사용자 인증 및 세션 관리
-class AuthManager {
+export class AuthManager {
     constructor(app) {
         this.app = app;
         this.currentUser = null;

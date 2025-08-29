@@ -556,45 +556,7 @@
     <script src="https://unpkg.com/leaflet-geosearch@3.11.0/dist/geosearch.umd.js"></script>
     <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
     
-    <!-- 단일 모듈 진입점 -->
-    <script type="module">
-        // 모든 모듈을 동적으로 임포트
-        Promise.all([
-            import('./mapManager.js'),
-            import('./dataManager.js'),
-            import('./visualizationManager.js'),
-            import('./routeManager.js'),
-            import('./uiHandler.js'),
-            import('./utils.js'),
-            import('./authManager.js'),
-            import('./script.js')
-        ]).then(() => {
-            console.log('✅ 모든 모듈이 로드되었습니다.');
-            
-            // 성능 모니터링
-            setTimeout(() => {
-                const perfData = performance.getEntriesByType('navigation')[0];
-                console.log('🚀 Page load time:', Math.round(perfData.loadEventEnd - perfData.fetchStart), 'ms');
-            }, 100);
-        }).catch(error => {
-            console.error('❌ 모듈 로드 실패:', error);
-            document.getElementById('errorBoundary').style.display = 'flex';
-        });
-
-        // Service Worker 등록 (PWA 기능용)
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                // 서비스 워커가 있을 때 주석 해제
-                // navigator.serviceWorker.register('/sw.js')
-                //     .then((registration) => {
-                //         console.log('SW registered: ', registration);
-                //     })
-                //     .catch((registrationError) => {
-                //         console.log('SW registration failed: ', registrationError);
-                //     });
-            });
-        }
-    </script>
+<script type="module" src="./script.js"></script>
 </body>
 </html>Btn">
                     <i class="fas fa-times"></i>

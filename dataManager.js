@@ -1,5 +1,5 @@
 // dataManager.js - 데이터 관리 및 서버 통신 (인증 통합)
-class DataManager {
+export class DataManager {
     constructor(app) {
         this.app = app;
         this.sensoryData = new Map();

@@ -1,4 +1,12 @@
 // script.js - 메인 애플리케이션 초기화 및 관리 (인증 기능 통합)
+
+import { MapManager } from './mapManager.js';
+import { DataManager } from './dataManager.js';
+import { VisualizationManager } from './visualizationManager.js';
+import { RouteManager } from './routeManager.js';
+import { UIHandler } from './uiHandler.js';
+import { AuthManager } from './authManager.js';
+
 class SensmapApp {
     constructor() {
         this.version = '2.1.0';

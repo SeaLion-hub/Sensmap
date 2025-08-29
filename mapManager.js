@@ -1,5 +1,5 @@
 // mapManager.js - 지도 초기화 및 기본 설정 관리
-class MapManager {
+export class MapManager {
     constructor() {
         this.map = null;
         this.sensoryLayers = null;

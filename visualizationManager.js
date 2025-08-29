@@ -1,5 +1,5 @@
 // visualizationManager.js - 지도 시각화 및 마커 관리
-class VisualizationManager {
+export class VisualizationManager  {
     constructor(app) {
         this.app = app;
         this.currentDisplayMode = 'heatmap'; // heatmap or sensory
