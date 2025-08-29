@@ -143,10 +143,10 @@ class SensmapApp {
         popupContent += `
             <div class="action-grid">
                 <button class="action-btn start" onclick="app.routeManager.setRoutePointFromPopup(${latlng.lat}, ${latlng.lng}, 'start')">
-                    🟢 출발지 설정
+                    출발지 설정
                 </button>
                 <button class="action-btn end" onclick="app.routeManager.setRoutePointFromPopup(${latlng.lat}, ${latlng.lng}, 'end')">
-                    🔴 도착지 설정
+                    도착지 설정
                 </button>
             </div>
         `;
