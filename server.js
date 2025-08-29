@@ -111,7 +111,6 @@ const optionalAuth = (req, res, next) => {
     next();
 };
 
-// --- 데이터베이스 초기화 함수 ---
 async function initializeDatabase() {
     try {
         console.log('🔄 데이터베이스 테이블을 확인하고 생성합니다...');
@@ -127,6 +126,17 @@ async function initializeDatabase() {
             await pool.query(`DROP TABLE IF EXISTS users CASCADE;`);
         }
         
+        // 트리거 함수 먼저 생성 (있으면 교체)
+        await pool.query(`
+            CREATE OR REPLACE FUNCTION update_updated_at_column()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                NEW.updated_at = NOW();
+                RETURN NEW;
+            END;
+            $$ language 'plpgsql'
+        `);
+
         // users 테이블 생성
         await pool.query(`
             CREATE TABLE IF NOT EXISTS users (
@@ -139,17 +149,7 @@ async function initializeDatabase() {
             )
         `);
 
-        // users 테이블용 트리거 함수 및 트리거
-        await pool.query(`
-            CREATE OR REPLACE FUNCTION update_updated_at_column()
-            RETURNS TRIGGER AS $$
-            BEGIN
-                NEW.updated_at = NOW();
-                RETURN NEW;
-            END;
-            $$ language 'plpgsql'
-        `);
-
+        // users 테이블용 트리거
         await pool.query(`
             DROP TRIGGER IF EXISTS update_users_updated_at ON users;
             CREATE TRIGGER update_users_updated_at
@@ -158,7 +158,7 @@ async function initializeDatabase() {
                 EXECUTE FUNCTION update_updated_at_column();
         `);
 
-        // sensory_reports 테이블 생성 (사용자 ID 추가)
+        // sensory_reports 테이블 생성 (user_id 없이 먼저 생성)
         await pool.query(`
             CREATE TABLE IF NOT EXISTS sensory_reports (
                 id SERIAL PRIMARY KEY,
@@ -171,11 +171,53 @@ async function initializeDatabase() {
                 type VARCHAR(20) NOT NULL CHECK (type IN ('irregular', 'regular')),
                 duration INTEGER CHECK (duration > 0),
                 wheelchair BOOLEAN DEFAULT FALSE,
-                user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
                 updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
             )
         `);
+
+        // user_id 컬럼 안전하게 추가 (마이그레이션)
+        try {
+            // 컬럼 존재 여부 확인
+            const columnExists = await pool.query(`
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'sensory_reports' AND column_name = 'user_id'
+            `);
+
+            if (columnExists.rows.length === 0) {
+                console.log('🔄 sensory_reports 테이블에 user_id 컬럼을 추가합니다...');
+                
+                // user_id 컬럼 추가
+                await pool.query(`
+                    ALTER TABLE sensory_reports 
+                    ADD COLUMN user_id INTEGER
+                `);
+
+                // 외래키 제약조건 추가 (users 테이블이 존재하므로 안전)
+                await pool.query(`
+                    ALTER TABLE sensory_reports 
+                    ADD CONSTRAINT fk_sensory_reports_user_id 
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+                `);
+
+                console.log('✅ user_id 컬럼과 외래키 제약조건이 추가되었습니다.');
+            }
+        } catch (migrationError) {
+            console.warn('⚠️ user_id 컬럼 마이그레이션 중 오류 (이미 존재할 수 있음):', migrationError.message);
+            
+            // 외래키 제약조건만 다시 시도 (컬럼은 있지만 제약조건이 없을 수 있음)
+            try {
+                await pool.query(`
+                    ALTER TABLE sensory_reports 
+                    ADD CONSTRAINT fk_sensory_reports_user_id 
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+                `);
+                console.log('✅ 외래키 제약조건이 추가되었습니다.');
+            } catch (fkError) {
+                console.warn('⚠️ 외래키 제약조건 추가 실패 (이미 존재할 수 있음):', fkError.message);
+            }
+        }
 
         // sensory_reports 테이블용 트리거
         await pool.query(`
