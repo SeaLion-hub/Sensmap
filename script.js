@@ -231,14 +231,7 @@ class SensmapApp {
             }
 
             popupContent += '</div>';
-        } else {
-            popupContent += `
-                <div class="data-summary">
-                    <div class="summary-title">ℹ️ 이 위치에는 아직 감각 정보가 없습니다</div>
-                    <div class="data-item">첫 번째 정보를 추가해보세요!</div>
-                </div>
-            `;
-        }
+        } 
 
         // 팝업 표시
         L.popup({
