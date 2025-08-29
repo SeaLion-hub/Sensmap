@@ -176,7 +176,7 @@
     pointer-events: none;
     transition: color 0.3s ease;
     z-index: 2;
-    margin-top: 16px; /* label 높이 고려 */
+    
 }
 
 .form-input:focus + .input-icon,
