@@ -31,6 +31,34 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
 </head>
 <body>
+    <!-- 로그인 모달 추가 -->
+    <div class="modal-overlay" id="loginModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-sign-in-alt"></i> 로그인</h3>
+                <button class="close-btn" id="closeLoginBtn" aria-label="로그인 모달 닫기">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>감각 정보를 등록하고 관리하려면 로그인이 필요합니다.</p>
+                <div class="auth-buttons">
+                    <a href="login.html" class="auth-btn primary">
+                        <i class="fas fa-sign-in-alt"></i>
+                        로그인 / 회원가입
+                    </a>
+                    <button class="auth-btn secondary" id="continueAsGuest">
+                        <i class="fas fa-user"></i>
+                        게스트로 계속하기
+                    </button>
+                </div>
+                <small style="color: #6b7280; font-size: 12px; display: block; margin-top: 12px;">
+                    * 게스트로는 감각 정보 조회만 가능합니다.
+                </small>
+            </div>
+        </div>
+    </div>
+
     <div class="tutorial-overlay" id="tutorialOverlay">
         <div class="tutorial-modal">
             <div class="tutorial-header">
@@ -102,12 +130,33 @@
                     <i class="fas fa-bars"></i>
                 </button>
                 <div class="hamburger-dropdown" id="hamburgerDropdown" aria-hidden="true">
+                    <!-- 사용자 정보 표시 영역 -->
+                    <div class="user-info" id="userInfo" style="display: none;">
+                        <div class="user-avatar">
+                            <i class="fas fa-user-circle"></i>
+                        </div>
+                        <div class="user-details">
+                            <div class="user-name" id="userName">사용자명</div>
+                            <div class="user-email" id="userEmail">user@example.com</div>
+                        </div>
+                    </div>
+                    <div class="menu-separator" id="userSeparator" style="display: none;"></div>
+                    
                     <div class="menu-item">
                         <button class="menu-btn" id="profileMenuBtn">
                             <i class="fas fa-user-cog"></i>
                             <span>감각 프로필</span>
                         </button>
                     </div>
+                    
+                    <!-- 로그인한 사용자만 보이는 메뉴 -->
+                    <div class="menu-item auth-required" style="display: none;">
+                        <button class="menu-btn" id="myDataBtn">
+                            <i class="fas fa-database"></i>
+                            <span>내 데이터</span>
+                        </button>
+                    </div>
+                    
                     <div class="menu-separator"></div>
                     <div class="menu-item">
                         <button class="menu-btn" id="settingsBtn">
@@ -125,6 +174,21 @@
                         <button class="menu-btn" id="contactBtn">
                             <i class="fas fa-envelope"></i>
                             <span>문의하기</span>
+                        </button>
+                    </div>
+                    
+                    <div class="menu-separator"></div>
+                    <!-- 인증 관련 메뉴 -->
+                    <div class="menu-item" id="loginMenuItem">
+                        <button class="menu-btn" id="loginMenuBtn">
+                            <i class="fas fa-sign-in-alt"></i>
+                            <span>로그인</span>
+                        </button>
+                    </div>
+                    <div class="menu-item auth-required" style="display: none;" id="logoutMenuItem">
+                        <button class="menu-btn" id="logoutBtn">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span>로그아웃</span>
                         </button>
                     </div>
                 </div>
@@ -245,6 +309,23 @@
         </div>
         
         <div class="panel-content">
+            <!-- 로그인 안내 메시지 (게스트 사용자용) -->
+            <div class="auth-notice" id="authNotice" style="display: none;">
+                <div class="notice-content">
+                    <i class="fas fa-info-circle"></i>
+                    <div>
+                        <h4>로그인이 필요합니다</h4>
+                        <p>감각 정보를 등록하려면 로그인해주세요.</p>
+                    </div>
+                </div>
+                <div class="notice-actions">
+                    <a href="login.html" class="primary-btn small">
+                        <i class="fas fa-sign-in-alt"></i>
+                        로그인하기
+                    </a>
+                </div>
+            </div>
+
             <form id="sensoryForm" novalidate>
                 <div class="form-group">
                     <label class="form-label">정보 유형</label>
@@ -309,64 +390,6 @@
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label" for="durationInput">
-                        예상 지속 시간(분)
-                        <span class="optional-badge">선택</span>
-                    </label>
-                    <input type="number" class="duration-input" id="durationInput" name="duration" min="1" placeholder="예: 30분, 60분 등 (최대 1시간)" aria-describedby="durationHelp">
-                    <small id="durationHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">비워두면 기본값이 적용됩니다</small>
-                </div>
-
-                <div class="form-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="wheelchair" id="wheelchairInput">
-                        <span>♿ 휠체어 접근 제약</span>
-                    </label>
-                </div>
-
-                <button type="submit" class="primary-btn">
-                    <i class="fas fa-save"></i>
-                    감각 정보 저장
-                </button>
-                
-                <button type="button" class="secondary-btn" id="cancelBtn">
-                    <i class="fas fa-times"></i>
-                    취소
-                </button>
-            </form>
-        </div>
-    </aside>
-
-    <aside class="side-panel" id="profilePanel" aria-hidden="true">
-        <div class="panel-header">
-            <div class="panel-title">감각 프로필</div>
-            <div class="panel-subtitle">개인 민감도를 설정하여 맞춤형 경로를 찾아보세요</div>
-            <button class="close-btn" id="closeProfileBtn" aria-label="패널 닫기">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        
-        <div class="panel-content">
-            <form id="profileForm">
-                <div class="form-group">
-                    <label class="form-label" for="noiseThreshold">소음 민감도</label>
-                    <div class="slider-container">
-                        <input type="range" class="range-slider" id="noiseThreshold" name="noiseThreshold" min="0" max="10" value="5" aria-describedby="noiseThresholdHelp">
-                        <div class="range-value">5</div>
-                    </div>
-                    <small id="noiseThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 소음에 민감함</small>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="lightThreshold">빛 민감도</label>
-                    <div class="slider-container">
-                        <input type="range" class="range-slider" id="lightThreshold" name="lightThreshold" min="0" max="10" value="5" aria-describedby="lightThresholdHelp">
-                        <div class="range-value">5</div>
-                    </div>
-                    <small id="lightThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 밝은 빛에 민감함</small>
-                </div>
-
-                <div class="form-group">
                     <label class="form-label" for="odorThreshold">냄새 민감도</label>
                     <div class="slider-container">
                         <input type="range" class="range-slider" id="odorThreshold" name="odorThreshold" min="0" max="10" value="5" aria-describedby="odorThresholdHelp">
@@ -394,6 +417,37 @@
                     취소
                 </button>
             </form>
+        </div>
+    </aside>
+
+    <!-- 내 데이터 패널 추가 -->
+    <aside class="side-panel" id="myDataPanel" aria-hidden="true">
+        <div class="panel-header">
+            <div class="panel-title">내 감각 정보</div>
+            <div class="panel-subtitle">내가 등록한 감각 데이터를 관리하세요</div>
+            <button class="close-btn" id="closeMyDataBtn" aria-label="패널 닫기">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="panel-content">
+            <div class="data-stats" id="myDataStats">
+                <div class="stat-item">
+                    <span class="stat-number" id="totalMyReports">-</span>
+                    <span class="stat-label">총 등록 수</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number" id="recentMyReports">-</span>
+                    <span class="stat-label">최근 7일</span>
+                </div>
+            </div>
+            
+            <div class="data-list" id="myDataList">
+                <div class="loading-placeholder">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <span>데이터를 불러오는 중...</span>
+                </div>
+            </div>
         </div>
     </aside>
 
@@ -462,7 +516,10 @@
     <script src="routeManager.js"></script>
     <script src="uiHandler.js"></script>
     <script src="utils.js"></script>
-    <script src="script.js"></script> <script>
+    <script src="authManager.js"></script>
+    <script src="script.js"></script>
+    
+    <script>
         // Simple performance monitoring
         window.addEventListener('load', () => {
             setTimeout(() => {
@@ -486,4 +543,62 @@
         }
     </script>
 </body>
-</html>
+</html>="durationInput">
+                        예상 지속 시간(분)
+                        <span class="optional-badge">선택</span>
+                    </label>
+                    <input type="number" class="duration-input" id="durationInput" name="duration" min="1" placeholder="예: 30분, 60분 등 (최대 1시간)" aria-describedby="durationHelp">
+                    <small id="durationHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">비워두면 기본값이 적용됩니다</small>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="wheelchair" id="wheelchairInput">
+                        <span>♿ 휠체어 접근 제약</span>
+                    </label>
+                </div>
+
+                <button type="submit" class="primary-btn">
+                    <i class="fas fa-save"></i>
+                    감각 정보 저장
+                </button>
+                
+                <button type="button" class="secondary-btn" id="cancelBtn">
+                    <i class="fas fa-times"></i>
+                    취소
+                </button>
+            </form>
+        </div>
+    </aside>
+
+    <aside class="side-panel" id="profilePanel" aria-hidden="true">
+        <div class="panel-header">
+            <div class="panel-title">감각 프로필</div>
+            <div class="panel-subtitle">개인 민감도를 설정하여 맞춤형 경로를 찾아보세요</div>
+            <button class="close-btn" id="closeProfileBtn" aria-label="패널 닫기">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="panel-content">
+            <form id="profileForm">
+                <div class="form-group">
+                    <label class="form-label" for="noiseThreshold">소음 민감도</label>
+                    <div class="slider-container">
+                        <input type="range" class="range-slider" id="noiseThreshold" name="noiseThreshold" min="0" max="10" value="5" aria-describedby="noiseThresholdHelp">
+                        <div class="range-value">5</div>
+                    </div>
+                    <small id="noiseThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 소음에 민감함</small>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="lightThreshold">빛 민감도</label>
+                    <div class="slider-container">
+                        <input type="range" class="range-slider" id="lightThreshold" name="lightThreshold" min="0" max="10" value="5" aria-describedby="lightThresholdHelp">
+                        <div class="range-value">5</div>
+                    </div>
+                    <small id="lightThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 밝은 빛에 민감함</small>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for
