@@ -8,9 +8,15 @@ require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 3000;
 
-// --- 미들웨어 설정 ---
+// --- 기본 미들웨어 설정 (순서 중요) ---
 app.use(cors());
 app.use(express.json());
+
+// 디버깅을 위한 요청 로깅 미들웨어
+app.use((req, res, next) => {
+    console.log(`${req.method} ${req.url}`);
+    next();
+});
 
 // --- 데이터베이스 연결 풀 설정 ---
 const pool = new Pool({
@@ -113,7 +119,7 @@ const optionalAuth = (req, res, next) => {
 
 async function initializeDatabase() {
     try {
-        console.log('🔄 데이터베이스 테이블을 확인하고 생성합니다...');
+        console.log('📄 데이터베이스 테이블을 확인하고 생성합니다...');
         
         // 개발/테스트 환경에서만 테이블 초기화
         const isDevelopment = process.env.NODE_ENV === 'development' || 
@@ -186,7 +192,7 @@ async function initializeDatabase() {
             `);
 
             if (columnExists.rows.length === 0) {
-                console.log('🔄 sensory_reports 테이블에 user_id 컬럼을 추가합니다...');
+                console.log('📄 sensory_reports 테이블에 user_id 컬럼을 추가합니다...');
                 
                 // user_id 컬럼 추가
                 await pool.query(`
@@ -242,6 +248,18 @@ async function initializeDatabase() {
     }
 }
 
+// ===== 라우팅 순서 정리 (매우 중요) =====
+
+// 1단계: 정적 파일 서빙 (가장 먼저)
+app.use(express.static('.'));
+
+// 2단계: API 라우트들 (순서대로 정의)
+
+// [GET] /api/health - 서버 상태 확인
+app.get('/api/health', (req, res) => {
+    res.json(createResponse(true, { status: 'healthy', database: 'connected' }, 'Server is running'));
+});
+
 // --- 인증 API 엔드포인트 ---
 
 // [POST] /api/users/signup - 회원가입
@@ -290,7 +308,7 @@ app.post('/api/users/signup', async (req, res) => {
     }
 });
 
-// [POST] /api/users/signin - 로그인
+// [POST] /api/users/signin - 로그인 (경로 확정)
 app.post('/api/users/signin', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -357,12 +375,7 @@ app.get('/api/users/profile', verifyToken, async (req, res) => {
     }
 });
 
-// --- 기존 API 엔드포인트 (인증 통합) ---
-
-// [GET] /api/health - 서버 상태 확인
-app.get('/api/health', (req, res) => {
-    res.json(createResponse(true, { status: 'healthy', database: 'connected' }, 'Server is running'));
-});
+// --- 감각 데이터 API 엔드포인트 ---
 
 // [GET] /api/reports - 모든 감각 데이터 조회 (선택적 인증)
 app.get('/api/reports', optionalAuth, async (req, res) => {
@@ -433,34 +446,27 @@ app.post('/api/reports', optionalAuth, async (req, res) => {
     }
 });
 
-// [DELETE] /api/reports/:id - 특정 감각 데이터 삭제 (인증 필요)
-app.delete('/api/reports/:id', verifyToken, async (req, res) => {
+// [GET] /api/reports/my - 내가 작성한 감각 데이터 조회 (인증 필요)
+app.get('/api/reports/my', verifyToken, async (req, res) => {
     try {
-        const reportId = parseInt(req.params.id);
+        const { recent_hours = 168 } = req.query; // 기본 1주일
         
-        if (isNaN(reportId) || reportId <= 0) {
-            return res.status(400).json(createResponse(false, null, '', '유효하지 않은 ID입니다.'));
-        }
-
-        // 해당 데이터가 현재 사용자가 작성한 것인지 확인
-        const report = await pool.query(
-            'SELECT * FROM sensory_reports WHERE id = $1 AND user_id = $2',
-            [reportId, req.user.userId]
-        );
-
-        if (report.rows.length === 0) {
-            return res.status(404).json(createResponse(false, null, '', '삭제할 수 있는 데이터를 찾을 수 없습니다.'));
-        }
-
-        const result = await pool.query(
-            'DELETE FROM sensory_reports WHERE id = $1 AND user_id = $2 RETURNING *',
-            [reportId, req.user.userId]
-        );
-
-        res.status(200).json(createResponse(true, result.rows[0], '감각 데이터가 성공적으로 삭제되었습니다.'));
+        const result = await pool.query(`
+            SELECT 
+                sr.*,
+                u.name as user_name,
+                u.email as user_email
+            FROM sensory_reports sr
+            JOIN users u ON sr.user_id = u.id
+            WHERE sr.user_id = $1 AND sr.created_at > NOW() - INTERVAL '${parseInt(recent_hours)} hours'
+            ORDER BY sr.created_at DESC 
+            LIMIT 1000
+        `, [req.user.userId]);
+        
+        res.status(200).json(createResponse(true, result.rows, `${result.rows.length}개의 내 감각 데이터를 조회했습니다.`));
     } catch (err) {
-        console.error('데이터 삭제 중 오류:', err);
-        res.status(500).json(createResponse(false, null, '', '데이터베이스 삭제 중 오류가 발생했습니다.'));
+        console.error('내 데이터 조회 중 오류:', err);
+        res.status(500).json(createResponse(false, null, '', '데이터베이스 조회 중 오류가 발생했습니다.'));
     }
 });
 
@@ -518,27 +524,34 @@ app.put('/api/reports/:id', verifyToken, async (req, res) => {
     }
 });
 
-// [GET] /api/reports/my - 내가 작성한 감각 데이터 조회 (인증 필요)
-app.get('/api/reports/my', verifyToken, async (req, res) => {
+// [DELETE] /api/reports/:id - 특정 감각 데이터 삭제 (인증 필요)
+app.delete('/api/reports/:id', verifyToken, async (req, res) => {
     try {
-        const { recent_hours = 168 } = req.query; // 기본 1주일
+        const reportId = parseInt(req.params.id);
         
-        const result = await pool.query(`
-            SELECT 
-                sr.*,
-                u.name as user_name,
-                u.email as user_email
-            FROM sensory_reports sr
-            JOIN users u ON sr.user_id = u.id
-            WHERE sr.user_id = $1 AND sr.created_at > NOW() - INTERVAL '${parseInt(recent_hours)} hours'
-            ORDER BY sr.created_at DESC 
-            LIMIT 1000
-        `, [req.user.userId]);
-        
-        res.status(200).json(createResponse(true, result.rows, `${result.rows.length}개의 내 감각 데이터를 조회했습니다.`));
+        if (isNaN(reportId) || reportId <= 0) {
+            return res.status(400).json(createResponse(false, null, '', '유효하지 않은 ID입니다.'));
+        }
+
+        // 해당 데이터가 현재 사용자가 작성한 것인지 확인
+        const report = await pool.query(
+            'SELECT * FROM sensory_reports WHERE id = $1 AND user_id = $2',
+            [reportId, req.user.userId]
+        );
+
+        if (report.rows.length === 0) {
+            return res.status(404).json(createResponse(false, null, '', '삭제할 수 있는 데이터를 찾을 수 없습니다.'));
+        }
+
+        const result = await pool.query(
+            'DELETE FROM sensory_reports WHERE id = $1 AND user_id = $2 RETURNING *',
+            [reportId, req.user.userId]
+        );
+
+        res.status(200).json(createResponse(true, result.rows[0], '감각 데이터가 성공적으로 삭제되었습니다.'));
     } catch (err) {
-        console.error('내 데이터 조회 중 오류:', err);
-        res.status(500).json(createResponse(false, null, '', '데이터베이스 조회 중 오류가 발생했습니다.'));
+        console.error('데이터 삭제 중 오류:', err);
+        res.status(500).json(createResponse(false, null, '', '데이터베이스 삭제 중 오류가 발생했습니다.'));
     }
 });
 
@@ -568,22 +581,19 @@ app.get('/api/stats', optionalAuth, async (req, res) => {
     }
 });
 
-// 정적 파일 제공 (프론트엔드)
-app.use(express.static('.'));
-
-// 루트 경로에서 index.html 제공
-app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/index.html');
+// 3단계: API 404 처리 (JSON 응답)
+app.use('/api/*', (req, res) => {
+    res.status(404).json(createResponse(false, null, '', '요청하신 API 엔드포인트를 찾을 수 없습니다.'));
 });
 
-// 로그인 페이지 제공
+// 4단계: SPA 라우팅을 위한 HTML 파일들
 app.get('/login', (req, res) => {
     res.sendFile(__dirname + '/login.html');
 });
 
-// 404 처리
-app.use('*', (req, res) => {
-    res.status(404).json(createResponse(false, null, '', '요청하신 API 엔드포인트를 찾을 수 없습니다.'));
+// 5단계: SPA fallback - 모든 나머지 요청을 index.html로 (가장 마지막)
+app.get('*', (req, res) => {
+    res.sendFile(__dirname + '/index.html');
 });
 
 // 전역 오류 처리
@@ -597,7 +607,7 @@ const server = app.listen(port, '0.0.0.0', async () => {
     console.log(`========================================`);
     console.log(`🚀 Sensmap 백엔드 서버가 시작되었습니다!`);
     console.log(`📍 포트: ${port}`);
-    console.log(`🌐 환경: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🌍 환경: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🔐 인증: 활성화 (JWT)`);
     console.log(`📊 API 엔드포인트:`);
     console.log(`   GET    /api/health - 서버 상태 확인`);
@@ -625,7 +635,7 @@ const server = app.listen(port, '0.0.0.0', async () => {
 
 // 우아한 종료 처리
 const gracefulShutdown = (signal) => {
-    console.log(`🔄 ${signal} 신호를 받았습니다. 서버를 우아하게 종료합니다...`);
+    console.log(`📄 ${signal} 신호를 받았습니다. 서버를 우아하게 종료합니다...`);
     
     server.close((err) => {
         if (err) {

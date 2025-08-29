@@ -24,8 +24,217 @@ class AuthManager {
         document.getElementById('myDataBtn')?.addEventListener('click', () => this.showMyData());
         document.getElementById('closeMyDataBtn')?.addEventListener('click', () => this.closeMyData());
 
+        // 로그인 폼 처리 - 핵심 추가 부분
+        this.setupLoginForm();
+
         // 페이지 로드 시 인증 상태 확인
         this.checkAuthStatus();
+    }
+
+    /**
+     * 로그인 폼 이벤트 리스너 설정
+     */
+    setupLoginForm() {
+        const loginForm = document.getElementById('loginForm');
+        const signupForm = document.getElementById('signupForm');
+        const showSignupBtn = document.getElementById('showSignup');
+        const showLoginBtn = document.getElementById('showLogin');
+
+        // 로그인/회원가입 탭 전환
+        showSignupBtn?.addEventListener('click', () => this.showSignupForm());
+        showLoginBtn?.addEventListener('click', () => this.showLoginForm());
+
+        // 로그인 폼 제출 처리
+        loginForm?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.handleLogin(e.target);
+        });
+
+        // 회원가입 폼 제출 처리
+        signupForm?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.handleSignup(e.target);
+        });
+    }
+
+    /**
+     * 로그인 처리
+     */
+    async handleLogin(form) {
+        const formData = new FormData(form);
+        const email = formData.get('email')?.trim();
+        const password = formData.get('password')?.trim();
+
+        if (!email || !password) {
+            this.app.showToast('이메일과 비밀번호를 입력해주세요.', 'error');
+            return;
+        }
+
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+
+        try {
+            // 로딩 상태 표시
+            submitBtn.disabled = true;
+            submitBtn.textContent = '로그인 중...';
+
+            const response = await fetch(`${this.getServerUrl()}/api/users/signin`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ email, password })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // 로그인 성공
+                this.saveAuth(data.data.token, data.data.user);
+                this.hideLoginModal();
+                this.app.showToast(`${data.data.user.name}님 환영합니다!`, 'success');
+                
+                // 폼 초기화
+                form.reset();
+                
+            } else {
+                // 로그인 실패
+                throw new Error(data.error || data.message || '로그인에 실패했습니다.');
+            }
+
+        } catch (error) {
+            console.error('로그인 실패:', error);
+            
+            let errorMessage = '로그인 중 오류가 발생했습니다.';
+            if (error.message.includes('이메일') || error.message.includes('비밀번호')) {
+                errorMessage = error.message;
+            } else if (!navigator.onLine) {
+                errorMessage = '인터넷 연결을 확인해주세요.';
+            }
+            
+            this.app.showToast(errorMessage, 'error');
+        } finally {
+            // 로딩 상태 해제
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+        }
+    }
+
+    /**
+     * 회원가입 처리
+     */
+    async handleSignup(form) {
+        const formData = new FormData(form);
+        const name = formData.get('name')?.trim();
+        const email = formData.get('email')?.trim();
+        const password = formData.get('password')?.trim();
+        const confirmPassword = formData.get('confirmPassword')?.trim();
+
+        // 기본 유효성 검사
+        if (!name || !email || !password || !confirmPassword) {
+            this.app.showToast('모든 필드를 입력해주세요.', 'error');
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            this.app.showToast('비밀번호가 일치하지 않습니다.', 'error');
+            return;
+        }
+
+        if (password.length < 8) {
+            this.app.showToast('비밀번호는 8자 이상이어야 합니다.', 'error');
+            return;
+        }
+
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+
+        try {
+            // 로딩 상태 표시
+            submitBtn.disabled = true;
+            submitBtn.textContent = '가입 중...';
+
+            const response = await fetch(`${this.getServerUrl()}/api/users/signup`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name, email, password })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // 회원가입 성공
+                this.app.showToast('회원가입이 완료되었습니다! 로그인해주세요.', 'success');
+                
+                // 로그인 폼으로 전환
+                this.showLoginForm();
+                
+                // 이메일 미리 채우기
+                const loginEmailInput = document.querySelector('#loginForm input[name="email"]');
+                if (loginEmailInput) {
+                    loginEmailInput.value = email;
+                }
+                
+                // 폼 초기화
+                form.reset();
+                
+            } else {
+                // 회원가입 실패
+                throw new Error(data.error || data.message || '회원가입에 실패했습니다.');
+            }
+
+        } catch (error) {
+            console.error('회원가입 실패:', error);
+            
+            let errorMessage = '회원가입 중 오류가 발생했습니다.';
+            if (error.message.includes('이메일') || error.message.includes('이름')) {
+                errorMessage = error.message;
+            } else if (!navigator.onLine) {
+                errorMessage = '인터넷 연결을 확인해주세요.';
+            }
+            
+            this.app.showToast(errorMessage, 'error');
+        } finally {
+            // 로딩 상태 해제
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+        }
+    }
+
+    /**
+     * 로그인 폼 표시
+     */
+    showLoginForm() {
+        const loginForm = document.getElementById('loginForm');
+        const signupForm = document.getElementById('signupForm');
+        const loginTab = document.getElementById('loginTab');
+        const signupTab = document.getElementById('signupTab');
+
+        if (loginForm && signupForm && loginTab && signupTab) {
+            loginForm.style.display = 'block';
+            signupForm.style.display = 'none';
+            loginTab.classList.add('active');
+            signupTab.classList.remove('active');
+        }
+    }
+
+    /**
+     * 회원가입 폼 표시
+     */
+    showSignupForm() {
+        const loginForm = document.getElementById('loginForm');
+        const signupForm = document.getElementById('signupForm');
+        const loginTab = document.getElementById('loginTab');
+        const signupTab = document.getElementById('signupTab');
+
+        if (loginForm && signupForm && loginTab && signupTab) {
+            loginForm.style.display = 'none';
+            signupForm.style.display = 'block';
+            loginTab.classList.remove('active');
+            signupTab.classList.add('active');
+        }
     }
 
     /**
@@ -57,10 +266,7 @@ class AuthManager {
 
         try {
             const response = await fetch(`${this.getServerUrl()}/api/users/profile`, {
-                headers: {
-                    'Authorization': `Bearer ${this.token}`,
-                    'Content-Type': 'application/json'
-                }
+                headers: this.getAuthHeaders()
             });
 
             if (response.ok) {
@@ -139,6 +345,8 @@ class AuthManager {
         const modal = document.getElementById('loginModal');
         if (modal) {
             modal.classList.add('show');
+            // 기본적으로 로그인 폼 표시
+            this.showLoginForm();
         }
     }
 
@@ -149,6 +357,10 @@ class AuthManager {
         const modal = document.getElementById('loginModal');
         if (modal) {
             modal.classList.remove('show');
+            
+            // 폼 초기화
+            const forms = modal.querySelectorAll('form');
+            forms.forEach(form => form.reset());
         }
     }
 
@@ -285,10 +497,7 @@ class AuthManager {
     async loadMyData() {
         try {
             const response = await fetch(`${this.getServerUrl()}/api/reports/my`, {
-                headers: {
-                    'Authorization': `Bearer ${this.token}`,
-                    'Content-Type': 'application/json'
-                }
+                headers: this.getAuthHeaders()
             });
 
             const data = await response.json();
@@ -417,10 +626,7 @@ class AuthManager {
         try {
             const response = await fetch(`${this.getServerUrl()}/api/reports/${reportId}`, {
                 method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${this.token}`,
-                    'Content-Type': 'application/json'
-                }
+                headers: this.getAuthHeaders()
             });
 
             const data = await response.json();
@@ -512,7 +718,7 @@ class AuthManager {
     }
 
     /**
-     * 인증 헤더 반환
+     * 인증 헤더 반환 (모든 보호 API에서 사용)
      */
     getAuthHeaders() {
         if (!this.token) {
