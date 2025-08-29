@@ -1,4 +1,4 @@
-// authManager.js - 사용자 인증 및 세션 관리
+// authManager.js - 사용자 인증 및 세션 관리 (UI 및 기능 개선)
 export class AuthManager {
     constructor(app) {
         this.app = app;
@@ -29,6 +29,23 @@ export class AuthManager {
 
         // 페이지 로드 시 인증 상태 확인
         this.checkAuthStatus();
+
+        // 모달 외부 클릭 시 닫기
+        document.getElementById('loginModal')?.addEventListener('click', (e) => {
+            if (e.target.id === 'loginModal') {
+                this.hideLoginModal();
+            }
+        });
+
+        // ESC 키로 모달 닫기
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('loginModal');
+                if (modal && modal.classList.contains('show')) {
+                    this.hideLoginModal();
+                }
+            }
+        });
     }
 
     /**
@@ -37,12 +54,12 @@ export class AuthManager {
     setupLoginForm() {
         const loginForm = document.getElementById('loginForm');
         const signupForm = document.getElementById('signupForm');
-        const showSignupBtn = document.getElementById('showSignup');
-        const showLoginBtn = document.getElementById('showLogin');
+        const loginTab = document.getElementById('loginTab');
+        const signupTab = document.getElementById('signupTab');
 
-        // 로그인/회원가입 탭 전환
-        showSignupBtn?.addEventListener('click', () => this.showSignupForm());
-        showLoginBtn?.addEventListener('click', () => this.showLoginForm());
+        // 탭 전환 이벤트
+        loginTab?.addEventListener('click', () => this.showLoginForm());
+        signupTab?.addEventListener('click', () => this.showSignupForm());
 
         // 로그인 폼 제출 처리
         loginForm?.addEventListener('submit', async (e) => {
@@ -55,6 +72,168 @@ export class AuthManager {
             e.preventDefault();
             await this.handleSignup(e.target);
         });
+
+        // 실시간 폼 검증 이벤트
+        this.setupFormValidation();
+    }
+
+    /**
+     * 실시간 폼 검증 설정
+     */
+    setupFormValidation() {
+        // 비밀번호 강도 체크
+        const signupPassword = document.getElementById('signupPassword');
+        signupPassword?.addEventListener('input', () => this.checkPasswordStrength());
+
+        // 비밀번호 확인 체크
+        const confirmPassword = document.getElementById('confirmPassword');
+        confirmPassword?.addEventListener('input', () => this.checkPasswordMatch());
+
+        // 이메일 유효성 체크
+        document.getElementById('signupEmail')?.addEventListener('blur', (e) => {
+            this.validateEmail(e.target, 'signup');
+        });
+
+        document.getElementById('loginEmail')?.addEventListener('blur', (e) => {
+            this.validateEmail(e.target, 'login');
+        });
+
+        // 이름 유효성 체크
+        document.getElementById('signupName')?.addEventListener('blur', (e) => {
+            this.validateName(e.target);
+        });
+    }
+
+    /**
+     * 비밀번호 강도 검사
+     */
+    checkPasswordStrength() {
+        const password = document.getElementById('signupPassword')?.value || '';
+        const strengthBar = document.getElementById('passwordStrengthBar');
+        const hint = document.getElementById('passwordHint');
+        
+        if (!strengthBar || !hint) return;
+
+        let strength = 0;
+        let message = '';
+
+        if (password.length >= 8) strength += 25;
+        if (password.match(/[a-z]/)) strength += 25;
+        if (password.match(/[A-Z]/)) strength += 25;
+        if (password.match(/[0-9]/) || password.match(/[^A-Za-z0-9]/)) strength += 25;
+
+        strengthBar.style.width = strength + '%';
+
+        if (password.length === 0) {
+            message = '8자 이상의 비밀번호를 입력하세요';
+            hint.style.color = '#6b7280';
+        } else if (strength < 25) {
+            message = '너무 약함 - 더 복잡한 비밀번호를 사용하세요';
+            hint.style.color = '#ef4444';
+        } else if (strength < 50) {
+            message = '약함 - 대문자, 숫자, 특수문자를 포함하세요';
+            hint.style.color = '#f59e0b';
+        } else if (strength < 75) {
+            message = '보통 - 좋은 비밀번호입니다';
+            hint.style.color = '#10b981';
+        } else {
+            message = '강함 - 매우 안전한 비밀번호입니다';
+            hint.style.color = '#10b981';
+        }
+
+        hint.textContent = message;
+    }
+
+    /**
+     * 비밀번호 확인 검사
+     */
+    checkPasswordMatch() {
+        const password = document.getElementById('signupPassword')?.value || '';
+        const confirmPassword = document.getElementById('confirmPassword');
+        
+        if (!confirmPassword) return;
+
+        const confirmValue = confirmPassword.value;
+
+        if (confirmValue && password !== confirmValue) {
+            this.showFieldError(confirmPassword, '비밀번호가 일치하지 않습니다');
+        } else if (confirmValue && password === confirmValue) {
+            this.clearFieldError(confirmPassword);
+            confirmPassword.classList.add('form-success');
+        }
+    }
+
+    /**
+     * 이메일 유효성 검사
+     */
+    validateEmail(emailInput, type) {
+        const email = emailInput.value.trim();
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        if (email && !emailRegex.test(email)) {
+            this.showFieldError(emailInput, '올바른 이메일 주소를 입력하세요');
+        } else if (email) {
+            this.clearFieldError(emailInput);
+            emailInput.classList.add('form-success');
+        }
+    }
+
+    /**
+     * 이름 유효성 검사
+     */
+    validateName(nameInput) {
+        const name = nameInput.value.trim();
+
+        if (name && name.length < 2) {
+            this.showFieldError(nameInput, '이름은 2자 이상이어야 합니다');
+        } else if (name) {
+            this.clearFieldError(nameInput);
+            nameInput.classList.add('form-success');
+        }
+    }
+
+    /**
+     * 필드 에러 표시
+     */
+    showFieldError(field, message) {
+        field.classList.remove('form-success');
+        field.classList.add('form-error');
+        
+        // 기존 에러 메시지 제거
+        const existingError = field.parentNode.querySelector('.error-message');
+        if (existingError) {
+            existingError.remove();
+        }
+
+        // 새 에러 메시지 추가
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i>${message}`;
+        field.parentNode.appendChild(errorDiv);
+    }
+
+    /**
+     * 필드 에러 제거
+     */
+    clearFieldError(field) {
+        field.classList.remove('form-error');
+        
+        const errorMessage = field.parentNode.querySelector('.error-message');
+        if (errorMessage) {
+            errorMessage.remove();
+        }
+    }
+
+    /**
+     * 모든 폼 에러 제거
+     */
+    clearFormErrors() {
+        document.querySelectorAll('.form-input').forEach(input => {
+            input.classList.remove('form-error', 'form-success');
+        });
+        document.querySelectorAll('.error-message').forEach(error => {
+            error.remove();
+        });
     }
 
     /**
@@ -65,18 +244,19 @@ export class AuthManager {
         const email = formData.get('email')?.trim();
         const password = formData.get('password')?.trim();
 
+        // 기본 검증
         if (!email || !password) {
             this.app.showToast('이메일과 비밀번호를 입력해주세요.', 'error');
             return;
         }
 
         const submitBtn = form.querySelector('button[type="submit"]');
-        const originalText = submitBtn.textContent;
+        const originalText = submitBtn.innerHTML;
 
         try {
             // 로딩 상태 표시
             submitBtn.disabled = true;
-            submitBtn.textContent = '로그인 중...';
+            submitBtn.innerHTML = '<div class="loading-spinner"></div> 로그인 중...';
 
             const response = await fetch(`${this.getServerUrl()}/api/users/signin`, {
                 method: 'POST',
@@ -96,19 +276,19 @@ export class AuthManager {
                 
                 // 폼 초기화
                 form.reset();
+                this.clearFormErrors();
                 
             } else {
                 // 로그인 실패
-                throw new Error(data.error || data.message || '로그인에 실패했습니다.');
+                const errorMessage = data.error || data.message || '로그인에 실패했습니다.';
+                this.showFieldError(form.querySelector('#loginEmail'), errorMessage);
             }
 
         } catch (error) {
             console.error('로그인 실패:', error);
             
             let errorMessage = '로그인 중 오류가 발생했습니다.';
-            if (error.message.includes('이메일') || error.message.includes('비밀번호')) {
-                errorMessage = error.message;
-            } else if (!navigator.onLine) {
+            if (!navigator.onLine) {
                 errorMessage = '인터넷 연결을 확인해주세요.';
             }
             
@@ -116,12 +296,12 @@ export class AuthManager {
         } finally {
             // 로딩 상태 해제
             submitBtn.disabled = false;
-            submitBtn.textContent = originalText;
+            submitBtn.innerHTML = originalText;
         }
     }
 
     /**
-     * 회원가입 처리
+     * 회원가입 처리 - 수정된 부분
      */
     async handleSignup(form) {
         const formData = new FormData(form);
@@ -130,29 +310,18 @@ export class AuthManager {
         const password = formData.get('password')?.trim();
         const confirmPassword = formData.get('confirmPassword')?.trim();
 
-        // 기본 유효성 검사
-        if (!name || !email || !password || !confirmPassword) {
-            this.app.showToast('모든 필드를 입력해주세요.', 'error');
-            return;
-        }
-
-        if (password !== confirmPassword) {
-            this.app.showToast('비밀번호가 일치하지 않습니다.', 'error');
-            return;
-        }
-
-        if (password.length < 8) {
-            this.app.showToast('비밀번호는 8자 이상이어야 합니다.', 'error');
+        // 폼 검증
+        if (!this.validateSignupForm(name, email, password, confirmPassword, form)) {
             return;
         }
 
         const submitBtn = form.querySelector('button[type="submit"]');
-        const originalText = submitBtn.textContent;
+        const originalText = submitBtn.innerHTML;
 
         try {
             // 로딩 상태 표시
             submitBtn.disabled = true;
-            submitBtn.textContent = '가입 중...';
+            submitBtn.innerHTML = '<div class="loading-spinner"></div> 가입 중...';
 
             const response = await fetch(`${this.getServerUrl()}/api/users/signup`, {
                 method: 'POST',
@@ -164,34 +333,41 @@ export class AuthManager {
 
             const data = await response.json();
 
-            if (data.success) {
+            if (response.ok && data.success) {
                 // 회원가입 성공
                 this.app.showToast('회원가입이 완료되었습니다! 로그인해주세요.', 'success');
                 
-                // 로그인 폼으로 전환
-                this.showLoginForm();
-                
-                // 이메일 미리 채우기
-                const loginEmailInput = document.querySelector('#loginForm input[name="email"]');
-                if (loginEmailInput) {
-                    loginEmailInput.value = email;
-                }
-                
-                // 폼 초기화
-                form.reset();
+                // 로그인 폼으로 전환하고 이메일 미리 채우기
+                setTimeout(() => {
+                    this.showLoginForm();
+                    const loginEmailInput = document.querySelector('#loginEmail');
+                    if (loginEmailInput) {
+                        loginEmailInput.value = email;
+                    }
+                    
+                    // 폼 초기화
+                    form.reset();
+                    this.clearFormErrors();
+                    this.resetPasswordStrength();
+                }, 1500);
                 
             } else {
                 // 회원가입 실패
-                throw new Error(data.error || data.message || '회원가입에 실패했습니다.');
+                const errorMessage = data.error || data.message || '회원가입에 실패했습니다.';
+                
+                // 이메일 중복 등의 경우 해당 필드에 에러 표시
+                if (errorMessage.includes('이메일') || errorMessage.includes('email')) {
+                    this.showFieldError(form.querySelector('#signupEmail'), errorMessage);
+                } else {
+                    this.app.showToast(errorMessage, 'error');
+                }
             }
 
         } catch (error) {
             console.error('회원가입 실패:', error);
             
             let errorMessage = '회원가입 중 오류가 발생했습니다.';
-            if (error.message.includes('이메일') || error.message.includes('이름')) {
-                errorMessage = error.message;
-            } else if (!navigator.onLine) {
+            if (!navigator.onLine) {
                 errorMessage = '인터넷 연결을 확인해주세요.';
             }
             
@@ -199,7 +375,65 @@ export class AuthManager {
         } finally {
             // 로딩 상태 해제
             submitBtn.disabled = false;
-            submitBtn.textContent = originalText;
+            submitBtn.innerHTML = originalText;
+        }
+    }
+
+    /**
+     * 회원가입 폼 검증
+     */
+    validateSignupForm(name, email, password, confirmPassword, form) {
+        let isValid = true;
+        this.clearFormErrors();
+
+        // 이름 검증
+        if (!name || name.length < 2) {
+            this.showFieldError(form.querySelector('#signupName'), '이름은 2자 이상이어야 합니다');
+            isValid = false;
+        }
+
+        // 이메일 검증
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!email) {
+            this.showFieldError(form.querySelector('#signupEmail'), '이메일을 입력해주세요');
+            isValid = false;
+        } else if (!emailRegex.test(email)) {
+            this.showFieldError(form.querySelector('#signupEmail'), '올바른 이메일 주소를 입력하세요');
+            isValid = false;
+        }
+
+        // 비밀번호 검증
+        if (!password) {
+            this.showFieldError(form.querySelector('#signupPassword'), '비밀번호를 입력해주세요');
+            isValid = false;
+        } else if (password.length < 8) {
+            this.showFieldError(form.querySelector('#signupPassword'), '비밀번호는 8자 이상이어야 합니다');
+            isValid = false;
+        }
+
+        // 비밀번호 확인 검증
+        if (!confirmPassword) {
+            this.showFieldError(form.querySelector('#confirmPassword'), '비밀번호 확인을 입력해주세요');
+            isValid = false;
+        } else if (password !== confirmPassword) {
+            this.showFieldError(form.querySelector('#confirmPassword'), '비밀번호가 일치하지 않습니다');
+            isValid = false;
+        }
+
+        return isValid;
+    }
+
+    /**
+     * 비밀번호 강도 표시 초기화
+     */
+    resetPasswordStrength() {
+        const strengthBar = document.getElementById('passwordStrengthBar');
+        const hint = document.getElementById('passwordHint');
+        
+        if (strengthBar) strengthBar.style.width = '0%';
+        if (hint) {
+            hint.textContent = '8자 이상의 비밀번호를 입력하세요';
+            hint.style.color = '#6b7280';
         }
     }
 
@@ -207,34 +441,29 @@ export class AuthManager {
      * 로그인 폼 표시
      */
     showLoginForm() {
-        const loginForm = document.getElementById('loginForm');
-        const signupForm = document.getElementById('signupForm');
-        const loginTab = document.getElementById('loginTab');
-        const signupTab = document.getElementById('signupTab');
-
-        if (loginForm && signupForm && loginTab && signupTab) {
-            loginForm.style.display = 'block';
-            signupForm.style.display = 'none';
-            loginTab.classList.add('active');
-            signupTab.classList.remove('active');
-        }
+        // 탭 활성화
+        document.querySelectorAll('.auth-tab').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('.auth-form').forEach(form => form.classList.remove('active'));
+        
+        document.getElementById('loginTab')?.classList.add('active');
+        document.getElementById('loginForm')?.classList.add('active');
+        
+        this.clearFormErrors();
     }
 
     /**
      * 회원가입 폼 표시
      */
     showSignupForm() {
-        const loginForm = document.getElementById('loginForm');
-        const signupForm = document.getElementById('signupForm');
-        const loginTab = document.getElementById('loginTab');
-        const signupTab = document.getElementById('signupTab');
-
-        if (loginForm && signupForm && loginTab && signupTab) {
-            loginForm.style.display = 'none';
-            signupForm.style.display = 'block';
-            loginTab.classList.remove('active');
-            signupTab.classList.add('active');
-        }
+        // 탭 활성화
+        document.querySelectorAll('.auth-tab').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('.auth-form').forEach(form => form.classList.remove('active'));
+        
+        document.getElementById('signupTab')?.classList.add('active');
+        document.getElementById('signupForm')?.classList.add('active');
+        
+        this.clearFormErrors();
+        this.resetPasswordStrength();
     }
 
     /**
@@ -347,6 +576,14 @@ export class AuthManager {
             modal.classList.add('show');
             // 기본적으로 로그인 폼 표시
             this.showLoginForm();
+            
+            // 첫 번째 입력 필드에 포커스
+            setTimeout(() => {
+                const firstInput = modal.querySelector('.auth-form.active input:first-of-type');
+                if (firstInput) {
+                    firstInput.focus();
+                }
+            }, 100);
         }
     }
 
@@ -361,6 +598,9 @@ export class AuthManager {
             // 폼 초기화
             const forms = modal.querySelectorAll('form');
             forms.forEach(form => form.reset());
+            
+            this.clearFormErrors();
+            this.resetPasswordStrength();
         }
     }
 
@@ -371,6 +611,7 @@ export class AuthManager {
         this.hideLoginModal();
         localStorage.setItem('sensmap_guest_mode', 'true');
         this.app.showToast('게스트 모드로 계속합니다. 감각 정보 조회만 가능합니다.', 'info');
+        this.updateUI();
     }
 
     /**

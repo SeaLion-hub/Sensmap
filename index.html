@@ -30,78 +30,154 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
 </head>
 <body>
-    <!-- 로그인 모달 (수정된 구조) -->
+    <!-- 개선된 로그인 모달 -->
     <div class="modal-overlay" id="loginModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3><i class="fas fa-sign-in-alt"></i> 로그인 / 회원가입</h3>
+                <h3>
+                    <i class="fas fa-map-marked-alt"></i>
+                    Sensmap
+                </h3>
+                <div class="modal-subtitle">감각 친화적 내비게이션</div>
                 <button class="close-btn" id="closeLoginBtn" aria-label="로그인 모달 닫기">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
+
+            <!-- 탭 네비게이션 -->
+            <div class="auth-tabs">
+                <button class="auth-tab active" id="loginTab">로그인</button>
+                <button class="auth-tab" id="signupTab">회원가입</button>
+            </div>
+
             <div class="modal-body">
-                <!-- 탭 네비게이션 -->
-                <div class="auth-tabs">
-                    <button class="auth-tab active" id="loginTab">로그인</button>
-                    <button class="auth-tab" id="signupTab">회원가입</button>
-                </div>
-                
                 <!-- 로그인 폼 -->
-                <form id="loginForm" style="display: block;">
+                <form class="auth-form active" id="loginForm">
                     <div class="form-group">
                         <label for="loginEmail">이메일</label>
-                        <input type="email" id="loginEmail" name="email" required 
-                               placeholder="이메일을 입력하세요" autocomplete="email">
+                        <input 
+                            type="email" 
+                            class="form-input" 
+                            id="loginEmail" 
+                            name="email" 
+                            placeholder="example@sensmap.com" 
+                            required 
+                            autocomplete="email"
+                        >
+                        <div class="input-icon">
+                            <i class="fas fa-envelope"></i>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="loginPassword">비밀번호</label>
-                        <input type="password" id="loginPassword" name="password" required 
-                               placeholder="비밀번호를 입력하세요" autocomplete="current-password">
+                        <input 
+                            type="password" 
+                            class="form-input" 
+                            id="loginPassword" 
+                            name="password" 
+                            placeholder="비밀번호를 입력하세요" 
+                            required 
+                            autocomplete="current-password"
+                        >
+                        <div class="input-icon">
+                            <i class="fas fa-lock"></i>
+                        </div>
                     </div>
                     <button type="submit" class="auth-btn primary">
                         <i class="fas fa-sign-in-alt"></i>
                         로그인
                     </button>
                 </form>
-                
+
                 <!-- 회원가입 폼 -->
-                <form id="signupForm" style="display: none;">
+                <form class="auth-form" id="signupForm">
                     <div class="form-group">
                         <label for="signupName">이름</label>
-                        <input type="text" id="signupName" name="name" required 
-                               placeholder="이름을 입력하세요" autocomplete="name">
+                        <input 
+                            type="text" 
+                            class="form-input" 
+                            id="signupName" 
+                            name="name" 
+                            placeholder="홍길동" 
+                            required 
+                            autocomplete="name"
+                            minlength="2"
+                        >
+                        <div class="input-icon">
+                            <i class="fas fa-user"></i>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="signupEmail">이메일</label>
-                        <input type="email" id="signupEmail" name="email" required 
-                               placeholder="이메일을 입력하세요" autocomplete="email">
+                        <input 
+                            type="email" 
+                            class="form-input" 
+                            id="signupEmail" 
+                            name="email" 
+                            placeholder="example@sensmap.com" 
+                            required 
+                            autocomplete="email"
+                        >
+                        <div class="input-icon">
+                            <i class="fas fa-envelope"></i>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="signupPassword">비밀번호</label>
-                        <input type="password" id="signupPassword" name="password" required 
-                               placeholder="8자 이상 입력하세요" autocomplete="new-password">
+                        <input 
+                            type="password" 
+                            class="form-input" 
+                            id="signupPassword" 
+                            name="password" 
+                            placeholder="8자 이상 입력하세요" 
+                            required 
+                            autocomplete="new-password"
+                            minlength="8"
+                        >
+                        <div class="input-icon">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                        <div class="password-strength">
+                            <div class="password-strength-bar" id="passwordStrengthBar"></div>
+                        </div>
+                        <div class="password-hint" id="passwordHint">8자 이상의 비밀번호를 입력하세요</div>
                     </div>
                     <div class="form-group">
                         <label for="confirmPassword">비밀번호 확인</label>
-                        <input type="password" id="confirmPassword" name="confirmPassword" required 
-                               placeholder="비밀번호를 다시 입력하세요" autocomplete="new-password">
+                        <input 
+                            type="password" 
+                            class="form-input" 
+                            id="confirmPassword" 
+                            name="confirmPassword" 
+                            placeholder="비밀번호를 다시 입력하세요" 
+                            required 
+                            autocomplete="new-password"
+                        >
+                        <div class="input-icon">
+                            <i class="fas fa-lock"></i>
+                        </div>
                     </div>
                     <button type="submit" class="auth-btn primary">
                         <i class="fas fa-user-plus"></i>
                         회원가입
                     </button>
                 </form>
-                
-                <div class="auth-divider">또는</div>
-                
+
+                <div class="auth-divider">
+                    <span>또는</span>
+                </div>
+
                 <button class="auth-btn secondary" id="continueAsGuest">
                     <i class="fas fa-user"></i>
                     게스트로 계속하기
                 </button>
-                
-                <small style="color: #6b7280; font-size: 12px; display: block; margin-top: 12px; text-align: center;">
-                    * 게스트로는 감각 정보 조회만 가능합니다.
-                </small>
+
+                <div class="guest-notice">
+                    <div class="guest-notice-text">
+                        <i class="fas fa-info-circle"></i>
+                        게스트로는 감각 정보 조회만 가능합니다
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -496,6 +572,66 @@
         </div>
     </aside>
 
+    <aside class="side-panel" id="profilePanel" aria-hidden="true">
+        <div class="panel-header">
+            <div class="panel-title">감각 프로필</div>
+            <div class="panel-subtitle">개인 민감도를 설정하여 맞춤형 경로를 찾아보세요</div>
+            <button class="close-btn" id="closeProfileBtn" aria-label="패널 닫기">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="panel-content">
+            <form id="profileForm">
+                <div class="form-group">
+                    <label class="form-label" for="noiseThreshold">소음 민감도</label>
+                    <div class="slider-container">
+                        <input type="range" class="range-slider" id="noiseThreshold" name="noiseThreshold" min="0" max="10" value="5" aria-describedby="noiseThresholdHelp">
+                        <div class="range-value">5</div>
+                    </div>
+                    <small id="noiseThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 소음에 민감함</small>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="lightThreshold">빛 민감도</label>
+                    <div class="slider-container">
+                        <input type="range" class="range-slider" id="lightThreshold" name="lightThreshold" min="0" max="10" value="5" aria-describedby="lightThresholdHelp">
+                        <div class="range-value">5</div>
+                    </div>
+                    <small id="lightThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 밝은 빛에 민감함</small>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="odorThreshold">냄새 민감도</label>
+                    <div class="slider-container">
+                        <input type="range" class="range-slider" id="odorThreshold" name="odorThreshold" min="0" max="10" value="5" aria-describedby="odorThresholdHelp">
+                        <div class="range-value">5</div>
+                    </div>
+                    <small id="odorThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 냄새에 민감함</small>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="crowdThreshold">혼잡 민감도</label>
+                    <div class="slider-container">
+                        <input type="range" class="range-slider" id="crowdThreshold" name="crowdThreshold" min="0" max="10" value="5" aria-describedby="crowdThresholdHelp">
+                        <div class="range-value">5</div>
+                    </div>
+                    <small id="crowdThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 혼잡함에 민감함</small>
+                </div>
+
+                <button type="submit" class="primary-btn">
+                    <i class="fas fa-user-check"></i>
+                    프로필 저장
+                </button>
+                
+                <button type="button" class="secondary-btn" id="cancelProfileBtn">
+                    <i class="fas fa-times"></i>
+                    취소
+                </button>
+            </form>
+        </div>
+    </aside>
+
     <div class="route-controls" id="routeControls" aria-hidden="true">
         <div class="route-info">
             <div class="route-badge" id="routeStatus">출발지 선택</div>
@@ -558,64 +694,4 @@
     
 <script type="module" src="./script.js"></script>
 </body>
-</html>Btn">
-                    <i class="fas fa-times"></i>
-                    취소
-                </button>
-            </form>
-        </div>
-    </aside>
-
-    <aside class="side-panel" id="profilePanel" aria-hidden="true">
-        <div class="panel-header">
-            <div class="panel-title">감각 프로필</div>
-            <div class="panel-subtitle">개인 민감도를 설정하여 맞춤형 경로를 찾아보세요</div>
-            <button class="close-btn" id="closeProfileBtn" aria-label="패널 닫기">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        
-        <div class="panel-content">
-            <form id="profileForm">
-                <div class="form-group">
-                    <label class="form-label" for="noiseThreshold">소음 민감도</label>
-                    <div class="slider-container">
-                        <input type="range" class="range-slider" id="noiseThreshold" name="noiseThreshold" min="0" max="10" value="5" aria-describedby="noiseThresholdHelp">
-                        <div class="range-value">5</div>
-                    </div>
-                    <small id="noiseThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 소음에 민감함</small>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="lightThreshold">빛 민감도</label>
-                    <div class="slider-container">
-                        <input type="range" class="range-slider" id="lightThreshold" name="lightThreshold" min="0" max="10" value="5" aria-describedby="lightThresholdHelp">
-                        <div class="range-value">5</div>
-                    </div>
-                    <small id="lightThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 밝은 빛에 민감함</small>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="odorThreshold">냄새 민감도</label>
-                    <div class="slider-container">
-                        <input type="range" class="range-slider" id="odorThreshold" name="odorThreshold" min="0" max="10" value="5" aria-describedby="odorThresholdHelp">
-                        <div class="range-value">5</div>
-                    </div>
-                    <small id="odorThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 냄새에 민감함</small>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="crowdThreshold">혼잡 민감도</label>
-                    <div class="slider-container">
-                        <input type="range" class="range-slider" id="crowdThreshold" name="crowdThreshold" min="0" max="10" value="5" aria-describedby="crowdThresholdHelp">
-                        <div class="range-value">5</div>
-                    </div>
-                    <small id="crowdThresholdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">높을수록 혼잡함에 민감함</small>
-                </div>
-
-                <button type="submit" class="primary-btn">
-                    <i class="fas fa-user-check"></i>
-                    프로필 저장
-                </button>
-                
-                <button type="button" class="secondary-btn" id="cancel
+</html>
