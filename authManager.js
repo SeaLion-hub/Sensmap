@@ -1,4 +1,4 @@
-// authManager.js - 사용자 인증 및 세션 관리 (UI 및 기능 개선)
+
 export class AuthManager {
     constructor(app) {
         this.app = app;
@@ -301,7 +301,7 @@ export class AuthManager {
     }
 
     /**
-     * 회원가입 처리 - 수정된 부분
+     * 회원가입 처리
      */
     async handleSignup(form) {
         const formData = new FormData(form);
@@ -649,7 +649,6 @@ export class AuthManager {
     }
 
     /**
-     * UI 업데이트
      */
     updateUI() {
         const userInfo = document.getElementById('userInfo');
@@ -971,4 +970,5 @@ export class AuthManager {
             'Content-Type': 'application/json'
         };
     }
+
 }
