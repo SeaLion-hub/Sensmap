@@ -563,6 +563,15 @@ export class UIHandler {
         }
     }
 
+    document.querySelectorAll('.type-option').forEach(option => {
+    option.addEventListener('click', () => {
+        if (option.dataset.type === 'regular') {
+            app.showTimetableSection();
+        }
+    });
+});
+
+
     openSensoryPanel() {
         this.closeAllPanels();
         const panel = document.getElementById('sidePanel');
@@ -868,4 +877,5 @@ export class UIHandler {
             textSize: localStorage.getItem('textSize') || '1'
         };
     }
+
 }
