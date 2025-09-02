@@ -6,7 +6,7 @@ export class DataManager {
         this.gridData = new Map();
         this.lastAddedData = null;
         this.undoStack = [];
-        this.gridSize = 0.0005; // 약 55m 간격
+        this.gridSize = 0.0005; // 약 55m 간격-----수정필요
         this.isOnline = navigator.onLine;
         this.offlineData = [];
         this.syncInProgress = false;

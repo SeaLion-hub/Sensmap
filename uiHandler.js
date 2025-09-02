@@ -619,7 +619,7 @@ export class UIHandler {
         }
     }
 
-    // Tutorial methods - 개선된 튜토리얼 로직
+    // Tutorial methods 
     handleTutorialNext() {
         if (this.currentTutorialStep < this.totalTutorialSteps) {
             this.nextTutorialStep();

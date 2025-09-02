@@ -1,4 +1,4 @@
-// mapManager.js - 지도 초기화 및 기본 설정 관리
+// mapManager.js
 export class MapManager {
     constructor() {
         this.map = null;
