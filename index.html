@@ -528,6 +528,52 @@
                     </label>
                 </div>
 
+                               <section class="timetable-section" id="timetableSection" aria-label="시간표" style="display: none;">
+                <div class="timetable-header">
+                    <div class="timetable-title">시간표</div>
+                    <div class="timetable-date" id="timetableDateLabel"></div>
+                    <div class="timetable-select" id="timetableSelectInfo" aria-live="polite"></div>
+                </div>
+
+                <!-- 시간표 그리드 -->
+                <div class="timetable-grid" id="timetableGrid">
+                    <div class="time-slots">
+                        <div class="time-slot-header">시간</div>
+                        <div class="time-slot" data-time="06">06:00</div>
+                        <div class="time-slot" data-time="07">07:00</div>
+                        <div class="time-slot" data-time="08">08:00</div>
+                        <div class="time-slot" data-time="09">09:00</div>
+                        <div class="time-slot" data-time="10">10:00</div>
+                        <div class="time-slot" data-time="11">11:00</div>
+                        <div class="time-slot" data-time="12">12:00</div>
+                        <div class="time-slot" data-time="13">13:00</div>
+                        <div class="time-slot" data-time="14">14:00</div>
+                        <div class="time-slot" data-time="15">15:00</div>
+                        <div class="time-slot" data-time="16">16:00</div>
+                        <div class="time-slot" data-time="17">17:00</div>
+                        <div class="time-slot" data-time="18">18:00</div>
+                        <div class="time-slot" data-time="19">19:00</div>
+                        <div class="time-slot" data-time="20">20:00</div>
+                        <div class="time-slot" data-time="21">21:00</div>
+                        <div class="time-slot" data-time="22">22:00</div>
+                        <div class="time-slot" data-time="23">23:00</div>
+                    </div>
+                    <div class="time-column" id="timeColumn">
+                        <!-- 동적으로 생성될 시간 컬럼 -->
+                    </div>
+                </div>
+
+                <!-- 시간표 컨트롤 -->
+                <div class="timetable-controls">
+                    <button type="button" class="timetable-btn" id="clearTimetableBtn">
+                        <i class="fas fa-trash"></i> 초기화
+                    </button>
+                    <button type="button" class="timetable-btn" id="applyTimetableBtn">
+                        <i class="fas fa-check"></i> 적용
+                    </button>
+                </div>
+                </section>
+                
                 <button type="submit" class="primary-btn">
                     <i class="fas fa-save"></i>
                     감각 정보 저장
