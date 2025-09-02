@@ -304,36 +304,43 @@ class SensmapApp {
     }
 
     setupTimetableEventListeners() {
-        // Time slot selection
-        document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('time-cell')) {
-                this.toggleTimeSlot(e.target);
+    // 시간 셀 선택
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('time-cell')) {
+            this.toggleTimeSlot(e.target);
+        }
+    });
+
+    // 시간대 전체 선택 (있을 경우)
+    document.querySelectorAll('.time-slot').forEach(slot => {
+        slot.addEventListener('click', () => {
+            this.selectTimeSlot(slot.dataset.time);
+        });
+    });
+
+    // 초기화 버튼
+    document.getElementById('clearTimetableBtn')?.addEventListener('click', () => {
+        this.clearTimetable();
+    });
+
+    // 적용 버튼
+    document.getElementById('applyTimetableBtn')?.addEventListener('click', () => {
+        this.applyTimetable();
+    });
+
+    // 타입 선택 이벤트
+    document.querySelectorAll('.type-option').forEach(option => {
+        option.addEventListener('click', () => {
+            this.updateTimetableForType(option.dataset.type);
+
+            // ⬇️ "지속적" 선택 시 시간표 표시
+            if (option.dataset.type === 'regular') {
+                this.showTimetableSection();
             }
         });
+    });
+}
 
-        // Time slot header selection
-        document.querySelectorAll('.time-slot').forEach(slot => {
-            slot.addEventListener('click', () => {
-                this.selectTimeSlot(slot.dataset.time);
-            });
-        });
-
-        // Timetable controls
-        document.getElementById('clearTimetableBtn')?.addEventListener('click', () => {
-            this.clearTimetable();
-        });
-
-        document.getElementById('applyTimetableBtn')?.addEventListener('click', () => {
-            this.applyTimetable();
-        });
-
-        // Type selector change
-        document.querySelectorAll('.type-option').forEach(option => {
-            option.addEventListener('click', () => {
-                this.updateTimetableForType(option.dataset.type);
-            });
-        });
-    }
 
 
 
@@ -945,4 +952,5 @@ window.addEventListener('unhandledrejection', (event) => {
     event.preventDefault(); // 브라우저 콘솔에 에러가 출력되는 것을 방지
 
 });
+
 
