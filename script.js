@@ -13,6 +13,8 @@ class SensmapApp {
         this.isInitialized = false;
         this.currentToast = null;
         this.undoTimeout = null;
+
+        this.timetableData = new Map();
         
         console.log(`🗺️ Sensmap v${this.version} 초기화 시작...`);
         
@@ -25,6 +27,7 @@ class SensmapApp {
         this.uiHandler = null;
         
         this.initializeApp();
+        
     }
 
     async initializeApp() {
@@ -75,6 +78,7 @@ class SensmapApp {
             
             // 완료 처리
             this.isInitialized = true;
+            this.initializeTimetable();
             this.hideLoadingOverlay();
             
             console.log('✅ Sensmap 초기화 완료!');
@@ -941,3 +945,4 @@ window.addEventListener('unhandledrejection', (event) => {
     event.preventDefault(); // 브라우저 콘솔에 에러가 출력되는 것을 방지
 
 });
+
