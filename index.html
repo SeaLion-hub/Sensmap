@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <!-- Railway 배포 시 자동으로 올바른 URL이 설정되도록 수정 -->
-    <meta name="server-url" content="">
+    <script>
+        window.ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjMzOWIwNWViNGNhZjRhN2FhYmFkZWQ3YWJjYWU1YmY5IiwiaCI6Im11cm11cjY0In0=';  // ← 발급받은 키로 교체
+        // window.ORS_BASE_URL = 'https://api.openrouteservice.org'; // 기본값이면 생략 가능
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sensmap - Advanced Sensory Navigation</title>
@@ -15,54 +17,181 @@
 
     <!-- 동적으로 서버 URL을 감지하는 스크립트 -->
     <script>
-        // Railway 배포 환경을 자동으로 감지하여 서버 URL 설정
-        (function() {
-            const currentHost = window.location.hostname;
-            const currentProtocol = window.location.protocol;
-            
-            // Railway 배포 환경 감지
-            if (currentHost.includes('railway.app') || currentHost.includes('up.railway.app')) {
-                // Railway 환경: 같은 도메인 사용
-                window.SENSMAP_SERVER_URL = `${currentProtocol}//${currentHost}`;
-            }
-            // 로컬 개발 환경
-            else if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
-                window.SENSMAP_SERVER_URL = 'http://localhost:3000';
-            }
-            // 기타 프로덕션 환경
-            else {
-                window.SENSMAP_SERVER_URL = `${currentProtocol}//${currentHost}`;
-            }
-            
-            console.log('🔗 서버 URL 설정:', window.SENSMAP_SERVER_URL);
-        })();
+        window.SENSMAP_SERVER_URL = 'https://sensmap-production.up.railway.app';
+        console.log('서버 URL 설정:', window.SENSMAP_SERVER_URL);
     </script>
     
-    <!-- 나머지 head 내용은 동일... -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>">
     
-    <!-- Meta tags for better SEO and social sharing -->
     <meta name="description" content="Sensmap - 감각 친화적 내비게이션을 통해 더 쾌적한 경로를 찾아보세요">
     <meta name="keywords" content="감각지도, 접근성, 내비게이션, 쾌적한경로, 감각친화적">
     <meta name="author" content="Sensmap Team">
     
-    <!-- Open Graph tags -->
     <meta property="og:title" content="Sensmap - Advanced Sensory Navigation">
     <meta property="og:description" content="감각 친화적 내비게이션을 통해 더 쾌적한 경로를 찾아보세요">
     <meta property="og:type" content="website">
     
-    <!-- CSS Dependencies -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-geosearch@3.11.0/dist/geosearch.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link rel="stylesheet" href="styles.css">
     
-    <!-- Preconnect for better performance -->
     <link rel="preconnect" href="https://unpkg.com">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
 </head>
 <body>
-    <!-- Tutorial Overlay -->
+    <!-- 개선된 로그인 모달 -->
+    <div class="modal-overlay" id="loginModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>
+                    <i class="fas fa-map-marked-alt"></i>
+                    Sensmap
+                </h3>
+                <div class="modal-subtitle">감각 친화적 내비게이션</div>
+                <button class="close-btn" id="closeLoginBtn" aria-label="로그인 모달 닫기">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- 탭 네비게이션 -->
+            <div class="auth-tabs">
+                <button class="auth-tab active" id="loginTab">로그인</button>
+                <button class="auth-tab" id="signupTab">회원가입</button>
+            </div>
+
+            <div class="modal-body">
+                <!-- 로그인 폼 -->
+                <form class="auth-form active" id="loginForm">
+                    <div class="form-group">
+                        <label for="loginEmail">이메일</label>
+                        <input 
+                            type="email" 
+                            class="form-input" 
+                            id="loginEmail" 
+                            name="email" 
+                            placeholder="example@sensmap.com" 
+                            required 
+                            autocomplete="email"
+                        >
+                        <div class="input-icon">
+                            <i class="fas fa-envelope"></i>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPassword">비밀번호</label>
+                        <input 
+                            type="password" 
+                            class="form-input" 
+                            id="loginPassword" 
+                            name="password" 
+                            placeholder="비밀번호를 입력하세요" 
+                            required 
+                            autocomplete="current-password"
+                        >
+                        <div class="input-icon">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                    </div>
+                    <button type="submit" class="auth-btn primary">
+                        <i class="fas fa-sign-in-alt"></i>
+                        로그인
+                    </button>
+                </form>
+
+                <!-- 회원가입 폼 -->
+                <form class="auth-form" id="signupForm">
+                    <div class="form-group">
+                        <label for="signupName">이름</label>
+                        <input 
+                            type="text" 
+                            class="form-input" 
+                            id="signupName" 
+                            name="name" 
+                            placeholder="홍길동" 
+                            required 
+                            autocomplete="name"
+                            minlength="2"
+                        >
+                        <div class="input-icon">
+                            <i class="fas fa-user"></i>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="signupEmail">이메일</label>
+                        <input 
+                            type="email" 
+                            class="form-input" 
+                            id="signupEmail" 
+                            name="email" 
+                            placeholder="example@sensmap.com" 
+                            required 
+                            autocomplete="email"
+                        >
+                        <div class="input-icon">
+                            <i class="fas fa-envelope"></i>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="signupPassword">비밀번호</label>
+                        <input 
+                            type="password" 
+                            class="form-input" 
+                            id="signupPassword" 
+                            name="password" 
+                            placeholder="8자 이상 입력하세요" 
+                            required 
+                            autocomplete="new-password"
+                            minlength="8"
+                        >
+                        <div class="input-icon">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                        <div class="password-strength">
+                            <div class="password-strength-bar" id="passwordStrengthBar"></div>
+                        </div>
+                        <div class="password-hint" id="passwordHint">8자 이상의 비밀번호를 입력하세요</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">비밀번호 확인</label>
+                        <input 
+                            type="password" 
+                            class="form-input" 
+                            id="confirmPassword" 
+                            name="confirmPassword" 
+                            placeholder="비밀번호를 다시 입력하세요" 
+                            required 
+                            autocomplete="new-password"
+                        >
+                        <div class="input-icon">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                    </div>
+                    <button type="submit" class="auth-btn primary">
+                        <i class="fas fa-user-plus"></i>
+                        회원가입
+                    </button>
+                </form>
+
+                <div class="auth-divider">
+                    <span>또는</span>
+                </div>
+
+                <button class="auth-btn secondary" id="continueAsGuest">
+                    <i class="fas fa-user"></i>
+                    게스트로 계속하기
+                </button>
+
+                <div class="guest-notice">
+                    <div class="guest-notice-text">
+                        <i class="fas fa-info-circle"></i>
+                        게스트로는 감각 정보 조회만 가능합니다
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="tutorial-overlay" id="tutorialOverlay">
         <div class="tutorial-modal">
             <div class="tutorial-header">
@@ -104,7 +233,6 @@
         </div>
     </div>
 
-    <!-- Loading Overlay -->
     <div class="loading-overlay" id="loadingOverlay">
         <div class="loading-spinner">
             <div class="spinner"></div>
@@ -112,7 +240,6 @@
         </div>
     </div>
 
-    <!-- Error Boundary -->
     <div class="error-boundary" id="errorBoundary" style="display: none;">
         <div class="error-content">
             <i class="fas fa-exclamation-triangle"></i>
@@ -124,7 +251,6 @@
         </div>
     </div>
 
-    <!-- Header Controls -->
     <header class="header-controls">
         <div class="header-left">
             <div class="logo">
@@ -137,12 +263,33 @@
                     <i class="fas fa-bars"></i>
                 </button>
                 <div class="hamburger-dropdown" id="hamburgerDropdown" aria-hidden="true">
+                    <!-- 사용자 정보 표시 영역 -->
+                    <div class="user-info" id="userInfo" style="display: none;">
+                        <div class="user-avatar">
+                            <i class="fas fa-user-circle"></i>
+                        </div>
+                        <div class="user-details">
+                            <div class="user-name" id="userName">사용자명</div>
+                            <div class="user-email" id="userEmail">user@example.com</div>
+                        </div>
+                    </div>
+                    <div class="menu-separator" id="userSeparator" style="display: none;"></div>
+                    
                     <div class="menu-item">
                         <button class="menu-btn" id="profileMenuBtn">
                             <i class="fas fa-user-cog"></i>
                             <span>감각 프로필</span>
                         </button>
                     </div>
+                    
+                    <!-- 로그인한 사용자만 보이는 메뉴 -->
+                    <div class="menu-item auth-required" style="display: none;">
+                        <button class="menu-btn" id="myDataBtn">
+                            <i class="fas fa-database"></i>
+                            <span>내 데이터</span>
+                        </button>
+                    </div>
+                    
                     <div class="menu-separator"></div>
                     <div class="menu-item">
                         <button class="menu-btn" id="settingsBtn">
@@ -162,6 +309,21 @@
                             <span>문의하기</span>
                         </button>
                     </div>
+                    
+                    <div class="menu-separator"></div>
+                    <!-- 인증 관련 메뉴 -->
+                    <div class="menu-item" id="loginMenuItem">
+                        <button class="menu-btn" id="loginMenuBtn">
+                            <i class="fas fa-sign-in-alt"></i>
+                            <span>로그인</span>
+                        </button>
+                    </div>
+                    <div class="menu-item auth-required" style="display: none;" id="logoutMenuItem">
+                        <button class="menu-btn" id="logoutBtn">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span>로그아웃</span>
+                        </button>
+                    </div>
                 </div>
             </nav>
         </div>
@@ -177,7 +339,7 @@
                     </button>
                     <div id="sensoryDropdown" class="sensory-dropdown">
                          <div class="sensory-option active" data-sensory="all">
-                            <span class="sensory-icon">🌐</span> 전체
+                            <span class="sensory-icon">🌍</span> 전체
                         </div>
                         <div class="sensory-option" data-sensory="noise">
                             <span class="sensory-icon">🔊</span> 소음
@@ -212,7 +374,6 @@
         </div>
     </header>
 
-    <!-- Settings Panel -->
     <aside class="settings-panel" id="settingsPanel">
         <div class="panel-header">
             <div class="panel-title">설정</div>
@@ -243,13 +404,12 @@
                 </div>
                 <div class="setting-option">
                     <label for="textSizeSlider">텍스트 크기</label>
-                    <input type="range" id="textSizeSlider" min="0.8" max="1.5" step="0.1" value="1">
+                    <input type="range" class="range-slider" id="textSizeSlider" min="0.8" max="1.5" step="0.1" value="1">
                 </div>
             </section>
         </div>
     </aside>
 
-    <!-- Contact Modal -->
     <div class="modal-overlay" id="contactModal">
         <div class="modal-content">
             <div class="modal-header">
@@ -270,10 +430,8 @@
         </div>
     </div>
 
-    <!-- Main Map Container -->
     <main id="map" role="application" aria-label="감각 지도" tabindex="0"></main>
 
-    <!-- Sensory Data Input Panel -->
     <aside class="side-panel" id="sidePanel" aria-hidden="true">
         <div class="panel-header">
             <div class="panel-title">감각 정보 입력</div>
@@ -284,6 +442,23 @@
         </div>
         
         <div class="panel-content">
+            <!-- 로그인 안내 메시지 (게스트 사용자용) -->
+            <div class="auth-notice" id="authNotice" style="display: none;">
+                <div class="notice-content">
+                    <i class="fas fa-info-circle"></i>
+                    <div>
+                        <h4>로그인이 필요합니다</h4>
+                        <p>감각 정보를 등록하려면 로그인해주세요.</p>
+                    </div>
+                </div>
+                <div class="notice-actions">
+                    <button class="primary-btn small" onclick="authManager.showLoginModal()">
+                        <i class="fas fa-sign-in-alt"></i>
+                        로그인하기
+                    </button>
+                </div>
+            </div>
+
             <form id="sensoryForm" novalidate>
                 <div class="form-group">
                     <label class="form-label">정보 유형</label>
@@ -293,7 +468,7 @@
                             <div class="type-desc">공사, 이벤트 등<br>(최대 1시간)</div>
                         </div>
                         <div class="type-option" data-type="regular" tabindex="0" role="button" aria-pressed="false">
-                            <div class="type-title">🏢 지속적</div>
+                            <div class="type-title">🟢 지속적</div>
                             <div class="type-desc">건물, 도로 특성<br>(최대 6시간)</div>
                         </div>
                     </div>
@@ -347,7 +522,7 @@
                     <small id="crowdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">0: 한적함, 10: 매우 혼잡함</small>
                 </div>
 
-                <div class="form-group">
+                <div class="form-group" id="durationGroup" style="display: none;">
                     <label class="form-label" for="durationInput">
                         예상 지속 시간(분)
                         <span class="optional-badge">선택</span>
@@ -368,7 +543,7 @@
                     감각 정보 저장
                 </button>
                 
-                <button type="button" class="secondary-btn" id="cancelBtn">
+                <button type="button" class="secondary-btn" id="cancelProfileBtn">
                     <i class="fas fa-times"></i>
                     취소
                 </button>
@@ -376,7 +551,37 @@
         </div>
     </aside>
 
-    <!-- Profile Panel -->
+    <!-- 내 데이터 패널 추가 -->
+    <aside class="side-panel" id="myDataPanel" aria-hidden="true">
+        <div class="panel-header">
+            <div class="panel-title">내 감각 정보</div>
+            <div class="panel-subtitle">내가 등록한 감각 데이터를 관리하세요</div>
+            <button class="close-btn" id="closeMyDataBtn" aria-label="패널 닫기">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="panel-content">
+            <div class="data-stats" id="myDataStats">
+                <div class="stat-item">
+                    <span class="stat-number" id="totalMyReports">-</span>
+                    <span class="stat-label">총 등록 수</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number" id="recentMyReports">-</span>
+                    <span class="stat-label">최근 7일</span>
+                </div>
+            </div>
+            
+            <div class="data-list" id="myDataList">
+                <div class="loading-placeholder">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <span>데이터를 불러오는 중...</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
     <aside class="side-panel" id="profilePanel" aria-hidden="true">
         <div class="panel-header">
             <div class="panel-title">감각 프로필</div>
@@ -429,7 +634,7 @@
                     프로필 저장
                 </button>
                 
-                <button type="button" class="secondary-btn" id="cancelProfileBtn">
+                <button type="button" class="secondary-btn" id="cancelMyDataBtn">
                     <i class="fas fa-times"></i>
                     취소
                 </button>
@@ -437,7 +642,6 @@
         </div>
     </aside>
 
-    <!-- Route Controls -->
     <div class="route-controls" id="routeControls" aria-hidden="true">
         <div class="route-info">
             <div class="route-badge" id="routeStatus">출발지 선택</div>
@@ -473,7 +677,6 @@
         </button>
     </div>
 
-    <!-- Undo Action -->
     <div class="undo-action" id="undoAction" style="display: none;">
         <span class="undo-text">감각 정보가 추가되었습니다</span>
         <button class="undo-btn" id="undoBtn">
@@ -482,10 +685,8 @@
         </button>
     </div>
 
-    <!-- Toast Notifications -->
     <div class="toast" id="toast" role="alert" aria-live="polite"></div>
 
-    <!-- Alert Banner -->
     <div class="alert-banner" id="alertBanner" style="display: none;">
         <div class="alert-content">
             <i class="fas fa-exclamation-triangle"></i>
@@ -496,35 +697,11 @@
         </button>
     </div>
 
-    <!-- JavaScript Dependencies -->
+    <!-- 외부 라이브러리 스크립트 -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-geosearch@3.11.0/dist/geosearch.umd.js"></script>
     <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
-    <script src="script.js"></script>
-
-    <!-- Performance monitoring (optional) -->
-    <script>
-        // Simple performance monitoring
-        window.addEventListener('load', () => {
-            setTimeout(() => {
-                const perfData = performance.getEntriesByType('navigation')[0];
-                console.log('🚀 Page load time:', Math.round(perfData.loadEventEnd - perfData.fetchStart), 'ms');
-            }, 100);
-        });
-
-        // Service Worker registration for future PWA features
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                // Uncomment when you have a service worker
-                // navigator.serviceWorker.register('/sw.js')
-                //     .then((registration) => {
-                //         console.log('SW registered: ', registration);
-                //     })
-                //     .catch((registrationError) => {
-                //         console.log('SW registration failed: ', registrationError);
-                //     });
-            });
-        }
-    </script>
+    
+<script type="module" src="./script.js"></script>
 </body>
 </html>
