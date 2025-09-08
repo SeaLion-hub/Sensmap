@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+    <script>
+        window.ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjMzOWIwNWViNGNhZjRhN2FhYmFkZWQ3YWJjYWU1YmY5IiwiaCI6Im11cm11cjY0In0=';  // ← 발급받은 키로 교체
+        // window.ORS_BASE_URL = 'https://api.openrouteservice.org'; // 기본값이면 생략 가능
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sensmap - Advanced Sensory Navigation</title>
@@ -624,7 +628,7 @@
                     프로필 저장
                 </button>
                 
-                <button type="button" class="secondary-btn" id="cancelProfileBtn">
+                <button type="button" class="secondary-btn" id="cancelMyDataBtn">
                     <i class="fas fa-times"></i>
                     취소
                 </button>
