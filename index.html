@@ -9,13 +9,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sensmap - Advanced Sensory Navigation</title>
     
-    <script>
-        window.ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjMzOWIwNWViNGNhZjRhN2FhYmFkZWQ3YWJjYWU1YmY5IiwiaCI6Im11cm11cjY0In0=';
-        // window.ORS_BASE_URL = 'https://api.openrouteservice.org';
-    </script>
-    <script src="/js/sensmap-app.js" defer></script>
-
-    <!-- 동적으로 서버 URL을 감지하는 스크립트 -->
+    <!-- 서버 URL 설정 (가장 먼저) -->
     <script>
         window.SENSMAP_SERVER_URL = 'https://sensmap-production.up.railway.app';
         console.log('서버 URL 설정:', window.SENSMAP_SERVER_URL);
