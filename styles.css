@@ -477,7 +477,18 @@ html, body {
     visibility: hidden;
     transition: all 0.3s ease;
     backdrop-filter: blur(5px);
+    pointer-events: auto;
 }
+
+/* 숨긴 로딩 오버레이가 클릭을 가로채지 않도록 */
+.loading-overlay.hidden { pointer-events: none; }
+
+/* 혹시 상위 요소가 pointer-events를 제한하는 경우 방지 */
+.tutorial-modal,
+.tutorial-navigation,
+.tutorial-btn { pointer-events: auto; }
+
+.tutorial-navigation { position: relative; z-index: 10001; }
 
 .tutorial-overlay.show {
     opacity: 1;
