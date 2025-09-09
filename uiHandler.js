@@ -121,6 +121,9 @@ export class UIHandler {
                     }
                 });
             });
+            
+            document.getElementById('locateBtn')?.addEventListener('click', () => this.toggleUserLocation());
+
 
             // Settings controls
             document.getElementById('colorBlindMode')?.addEventListener('change', (e) => this.toggleColorBlindMode(e.target.checked));
