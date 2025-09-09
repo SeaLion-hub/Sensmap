@@ -25,7 +25,13 @@ class SensmapApp {
         this.uiHandler = null;
         
         this.initializeApp();
+
+
     }
+
+    
+
+
 
     async initializeApp() {
         try {
@@ -57,7 +63,10 @@ class SensmapApp {
             this.uiHandler = new UIHandler(this);
             this.uiHandler.setupEventListeners();
             
-            // 7단계: 초기 데이터 로드
+            
+            // 내 위치(Geolocation) UI 및 이벤트 바인딩
+            this.setupGeolocationUI();
+// 7단계: 초기 데이터 로드
             console.log('📡 감각 데이터 로드...');
             await this.dataManager.loadSensoryData();
             
@@ -103,7 +112,9 @@ class SensmapApp {
         if (!this.isInitialized || !this.visualizationManager || !this.mapManager) {
             console.warn('⚠️ 시각화 새로고침 실패: 초기화가 완료되지 않았습니다.');
             return;
-        }
+                this._ensureUserLayerOnTop();
+    }
+
 
         try {
             const showData = document.getElementById('showDataBtn')?.classList.contains('active') ?? true;
@@ -541,6 +552,187 @@ class SensmapApp {
             this.showToast('소중한 의견 감사합니다!', 'success');
         }
     }
+
+
+
+// ===== 내 위치 표시/추적 기능 =====
+setupGeolocationUI() {
+    try {
+        this._geo = {
+            watchId: null,
+            isTracking: false,
+            layer: null,
+            marker: null,
+            accuracy: null,
+            lastCenter: false
+        };
+
+        const btn = document.getElementById('locateBtn');
+        if (!btn) return;
+
+        if (!('geolocation' in navigator)) {
+            btn.disabled = true;
+            btn.title = '이 브라우저에서는 위치 서비스를 지원하지 않습니다';
+            this.showToast('이 브라우저는 위치 서비스를 지원하지 않습니다.', 'error');
+            return;
+        }
+
+        btn.addEventListener('click', () => {
+            if (!this._geo.isTracking) {
+                btn.classList.add('active');
+                this.startUserLocation();
+            } else {
+                btn.classList.remove('active');
+                this.stopUserLocation();
+            }
+        });
+    } catch (e) {
+        console.error('지오로케이션 UI 설정 실패:', e);
+    }
+}
+
+startUserLocation() {
+    if (!this.mapManager) return;
+    const map = this.mapManager.getMap();
+    if (!map) return;
+
+    // 레이어 그룹 준비
+    if (!this._geo.layer) {
+        this._geo.layer = L.layerGroup().addTo(map);
+    } else {
+        this._geo.layer.addTo(map);
+    }
+
+    const opts = {
+        enableHighAccuracy: true,
+        maximumAge: 10000,
+        timeout: 10000
+    };
+
+    // 첫 위치 한 번 가져와서 중심 이동
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            this._handlePositionUpdate(pos, { center: true });
+        },
+        (err) => this._handlePositionError(err),
+        opts
+    );
+
+    // 지속 추적 시작
+    this._geo.watchId = navigator.geolocation.watchPosition(
+        (pos) => this._handlePositionUpdate(pos, { center: false }),
+        (err) => this._handlePositionError(err),
+        opts
+    );
+
+    this._geo.isTracking = true;
+    this.showToast('내 위치 추적을 시작합니다.', 'success');
+}
+
+stopUserLocation() {
+    if (this._geo?.watchId !== null) {
+        try { navigator.geolocation.clearWatch(this._geo.watchId); } catch (_) {}
+    }
+    this._geo.watchId = null;
+    this._geo.isTracking = false;
+
+    // 마커/레이어 정리
+    if (this._geo.marker) { try { this._geo.layer?.removeLayer(this._geo.marker); } catch (_) {} }
+    if (this._geo.accuracy) { try { this._geo.layer?.removeLayer(this._geo.accuracy); } catch (_) {} }
+    this._geo.marker = null;
+    this._geo.accuracy = null;
+
+    // 레이어 자체는 남겨두되 지도에서 분리
+    try { this._geo.layer?.remove(); } catch (_) {}
+
+    this.showToast('내 위치 추적을 중지했습니다.', 'info');
+}
+
+_ensureUserLayerOnTop() {
+    if (!this._geo?.layer || !this.mapManager) return;
+    const map = this.mapManager.getMap();
+    if (!map) return;
+    // 레이어가 제거되어 있다면 다시 부착
+    if (!map.hasLayer(this._geo.layer)) this._geo.layer.addTo(map);
+}
+
+_handlePositionUpdate(position, { center }) {
+    if (!this.mapManager) return;
+    const map = this.mapManager.getMap();
+    if (!map) return;
+
+    const { latitude, longitude, accuracy } = position.coords;
+    const latlng = [latitude, longitude];
+
+    // 마커 아이콘 (파란 점)
+    const icon = L.divIcon({
+        className: 'user-location-dot',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+    });
+
+    // 레이어 그룹 보장
+    if (!this._geo.layer) this._geo.layer = L.layerGroup().addTo(map);
+
+    // 마커 업데이트/생성
+    if (!this._geo.marker) {
+        this._geo.marker = L.marker(latlng, { icon, keyboard: false, interactive: false });
+        this._geo.marker.addTo(this._geo.layer);
+    } else {
+        this._geo.marker.setLatLng(latlng);
+    }
+
+    // 정확도 원 업데이트/생성
+    const radius = Math.max(accuracy || 0, 5);
+    if (!this._geo.accuracy) {
+        this._geo.accuracy = L.circle(latlng, {
+            radius,
+            weight: 1,
+            fillOpacity: 0.15,
+            opacity: 0.8,
+            color: '#1a73e8'
+        }).addTo(this._geo.layer);
+    } else {
+        this._geo.accuracy.setLatLng(latlng);
+        this._geo.accuracy.setRadius(radius);
+    }
+
+    // 첫 업데이트 혹은 center 요청 시 지도 중심 이동
+    if (center && !this._geo.lastCenter) {
+        try {
+            const currentZoom = map.getZoom();
+            const targetZoom = Math.max(currentZoom || 13, 15);
+            map.setView(latlng, targetZoom, { animate: true });
+        } catch (_) {}
+        this._geo.lastCenter = true;
+    }
+
+    // 시각화 갱신 이후에도 사용자 레이어를 유지
+    this._ensureUserLayerOnTop();
+}
+
+_handlePositionError(error) {
+    console.warn('지오로케이션 오류:', error);
+    let msg = '위치 정보를 가져올 수 없습니다.';
+    switch (error.code) {
+        case error.PERMISSION_DENIED:
+            msg = '위치 권한이 거부되었습니다. 브라우저 설정에서 권한을 허용해주세요.';
+            break;
+        case error.POSITION_UNAVAILABLE:
+            msg = '위치 정보를 사용할 수 없습니다.';
+            break;
+        case error.TIMEOUT:
+            msg = '위치 요청이 시간 초과되었습니다.';
+            break;
+    }
+    this.showToast(msg, 'error');
+    // 버튼 상태 되돌리기
+    const btn = document.getElementById('locateBtn');
+    if (btn) btn.classList.remove('active');
+    this.stopUserLocation();
+}
+
+
 }
 
 // 전역 변수로 앱 인스턴스 생성 및 노출
@@ -628,3 +820,4 @@ window.addEventListener('unhandledrejection', (event) => {
     }
     event.preventDefault(); // 브라우저 콘솔에 에러가 출력되는 것을 방지
 });
+
