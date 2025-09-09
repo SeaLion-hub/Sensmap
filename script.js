@@ -13,6 +13,8 @@ class SensmapApp {
         this.isInitialized = false;
         this.currentToast = null;
         this.undoTimeout = null;
+
+        this.timetableData = new Map();
         
         console.log(`🗺️ Sensmap v${this.version} 초기화 시작...`);
         
@@ -25,6 +27,7 @@ class SensmapApp {
         this.uiHandler = null;
         
         this.initializeApp();
+        
     }
 
     async initializeApp() {
@@ -75,6 +78,7 @@ class SensmapApp {
             
             // 완료 처리
             this.isInitialized = true;
+            this.initializeTimetable();
             this.hideLoadingOverlay();
             
             console.log('✅ Sensmap 초기화 완료!');
@@ -242,6 +246,334 @@ class SensmapApp {
         .setLatLng(latlng)
         .setContent(popupContent)
         .openOn(map);
+    }
+    
+    // Timetable functionality
+    initializeTimetable() {
+        this.createTimetableGrid();
+        this.setupTimetableEventListeners();
+        this.updateTimetableDisplay();
+    }
+
+    createTimetableGrid() {
+        const timeColumn = document.getElementById('timeColumn');
+        if (!timeColumn) return;
+
+        const timeSlots = ['06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23'];
+
+        timeColumn.innerHTML = '';
+
+        // Time header
+        const timeHeader = document.createElement('div');
+        timeHeader.className = 'time-header';
+        timeHeader.textContent = '선택';
+        timeColumn.appendChild(timeHeader);
+
+        // Time slots
+        timeSlots.forEach(time => {
+            const cell = document.createElement('div');
+            cell.className = 'time-cell';
+            cell.dataset.time = time;
+            cell.dataset.key = time;
+            
+            // Add tooltip for better UX
+            cell.title = `${time}:00`;
+            
+            timeColumn.appendChild(cell);
+        });
+
+        // Apply existing timetable data if available
+        this.applyExistingTimetableData();
+    }
+
+    applyExistingTimetableData() {
+        if (!this.clickedLocation) return;
+
+        const locationKey = `${this.clickedLocation.lat},${this.clickedLocation.lng}`;
+        const savedTimetables = JSON.parse(localStorage.getItem('sensmap_timetables') || '{}');
+        const savedData = savedTimetables[locationKey];
+
+        if (savedData) {
+            savedData.selections.forEach(([key, data]) => {
+                const cell = document.querySelector(`.time-cell[data-key="${key}"]`);
+                if (cell) {
+                    cell.classList.add('has-timetable', data.type);
+                }
+            });
+        }
+    }
+
+    setupTimetableEventListeners() {
+    // 시간 셀 선택
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('time-cell')) {
+            this.toggleTimeSlot(e.target);
+        }
+    });
+
+    // 시간대 전체 선택 (있을 경우)
+    document.querySelectorAll('.time-slot').forEach(slot => {
+        slot.addEventListener('click', () => {
+            this.selectTimeSlot(slot.dataset.time);
+        });
+    });
+
+    // 초기화 버튼
+    document.getElementById('clearTimetableBtn')?.addEventListener('click', () => {
+        this.clearTimetable();
+    });
+
+    // 적용 버튼
+    document.getElementById('applyTimetableBtn')?.addEventListener('click', () => {
+        this.applyTimetable();
+    });
+
+    // 타입 선택 이벤트
+    document.querySelectorAll('.type-option').forEach(option => {
+        option.addEventListener('click', () => {
+            const selectedType = option.dataset.type;
+            this.updateTimetableForType(selectedType);
+
+            if (selectedType === 'regular') {
+                this.showTimetableSection();
+            } else {
+                this.hideTimetableSection();
+            }
+        });
+    });
+}
+
+
+
+
+    toggleTimeSlot(cell) {
+        const key = cell.dataset.key;
+        const isSelected = cell.classList.contains('selected');
+        const selectedType = document.querySelector('.type-option.selected')?.dataset.type || 'irregular';
+
+        if (isSelected) {
+            cell.classList.remove('selected', selectedType);
+            this.timetableData.delete(key);
+        } else {
+            cell.classList.add('selected', selectedType);
+            this.timetableData.set(key, {
+                time: cell.dataset.time,
+                type: selectedType
+            });
+        }
+
+        this.updateTimetableSelectionInfo();
+    }
+
+    selectTimeSlot(time) {
+        const cell = document.querySelector(`.time-cell[data-time="${time}"]`);
+        if (!cell) return;
+        
+        const selectedType = document.querySelector('.type-option.selected')?.dataset.type || 'irregular';
+        const key = cell.dataset.key;
+        const isSelected = cell.classList.contains('selected');
+        
+        if (isSelected) {
+            cell.classList.remove('selected', selectedType);
+            this.timetableData.delete(key);
+        } else {
+            cell.classList.add('selected', selectedType);
+            this.timetableData.set(key, {
+                time: cell.dataset.time,
+                type: selectedType
+            });
+        }
+
+        this.updateTimetableSelectionInfo();
+    }
+
+    updateTimetableForType(type) {
+        // Update existing selections to new type
+        this.timetableData.forEach((data, key) => {
+            data.type = type;
+            const cell = document.querySelector(`.time-cell[data-key="${key}"]`);
+            if (cell) {
+                cell.classList.remove('irregular', 'regular');
+                cell.classList.add(type);
+            }
+        });
+    }
+
+    updateTimetableDisplay() {
+        const dateLabel = document.getElementById('timetableDateLabel');
+        if (dateLabel) {
+            const today = new Date();
+            dateLabel.textContent = `${today.getFullYear()}.${String(today.getMonth() + 1).padStart(2, '0')}.${String(today.getDate()).padStart(2, '0')}`;
+        }
+
+        this.updateTimetableSelectionInfo();
+    }
+
+    updateTimetableSelectionInfo() {
+        const selectInfo = document.getElementById('timetableSelectInfo');
+        if (!selectInfo) return;
+
+        const selectedCount = this.timetableData.size;
+        if (selectedCount === 0) {
+            selectInfo.textContent = '시간대를 선택해주세요';
+        } else {
+            const irregularCount = Array.from(this.timetableData.values()).filter(data => data.type === 'irregular').length;
+            const regularCount = selectedCount - irregularCount;
+            
+            let info = `${selectedCount}개 선택됨`;
+            if (irregularCount > 0) info += ` (일시적: ${irregularCount}개`;
+            if (regularCount > 0) info += `${irregularCount > 0 ? ', ' : ' ('}지속적: ${regularCount}개`;
+            if (irregularCount > 0 || regularCount > 0) info += ')';
+            
+            selectInfo.textContent = info;
+        }
+    }
+
+    clearTimetable() {
+        if (confirm('선택된 모든 시간대를 초기화하시겠습니까?')) {
+            this.timetableData.clear();
+            document.querySelectorAll('.time-cell.selected').forEach(cell => {
+                cell.classList.remove('selected', 'irregular', 'regular');
+            });
+            this.updateTimetableSelectionInfo();
+            this.showToast('시간표가 초기화되었습니다', 'info');
+        }
+    }
+
+    applyTimetable() {
+        if (this.timetableData.size === 0) {
+            this.showToast('선택된 시간대가 없습니다', 'warning');
+            return;
+        }
+
+        // Store timetable data for this location
+        const locationKey = this.clickedLocation ? `${this.clickedLocation.lat},${this.clickedLocation.lng}` : 'current';
+        const timetableInfo = {
+            location: this.clickedLocation,
+            selections: Array.from(this.timetableData.entries()),
+            appliedAt: new Date().toISOString()
+        };
+
+        // Save to localStorage for persistence
+        const savedTimetables = JSON.parse(localStorage.getItem('sensmap_timetables') || '{}');
+        savedTimetables[locationKey] = timetableInfo;
+        localStorage.setItem('sensmap_timetables', JSON.stringify(savedTimetables));
+
+        this.showToast(`${this.timetableData.size}개의 시간대가 적용되었습니다`, 'success');
+        
+        // Close timetable section
+        const timetableSection = document.getElementById('timetableSection');
+        if (timetableSection) {
+            timetableSection.style.display = 'none';
+        }
+    }
+
+    showTimetableSection() {
+        const timetableSection = document.getElementById('timetableSection');
+        if (timetableSection) {
+            timetableSection.style.display = 'block';
+            this.updateTimetableDisplay();
+            
+            // Load existing timetable data for this location if available
+            if (this.clickedLocation) {
+                this.loadTimetableForLocation();
+            }
+        }
+    }
+
+    hideTimetableSection() {
+        const timetableSection = document.getElementById('timetableSection');
+        if (timetableSection) {
+            timetableSection.style.display = 'none';
+        }
+    }
+
+    loadTimetableForLocation() {
+        if (!this.clickedLocation) return;
+
+        const locationKey = `${this.clickedLocation.lat},${this.clickedLocation.lng}`;
+        const savedTimetables = JSON.parse(localStorage.getItem('sensmap_timetables') || '{}');
+        const savedData = savedTimetables[locationKey];
+
+        if (savedData) {
+            // Clear current selections
+            this.timetableData.clear();
+            document.querySelectorAll('.time-cell.selected').forEach(cell => {
+                cell.classList.remove('selected', 'irregular', 'regular');
+            });
+
+            // Apply saved selections
+            savedData.selections.forEach(([key, data]) => {
+                this.timetableData.set(key, data);
+                const cell = document.querySelector(`.time-cell[data-key="${key}"]`);
+                if (cell) {
+                    cell.classList.add('selected', data.type);
+                }
+            });
+
+            this.updateTimetableSelectionInfo();
+            this.showToast('저장된 시간표를 불러왔습니다', 'info');
+        }
+    }
+
+    getTimetableForLocation(latlng) {
+        const locationKey = `${latlng.lat},${latlng.lng}`;
+        const savedTimetables = JSON.parse(localStorage.getItem('sensmap_timetables') || '{}');
+        return savedTimetables[locationKey] || null;
+    }
+
+    isTimeInTimetable(date, latlng) {
+        const timetable = this.getTimetableForLocation(latlng);
+        if (!timetable) return false;
+
+        const hour = date.getHours();
+        const timeKey = String(hour).padStart(2, '0');
+
+        return timetable.selections.some(([key, data]) => key === timeKey);
+    }
+
+    viewTimetableInfo(gridKey) {
+        const cellData = this.gridData.get(gridKey);
+        if (!cellData || !cellData.reports || cellData.reports.length === 0) {
+            this.showToast('시간표 정보가 없습니다', 'warning');
+            return;
+        }
+
+        // Find reports with timetable data
+        const reportsWithTimetable = cellData.reports.filter(report => 
+            report.timetable && report.timetable.length > 0
+        );
+
+        if (reportsWithTimetable.length === 0) {
+            this.showToast('이 위치에는 시간표가 설정된 데이터가 없습니다', 'info');
+            return;
+        }
+
+        // Create timetable summary popup
+        let timetableContent = '<div class="timetable-summary">';
+        timetableContent += '<h4>📅 시간표 정보</h4>';
+        
+        reportsWithTimetable.forEach((report, index) => {
+            const timeAgo = this.getTimeAgo(report.timestamp);
+            timetableContent += `<div class="timetable-report">`;
+            timetableContent += `<div class="report-header">${timeAgo}에 등록됨</div>`;
+            
+            const timeSlots = [];
+            
+            report.timetable.forEach(([key, data]) => {
+                timeSlots.push(data.time);
+            });
+
+            const times = timeSlots.sort().join(', ');
+            timetableContent += `<div class="day-schedule">${times}시</div>`;
+            
+            timetableContent += `</div>`;
+        });
+        
+        timetableContent += '</div>';
+
+        // Show in a modal or enhanced popup
+        this.showTimetableModal(timetableContent);
     }
 
     // 감각 정보 입력 패널 열기
@@ -627,4 +959,7 @@ window.addEventListener('unhandledrejection', (event) => {
         window.app.handleError('비동기 작업 중 오류가 발생했습니다', event.reason);
     }
     event.preventDefault(); // 브라우저 콘솔에 에러가 출력되는 것을 방지
+
 });
+
+
