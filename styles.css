@@ -2405,3 +2405,20 @@ html {
 ::-webkit-scrollbar-thumb:hover {
     background: #a8a8a8;
 }
+
+/* === User Location Dot (Geolocation) === */
+.user-location-dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #1a73e8; /* solid fill */
+    border: 2px solid #ffffff; /* small white edge for contrast on any basemap */
+    box-shadow: 0 0 0 6px rgba(26,115,232,0.18);
+    animation: pulseMarker 2s ease-in-out infinite;
+}
+
+@keyframes pulseMarker {
+    0% { box-shadow: 0 0 0 4px rgba(26,115,232,0.20); transform: scale(1); }
+    50% { box-shadow: 0 0 0 10px rgba(26,115,232,0.08); transform: scale(1.05); }
+    100% { box-shadow: 0 0 0 4px rgba(26,115,232,0.20); transform: scale(1); }
+}
