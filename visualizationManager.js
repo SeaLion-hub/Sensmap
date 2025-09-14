@@ -1,10 +1,14 @@
-// visualizationManager.js - 지도 시각화 및 마커 관리
+// visualizationManager.js - 지도 시각화 및 마커 관리 
 export class VisualizationManager  {
     constructor(app) {
         this.app = app;
         this.currentDisplayMode = 'heatmap'; // heatmap or sensory
         this.currentSensoryFilter = 'all'; // all, noise, light, odor, crowd
         this.showData = true;
+    }
+
+    updateVisualization() {
+        this.refreshVisualization();
     }
 
     refreshVisualization() {
@@ -285,7 +289,19 @@ export class VisualizationManager  {
         }
     }
 
+    /**
+     * 감각 프로필 가져오기 - 수정됨: 서버 프로필 우선 사용
+     */
     getSensitivityProfile() {
+        // 로그인된 사용자의 경우 AuthManager에서 서버 프로필 가져오기
+        if (this.app.authManager && this.app.authManager.getIsLoggedIn()) {
+            const userProfile = this.app.authManager.getUserProfile();
+            if (userProfile) {
+                return userProfile;
+            }
+        }
+        
+        // 서버 프로필이 없거나 로그인하지 않은 경우 로컬스토리지 사용
         try {
             const saved = localStorage.getItem('sensmap_profile');
             return saved ? JSON.parse(saved) : {

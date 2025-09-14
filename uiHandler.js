@@ -1,4 +1,4 @@
-// uiHandler.js - UI 이벤트 처리 및 사용자 인터페이스 관리 (튜토리얼 및 패널 관리 개선)
+// uiHandler.js - UI 이벤트 처리 및 사용자 인터페이스 관리 
 export class UIHandler {
     constructor(app) {
         this.app = app;
@@ -123,7 +123,6 @@ export class UIHandler {
             });
             
             document.getElementById('locateBtn')?.addEventListener('click', () => this.toggleUserLocation());
-
 
             // Settings controls
             document.getElementById('colorBlindMode')?.addEventListener('change', (e) => this.toggleColorBlindMode(e.target.checked));
@@ -299,6 +298,9 @@ export class UIHandler {
                 this.app.showToast(result.message || '감각 정보가 성공적으로 저장되었습니다', 'success');
                 this.resetSensoryForm();
                 this.closeCurrentPanel();
+                
+                // 시각화 새로고침
+                this.app.refreshVisualization();
             }
 
         } catch (error) {
@@ -313,7 +315,10 @@ export class UIHandler {
         }
     }
 
-    handleProfileSubmit(e) {
+    /**
+     * 프로필 폼 제출 처리 - 수정됨: 서버 저장 지원
+     */
+    async handleProfileSubmit(e) {
         e.preventDefault();
 
         try {
@@ -325,11 +330,68 @@ export class UIHandler {
                 crowdThreshold: parseInt(formData.get('crowdThreshold'))
             };
 
-            localStorage.setItem('sensmap_profile', JSON.stringify(profile));
-            this.closeCurrentPanel();
+            // 유효성 검사
+            const thresholds = Object.values(profile);
+            for (let threshold of thresholds) {
+                if (isNaN(threshold) || threshold < 0 || threshold > 10) {
+                    this.app.showToast('모든 임계값은 0-10 사이의 값이어야 합니다.', 'error');
+                    return;
+                }
+            }
 
-            this.app.showToast('감각 프로필이 저장되었습니다', 'success');
-            this.app.refreshVisualization();
+            // 로그인된 사용자인 경우 서버에 저장
+            if (this.app.authManager && this.app.authManager.getIsLoggedIn()) {
+                const submitBtn = e.target.querySelector('button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+                
+                try {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 저장 중...';
+
+                    await this.app.authManager.updateUserProfile(profile);
+                    
+                    // 로컬스토리지에도 저장 (즉시 반영용)
+                    localStorage.setItem('sensmap_profile', JSON.stringify(profile));
+                    
+                    this.closeCurrentPanel();
+                    
+                    // 초기 설정인지 확인
+                    const isInitialSetup = document.querySelector('.initial-profile-notice');
+                    const message = isInitialSetup ? 
+                        '개인 감각 프로필이 설정되었습니다! 이제 개인화된 감각지도를 이용해보세요.' : 
+                        '감각 프로필이 업데이트되었습니다.';
+                    
+                    this.app.showToast(message, 'success');
+                    
+                    // 초기 설정 안내 제거
+                    if (isInitialSetup) {
+                        const notice = document.querySelector('.initial-profile-notice');
+                        if (notice) notice.remove();
+                        
+                        // 패널 제목 원래대로 복원
+                        const panelTitle = document.querySelector('#profilePanel .panel-header h3');
+                        if (panelTitle) {
+                            panelTitle.textContent = '🎯 감각 프로필 설정';
+                        }
+                    }
+                    
+                    // 시각화 새로고침
+                    this.app.refreshVisualization();
+                    
+                } catch (error) {
+                    console.error('서버 프로필 저장 실패:', error);
+                    this.app.showToast('프로필 저장 중 오류가 발생했습니다. 다시 시도해주세요.', 'error');
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            } else {
+                // 로그인하지 않은 사용자는 로컬스토리지에만 저장
+                localStorage.setItem('sensmap_profile', JSON.stringify(profile));
+                this.closeCurrentPanel();
+                this.app.showToast('감각 프로필이 저장되었습니다', 'success');
+                this.app.refreshVisualization();
+            }
 
         } catch (error) {
             this.app.handleError('프로필 저장 중 오류가 발생했습니다', error);
@@ -560,6 +622,9 @@ export class UIHandler {
         panel.setAttribute('aria-hidden', 'false');
         this.addPanelToStack('profilePanel');
 
+        // 프로필 데이터 로드
+        this.loadSavedData();
+
         const firstInput = panel.querySelector('input, button');
         if (firstInput) {
             setTimeout(() => firstInput.focus(), 100);
@@ -737,8 +802,26 @@ export class UIHandler {
         }
     }
 
+    /**
+     * 저장된 프로필 데이터 로드 - 수정됨: 서버에서 프로필 가져오기 우선
+     */
     loadSavedData() {
-        const profile = this.getSensitivityProfile();
+        let profile;
+        
+        // 로그인된 사용자의 경우 서버 프로필 우선 사용
+        if (this.app.authManager && this.app.authManager.getIsLoggedIn()) {
+            const userProfile = this.app.authManager.getUserProfile();
+            if (userProfile) {
+                profile = userProfile;
+            } else {
+                // 서버 프로필이 없으면 로컬스토리지에서 가져오기
+                profile = this.getSensitivityProfile();
+            }
+        } else {
+            // 로그인하지 않은 사용자는 로컬스토리지에서 가져오기
+            profile = this.getSensitivityProfile();
+        }
+
         Object.keys(profile).forEach(key => {
             const slider = document.getElementById(key);
             const valueDisplay = slider?.parentNode?.querySelector('.range-value');
@@ -763,7 +846,19 @@ export class UIHandler {
         document.documentElement.style.setProperty('--text-size', `${textSize}rem`);
     }
 
+    /**
+     * 감각 프로필 가져오기 - 수정됨: 서버 프로필 우선 사용
+     */
     getSensitivityProfile() {
+        // 로그인된 사용자의 경우 서버에서 가져온 프로필 우선 사용
+        if (this.app.authManager && this.app.authManager.getIsLoggedIn()) {
+            const userProfile = this.app.authManager.getUserProfile();
+            if (userProfile) {
+                return userProfile;
+            }
+        }
+        
+        // 서버 프로필이 없거나 로그인하지 않은 경우 로컬스토리지 사용
         try {
             const saved = localStorage.getItem('sensmap_profile');
             return saved ? JSON.parse(saved) : {

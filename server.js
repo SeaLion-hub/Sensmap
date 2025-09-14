@@ -32,7 +32,7 @@ pool.on('connect', () => {
 });
 
 pool.on('error', (err) => {
-    console.error('❌ PostgreSQL 연결에 예상치 못한 오류가 발생했습니다:', err);
+    console.error('⛔ PostgreSQL 연결에 예상치 못한 오류가 발생했습니다:', err);
 });
 
 // --- JWT 설정 ---
@@ -68,7 +68,7 @@ async function cleanupExpiredData() {
             console.log(`🧹 ${result.rowCount}개의 만료된 데이터를 자동으로 정리했습니다.`);
         }
     } catch (error) {
-        console.error('❌ 데이터 자동 정리 중 오류:', error);
+        console.error('⛔ 데이터 자동 정리 중 오류:', error);
     }
 }
 
@@ -127,7 +127,7 @@ async function initializeDatabase() {
                              !process.env.NODE_ENV;
         
         if (isDevelopment && process.env.RESET_DB === 'true') {
-            console.log('🔄 개발 환경: 기존 테이블을 삭제하고 재생성합니다...');
+            console.log('📄 개발 환경: 기존 테이블을 삭제하고 재생성합니다...');
             await pool.query(`DROP TABLE IF EXISTS sensory_reports CASCADE;`);
             await pool.query(`DROP TABLE IF EXISTS users CASCADE;`);
         }
@@ -154,6 +154,35 @@ async function initializeDatabase() {
                 updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
             )
         `);
+
+        // 프로필 컬럼들 안전하게 추가 (마이그레이션)
+        try {
+            // profile_set 컬럼 존재 여부 확인
+            const profileSetExists = await pool.query(`
+                SELECT column_name FROM information_schema.columns 
+                WHERE table_name = 'users' AND column_name = 'profile_set'
+            `);
+            
+            if (profileSetExists.rows.length === 0) {
+                console.log('📄 users 테이블에 프로필 컬럼들을 추가합니다...');
+                
+                await pool.query(`
+                    ALTER TABLE users 
+                    ADD COLUMN profile_set BOOLEAN DEFAULT FALSE,
+                    ADD COLUMN noise_threshold INTEGER DEFAULT 5 CHECK (noise_threshold >= 0 AND noise_threshold <= 10),
+                    ADD COLUMN light_threshold INTEGER DEFAULT 5 CHECK (light_threshold >= 0 AND light_threshold <= 10),
+                    ADD COLUMN odor_threshold INTEGER DEFAULT 5 CHECK (odor_threshold >= 0 AND odor_threshold <= 10),
+                    ADD COLUMN crowd_threshold INTEGER DEFAULT 5 CHECK (crowd_threshold >= 0 AND crowd_threshold <= 10)
+                `);
+                
+                // 기존 사용자들의 profile_set을 true로 설정
+                await pool.query(`UPDATE users SET profile_set = TRUE WHERE profile_set = FALSE`);
+                
+                console.log('✅ 프로필 컬럼들이 추가되었습니다.');
+            }
+        } catch (migrationError) {
+            console.warn('⚠️ 프로필 컬럼 마이그레이션 중 오류 (이미 존재할 수 있음):', migrationError.message);
+        }
 
         // users 테이블용 트리거
         await pool.query(`
@@ -243,7 +272,7 @@ async function initializeDatabase() {
 
         console.log('✅ 데이터베이스 초기화가 완료되었습니다.');
     } catch (error) {
-        console.error('❌ 데이터베이스 초기화 중 오류:', error);
+        console.error('⛔ 데이터베이스 초기화 중 오류:', error);
         throw error;
     }
 }
@@ -318,8 +347,13 @@ app.post('/api/users/signin', async (req, res) => {
             return res.status(400).json(createResponse(false, null, '', '이메일과 비밀번호를 입력해주세요.'));
         }
 
-        // 사용자 찾기
-        const user = await pool.query('SELECT * FROM users WHERE email = $1', [email.trim().toLowerCase()]);
+        // 프로필 정보도 함께 조회
+        const user = await pool.query(`
+            SELECT id, name, email, password, noise_threshold, light_threshold, 
+                   odor_threshold, crowd_threshold, profile_set 
+            FROM users WHERE email = $1
+        `, [email.trim().toLowerCase()]);
+        
         if (user.rows.length === 0) {
             return res.status(401).json(createResponse(false, null, '', '이메일 또는 비밀번호가 올바르지 않습니다.'));
         }
@@ -341,13 +375,21 @@ app.post('/api/users/signin', async (req, res) => {
             { expiresIn: '24h' }
         );
 
+        // 비밀번호 제외하고 반환
+        const userData = {
+            id: user.rows[0].id,
+            name: user.rows[0].name,
+            email: user.rows[0].email,
+            noise_threshold: user.rows[0].noise_threshold,
+            light_threshold: user.rows[0].light_threshold,
+            odor_threshold: user.rows[0].odor_threshold,
+            crowd_threshold: user.rows[0].crowd_threshold,
+            profile_set: user.rows[0].profile_set
+        };
+
         res.json(createResponse(true, {
             token,
-            user: {
-                id: user.rows[0].id,
-                name: user.rows[0].name,
-                email: user.rows[0].email
-            }
+            user: userData
         }, '로그인 성공!'));
 
     } catch (error) {
@@ -360,7 +402,9 @@ app.post('/api/users/signin', async (req, res) => {
 app.get('/api/users/profile', verifyToken, async (req, res) => {
     try {
         const user = await pool.query(
-            'SELECT id, name, email, created_at, updated_at FROM users WHERE id = $1', 
+            `SELECT id, name, email, created_at, updated_at, 
+                    noise_threshold, light_threshold, odor_threshold, crowd_threshold, profile_set 
+             FROM users WHERE id = $1`, 
             [req.user.userId]
         );
         
@@ -371,6 +415,40 @@ app.get('/api/users/profile', verifyToken, async (req, res) => {
         res.json(createResponse(true, user.rows[0]));
     } catch (error) {
         console.error('Profile error:', error);
+        res.status(500).json(createResponse(false, null, '', '서버 오류가 발생했습니다.'));
+    }
+});
+
+// [PUT] /api/users/profile - 사용자 프로필 업데이트
+app.put('/api/users/profile', verifyToken, async (req, res) => {
+    try {
+        const { noiseThreshold, lightThreshold, odorThreshold, crowdThreshold } = req.body;
+        
+        // 유효성 검사
+        const thresholds = [noiseThreshold, lightThreshold, odorThreshold, crowdThreshold];
+        for (let threshold of thresholds) {
+            if (threshold === undefined || threshold === null || 
+                !Number.isInteger(threshold) || threshold < 0 || threshold > 10) {
+                return res.status(400).json(createResponse(false, null, '', '모든 임계값은 0-10 사이의 정수여야 합니다.'));
+            }
+        }
+
+        // 프로필 업데이트
+        const result = await pool.query(`
+            UPDATE users 
+            SET noise_threshold = $1, light_threshold = $2, odor_threshold = $3, 
+                crowd_threshold = $4, profile_set = TRUE, updated_at = NOW()
+            WHERE id = $5 
+            RETURNING id, name, email, noise_threshold, light_threshold, odor_threshold, crowd_threshold, profile_set
+        `, [noiseThreshold, lightThreshold, odorThreshold, crowdThreshold, req.user.userId]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json(createResponse(false, null, '', '사용자를 찾을 수 없습니다.'));
+        }
+
+        res.json(createResponse(true, result.rows[0], '프로필이 성공적으로 저장되었습니다.'));
+    } catch (error) {
+        console.error('Profile update error:', error);
         res.status(500).json(createResponse(false, null, '', '서버 오류가 발생했습니다.'));
     }
 });
@@ -606,7 +684,7 @@ app.use((error, req, res, next) => {
 const server = app.listen(port, '0.0.0.0', async () => {
     console.log(`========================================`);
     console.log(`🚀 Sensmap 백엔드 서버가 시작되었습니다!`);
-    console.log(`📍 포트: ${port}`);
+    console.log(`🔍 포트: ${port}`);
     console.log(`🌍 환경: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🔐 인증: 활성화 (JWT)`);
     console.log(`📊 API 엔드포인트:`);
@@ -614,6 +692,7 @@ const server = app.listen(port, '0.0.0.0', async () => {
     console.log(`   POST   /api/users/signup - 회원가입`);
     console.log(`   POST   /api/users/signin - 로그인`);
     console.log(`   GET    /api/users/profile - 프로필 조회 (인증)`);
+    console.log(`   PUT    /api/users/profile - 프로필 업데이트 (인증)`);
     console.log(`   GET    /api/reports - 감각 데이터 조회`);
     console.log(`   POST   /api/reports - 감각 데이터 추가`);
     console.log(`   GET    /api/reports/my - 내 감각 데이터 조회 (인증)`);
@@ -628,7 +707,7 @@ const server = app.listen(port, '0.0.0.0', async () => {
         setTimeout(cleanupExpiredData, 5000);
         console.log('✅ 서버 초기화가 완료되었습니다.');
     } catch (error) {
-        console.error('❌ 서버 초기화 중 오류:', error);
+        console.error('⛔ 서버 초기화 중 오류:', error);
         process.exit(1);
     }
 });
@@ -639,7 +718,7 @@ const gracefulShutdown = (signal) => {
     
     server.close((err) => {
         if (err) {
-            console.error('❌ 서버 종료 중 오류:', err);
+            console.error('⛔ 서버 종료 중 오류:', err);
             process.exit(1);
         }
         
@@ -647,7 +726,7 @@ const gracefulShutdown = (signal) => {
         
         pool.end((poolErr) => {
             if (poolErr) {
-                console.error('❌ 데이터베이스 연결 종료 중 오류:', poolErr);
+                console.error('⛔ 데이터베이스 연결 종료 중 오류:', poolErr);
                 process.exit(1);
             }
             
@@ -665,10 +744,10 @@ const gracefulShutdown = (signal) => {
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 process.on('uncaughtException', (error) => {
-    console.error('❌ 처리되지 않은 예외:', error);
+    console.error('⛔ 처리되지 않은 예외:', error);
     gracefulShutdown('uncaughtException');
 });
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('❌ 처리되지 않은 Promise 거부:', reason);
+    console.error('⛔ 처리되지 않은 Promise 거부:', reason);
     gracefulShutdown('unhandledRejection');
 });
