@@ -1,6 +1,4 @@
-/* 기존 스타일은 그대로 유지하고, 로그인 모달 관련 스타일만 개선 */
 
-/* 개선된 로그인 모달 스타일 */
 #loginModal .modal-content {
     background: white;
     border-radius: 24px;
@@ -676,6 +674,12 @@ html, body {
 .loading-text {
     color: #6b7280;
     font-weight: 500;
+    writing-mode: horizontal-tb; /* 가로쓰기 강제 */
+    text-orientation: mixed; /* 텍스트 방향 설정 */
+    direction: ltr; /* 왼쪽에서 오른쪽으로 */
+    display: block;
+    text-align: center;
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
 }
 
 /* Error Boundary */
