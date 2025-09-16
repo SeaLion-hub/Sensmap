@@ -164,6 +164,28 @@ async function initializeDatabase() {
                 EXECUTE FUNCTION update_updated_at_column();
         `);
 
+        // user_profiles 테이블 생성 (사용자 감각 프로필 저장)
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS user_profiles (
+                user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+                noise_threshold INTEGER NOT NULL DEFAULT 5 CHECK (noise_threshold BETWEEN 0 AND 10),
+                light_threshold INTEGER NOT NULL DEFAULT 5 CHECK (light_threshold BETWEEN 0 AND 10),
+                odor_threshold INTEGER NOT NULL DEFAULT 5 CHECK (odor_threshold BETWEEN 0 AND 10),
+                crowd_threshold INTEGER NOT NULL DEFAULT 5 CHECK (crowd_threshold BETWEEN 0 AND 10),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            )
+        `);
+
+        // user_profiles 테이블용 트리거
+        await pool.query(`
+            DROP TRIGGER IF EXISTS update_user_profiles_updated_at ON user_profiles;
+            CREATE TRIGGER update_user_profiles_updated_at
+                BEFORE UPDATE ON user_profiles
+                FOR EACH ROW
+                EXECUTE FUNCTION update_updated_at_column();
+        `);
+
         // sensory_reports 테이블 생성 (user_id 없이 먼저 생성)
         await pool.query(`
             CREATE TABLE IF NOT EXISTS sensory_reports (
@@ -372,6 +394,69 @@ app.get('/api/users/profile', verifyToken, async (req, res) => {
     } catch (error) {
         console.error('Profile error:', error);
         res.status(500).json(createResponse(false, null, '', '서버 오류가 발생했습니다.'));
+    }
+});
+
+// [GET] /api/users/preferences - 감각 프로필 조회 (인증)
+app.get('/api/users/preferences', verifyToken, async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT user_id, noise_threshold, light_threshold, odor_threshold, crowd_threshold
+             FROM user_profiles WHERE user_id = $1`,
+            [req.user.userId]
+        );
+
+        if (result.rows.length === 0) {
+            // 기본값 반환
+            return res.json(createResponse(true, {
+                user_id: req.user.userId,
+                noise_threshold: 5,
+                light_threshold: 5,
+                odor_threshold: 5,
+                crowd_threshold: 5
+            }));
+        }
+
+        res.json(createResponse(true, result.rows[0]));
+    } catch (error) {
+        console.error('Preferences get error:', error);
+        res.status(500).json(createResponse(false, null, '', '감각 프로필 조회 중 오류가 발생했습니다.'));
+    }
+});
+
+// [PUT] /api/users/preferences - 감각 프로필 저장 (인증)
+app.put('/api/users/preferences', verifyToken, async (req, res) => {
+    try {
+        let { noiseThreshold, lightThreshold, odorThreshold, crowdThreshold } = req.body;
+
+        // 기본 검증 및 정수화
+        const toInt = (v, def = 5) => {
+            const n = parseInt(v);
+            if (isNaN(n)) return def;
+            return Math.min(10, Math.max(0, n));
+        };
+
+        noiseThreshold = toInt(noiseThreshold);
+        lightThreshold = toInt(lightThreshold);
+        odorThreshold = toInt(odorThreshold);
+        crowdThreshold = toInt(crowdThreshold);
+
+        const upsert = await pool.query(`
+            INSERT INTO user_profiles (user_id, noise_threshold, light_threshold, odor_threshold, crowd_threshold)
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (user_id) DO UPDATE SET
+                noise_threshold = EXCLUDED.noise_threshold,
+                light_threshold = EXCLUDED.light_threshold,
+                odor_threshold = EXCLUDED.odor_threshold,
+                crowd_threshold = EXCLUDED.crowd_threshold,
+                updated_at = NOW()
+            RETURNING user_id, noise_threshold, light_threshold, odor_threshold, crowd_threshold
+        `, [req.user.userId, noiseThreshold, lightThreshold, odorThreshold, crowdThreshold]);
+
+        res.json(createResponse(true, upsert.rows[0], '감각 프로필이 저장되었습니다.'));
+    } catch (error) {
+        console.error('Preferences save error:', error);
+        res.status(500).json(createResponse(false, null, '', '감각 프로필 저장 중 오류가 발생했습니다.'));
     }
 });
 
@@ -614,6 +699,8 @@ const server = app.listen(port, '0.0.0.0', async () => {
     console.log(`   POST   /api/users/signup - 회원가입`);
     console.log(`   POST   /api/users/signin - 로그인`);
     console.log(`   GET    /api/users/profile - 프로필 조회 (인증)`);
+    console.log(`   GET    /api/users/preferences - 감각 프로필 조회 (인증)`);
+    console.log(`   PUT    /api/users/preferences - 감각 프로필 저장 (인증)`);
     console.log(`   GET    /api/reports - 감각 데이터 조회`);
     console.log(`   POST   /api/reports - 감각 데이터 추가`);
     console.log(`   GET    /api/reports/my - 내 감각 데이터 조회 (인증)`);

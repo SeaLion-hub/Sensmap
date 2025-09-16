@@ -328,6 +328,18 @@ export class UIHandler {
             };
 
             localStorage.setItem('sensmap_profile', JSON.stringify(profile));
+            // 로그인 상태라면 서버에도 저장
+            if (this.app.authManager && this.app.authManager.getIsLoggedIn()) {
+                fetch(`${this.app.dataManager.getServerUrl()}/api/users/preferences`, {
+                    method: 'PUT',
+                    headers: this.app.authManager.getAuthHeaders(),
+                    body: JSON.stringify(profile)
+                }).then(r => r.json()).then(data => {
+                    if (!data.success) {
+                        console.warn('감각 프로필 서버 저장 실패:', data.message || data.error);
+                    }
+                }).catch(err => console.warn('감각 프로필 서버 저장 오류:', err));
+            }
             this.closeCurrentPanel();
 
             this.app.showToast('감각 프로필이 저장되었습니다', 'success');
@@ -433,6 +445,14 @@ export class UIHandler {
         selectedOptionElement.setAttribute('aria-pressed', 'true');
 
         this.updateDurationInput(selectedOptionElement.dataset.type);
+
+        // Show timetable only for 'regular', hide for 'irregular'
+        const selectedType = selectedOptionElement.dataset.type;
+        if (selectedType === 'regular') {
+            this.app.showTimetableSection();
+        } else {
+            this.app.hideTimetableSection();
+        }
     }
 
     updateDurationInput(type) {
@@ -556,17 +576,31 @@ export class UIHandler {
     }
 
     openProfilePanel() {
-        this.closeAllPanels();
-        const panel = document.getElementById('profilePanel');
-        panel.classList.add('open');
-        panel.setAttribute('aria-hidden', 'false');
-        this.addPanelToStack('profilePanel');
+    this.closeAllPanels();
+    const panel = document.getElementById('profilePanel');
+    panel.classList.add('open');
+    panel.setAttribute('aria-hidden', 'false');
+    this.addPanelToStack('profilePanel');
 
-        const firstInput = panel.querySelector('input, button');
-        if (firstInput) {
-            setTimeout(() => firstInput.focus(), 100);
-        }
+    const firstInput = panel.querySelector('input, button');
+    if (firstInput) {
+        setTimeout(() => firstInput.focus(), 100);
     }
+
+
+
+    document.querySelectorAll('.type-option').forEach(option => {
+            option.addEventListener('click', () => {
+                if (option.dataset.type === 'regular') {
+                    this.app.showTimetableSection();
+                } else {
+                    this.app.hideTimetableSection();
+                }
+            });
+        });
+
+    }
+
 
     openSensoryPanel() {
         this.closeAllPanels();
@@ -584,6 +618,7 @@ export class UIHandler {
             this.app.mapManager.getMap().closePopup();
         }
     }
+
 
     /**
      * 현재 최상위 패널만 닫기
@@ -624,7 +659,7 @@ export class UIHandler {
         }
     }
 
-    // Tutorial methods 
+    // Tutorial methods - 개선된 튜토리얼 로직
     handleTutorialNext() {
         if (this.currentTutorialStep < this.totalTutorialSteps) {
             this.nextTutorialStep();
@@ -716,6 +751,32 @@ export class UIHandler {
     loadAccessibilitySettings() {
         try {
             this.loadSavedData();
+
+            // 로그인된 경우 서버에서 감각 프로필을 가져와 동기화
+            if (this.app.authManager && this.app.authManager.getIsLoggedIn()) {
+                fetch(`${this.app.dataManager.getServerUrl()}/api/users/preferences`, {
+                    headers: this.app.authManager.getAuthHeaders()
+                }).then(r => r.json()).then(data => {
+                    if (data && data.success && data.data) {
+                        const serverProfile = {
+                            noiseThreshold: data.data.noise_threshold,
+                            lightThreshold: data.data.light_threshold,
+                            odorThreshold: data.data.odor_threshold,
+                            crowdThreshold: data.data.crowd_threshold
+                        };
+                        localStorage.setItem('sensmap_profile', JSON.stringify(serverProfile));
+                        Object.keys(serverProfile).forEach(key => {
+                            const slider = document.getElementById(key);
+                            const valueDisplay = slider?.parentNode?.querySelector('.range-value');
+                            if (slider) {
+                                slider.value = serverProfile[key];
+                                if (valueDisplay) valueDisplay.textContent = serverProfile[key];
+                            }
+                        });
+                        this.app.refreshVisualization();
+                    }
+                }).catch(err => console.warn('감각 프로필 불러오기 실패:', err));
+            }
 
             const colorBlindMode = localStorage.getItem('colorBlindMode') === 'true';
             const highContrastMode = localStorage.getItem('highContrastMode') === 'true';
@@ -873,4 +934,6 @@ export class UIHandler {
             textSize: localStorage.getItem('textSize') || '1'
         };
     }
+
 }
+
