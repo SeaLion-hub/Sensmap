@@ -78,7 +78,9 @@ export class UIHandler {
             document.getElementById('closePanelBtn')?.addEventListener('click', () => this.closeCurrentPanel());
             document.getElementById('cancelBtn')?.addEventListener('click', () => this.closeCurrentPanel());
             document.getElementById('closeProfileBtn')?.addEventListener('click', () => this.closeCurrentPanel());
-            document.getElementById('cancelProfileBtn')?.addEventListener('click', () => this.closeCurrentPanel());
+            ['cancelProfileBtn', 'cancelMyDataBtn'].forEach(id => {
+                document.getElementById(id)?.addEventListener('click', () => this.closeCurrentPanel());
+            });
             document.getElementById('cancelRouteBtn')?.addEventListener('click', () => this.app.routeManager.cancelRouteMode());
 
             // Route controls

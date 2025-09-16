@@ -4,6 +4,7 @@ import { MapManager } from './mapManager.js';
 import { DataManager } from './dataManager.js';
 import { VisualizationManager } from './visualizationManager.js';
 import { RouteManager } from './routeManager.js';
+import { SensoryAdapter } from './sensoryAdapter.js';
 import { UIHandler } from './uiHandler.js';
 import { AuthManager } from './authManager.js';
 
@@ -13,9 +14,9 @@ class SensmapApp {
         this.isInitialized = false;
         this.currentToast = null;
         this.undoTimeout = null;
-        
+
         console.log(`🗺️ Sensmap v${this.version} 초기화 시작...`);
-        
+
         // 컴포넌트 초기화 순서가 중요 (의존성 고려)
         this.authManager = null;
         this.mapManager = null;
@@ -23,7 +24,7 @@ class SensmapApp {
         this.visualizationManager = null;
         this.routeManager = null;
         this.uiHandler = null;
-        
+
         this.initializeApp();
 
 
@@ -36,28 +37,34 @@ class SensmapApp {
     async initializeApp() {
         try {
             this.showLoadingOverlay();
-            
+
             // 1단계: 인증 관리자 초기화 (가장 먼저)
             console.log('🔐 인증 관리자 초기화...');
             this.authManager = new AuthManager(this);
-            
+
             // 2단계: 맵 매니저 초기화
             console.log('🗺️ 지도 초기화...');
             this.mapManager = new MapManager(this);
             await this.mapManager.initializeMap();
-            
+
             // 3단계: 데이터 관리자 초기화 
             console.log('📊 데이터 관리자 초기화...');
             this.dataManager = new DataManager(this);
-            
+            // 감각 어댑터 연결 → RouteManager가 여기서 감각 포인트를 가져감
+            this.sensoryManager = new SensoryAdapter(this);
+            window.app = this; // 전역 디버깅용(선택
+
             // 4단계: 시각화 관리자 초기화
             console.log('🎨 시각화 관리자 초기화...');
             this.visualizationManager = new VisualizationManager(this);
-            
+
             // 5단계: 라우트 관리자 초기화
             console.log('🛣️ 경로 관리자 초기화...');
             this.routeManager = new RouteManager(this);
-            
+            window.app = this;                  // 앱을 전역에 노출
+            window.routeManager = this.routeManager; // routeManager 전역 노출
+            this.routeManager.setAvoidPreviewMode(true, { source: 'lastSent' });
+
             // 6단계: UI 핸들러 초기화 (마지막)
             console.log('🖥️ UI 핸들러 초기화...');
             this.uiHandler = new UIHandler(this);
@@ -69,25 +76,38 @@ class SensmapApp {
 // 7단계: 초기 데이터 로드
             console.log('📡 감각 데이터 로드...');
             await this.dataManager.loadSensoryData();
-            
+            // 데이터 로드 후 폴리곤 프리뷰 갱신 (중요)
+            if (this.routeManager?.isAvoidPreviewMode) {
+                this.routeManager.refreshAvoidPreview();
+            }
+
+            // script.js - initializeApp() 안, 데이터 로드 직후에 배치
+            await this.dataManager.loadSensoryData();
+
+            // 감각 스케일 자동 보정 (예: 95퍼센타일, 15% 헤드룸, 0~10 스케일)
+            this.routeManager.autoCalibrateSensoryScale(0.95, { targetMax: 10, headroom: 1.15 });
+            // (선택) 미세차 강조
+            this.routeManager.setSensoryNormalization?.({ gamma: 1.15 });
+
+
             // 8단계: 초기 시각화
             console.log('🎯 초기 시각화...');
             this.refreshVisualization();
-            
+
             // 9단계: 접근성 설정 로드
             console.log('♿ 접근성 설정 로드...');
             this.uiHandler.loadAccessibilitySettings();
-            
+
             // 10단계: 튜토리얼 확인
             console.log('🎓 튜토리얼 상태 확인...');
             this.uiHandler.checkTutorialCompletion();
-            
+
             // 완료 처리
             this.isInitialized = true;
             this.hideLoadingOverlay();
-            
+
             console.log('✅ Sensmap 초기화 완료!');
-            
+
             // 초기화 완료 알림
             setTimeout(() => {
                 const user = this.authManager.getCurrentUser();
@@ -100,7 +120,7 @@ class SensmapApp {
                     }
                 }
             }, 1000);
-            
+
         } catch (error) {
             this.handleError('애플리케이션 초기화 중 오류가 발생했습니다', error);
             this.showErrorBoundary();
@@ -118,13 +138,13 @@ class SensmapApp {
 
         try {
             const showData = document.getElementById('showDataBtn')?.classList.contains('active') ?? true;
-            
+
             if (showData) {
                 this.visualizationManager.updateVisualization();
             } else {
                 this.mapManager.clearLayers();
             }
-            
+
         } catch (error) {
             console.error('시각화 새로고침 실패:', error);
         }
@@ -137,10 +157,10 @@ class SensmapApp {
         const map = this.mapManager.getMap();
         const reports = cellData ? cellData.reports : [];
         const hasData = reports.length > 0;
-        
+
         // 현재 사용자의 데이터인지 확인
         const currentUser = this.authManager ? this.authManager.getCurrentUser() : null;
-        const userReports = currentUser ? 
+        const userReports = currentUser ?
             reports.filter(r => r.user_id === currentUser.id) : [];
 
         let popupContent = `
@@ -165,7 +185,7 @@ class SensmapApp {
         // 감각 정보 추가 버튼 (로그인 또는 게스트 모드에서만)
         const isLoggedIn = this.authManager && this.authManager.getIsLoggedIn();
         const guestMode = localStorage.getItem('sensmap_guest_mode');
-        
+
         if (isLoggedIn || guestMode) {
             popupContent += `
                 <button class="action-btn add" onclick="app.openSensoryPanel(${latlng.lat}, ${latlng.lng})">
@@ -194,7 +214,7 @@ class SensmapApp {
                 if (cellData.averages.light > 0) avgData.push(`빛: ${cellData.averages.light.toFixed(1)}`);
                 if (cellData.averages.odor > 0) avgData.push(`냄새: ${cellData.averages.odor.toFixed(1)}`);
                 if (cellData.averages.crowd > 0) avgData.push(`혼잡: ${cellData.averages.crowd.toFixed(1)}`);
-                
+
                 if (avgData.length > 0) {
                     popupContent += `<div class="data-item">평균: ${avgData.join(', ')}</div>`;
                 }
@@ -225,7 +245,7 @@ class SensmapApp {
                         <strong>내 데이터: ${userReports.length}건</strong>
                         <div class="data-values">
                 `;
-                
+
                 userReports.forEach(report => {
                     const date = new Date(report.created_at).toLocaleDateString();
                     popupContent += `
@@ -237,12 +257,12 @@ class SensmapApp {
                         </div>
                     `;
                 });
-                
+
                 popupContent += `</div></div>`;
             }
 
             popupContent += '</div>';
-        } 
+        }
 
         // 팝업 표시
         L.popup({
@@ -250,15 +270,15 @@ class SensmapApp {
             maxWidth: 300,
             closeOnClick: false
         })
-        .setLatLng(latlng)
-        .setContent(popupContent)
-        .openOn(map);
+            .setLatLng(latlng)
+            .setContent(popupContent)
+            .openOn(map);
     }
 
     // 감각 정보 입력 패널 열기
     openSensoryPanel(lat, lng) {
         if (!this.uiHandler) return;
-        
+
         this.uiHandler.setClickedLocation({ lat, lng });
         this.uiHandler.openSensoryPanel();
     }
@@ -272,14 +292,14 @@ class SensmapApp {
         try {
             await this.dataManager.deleteReport(reportId);
             this.showToast('감각 정보가 삭제되었습니다.', 'success');
-            
+
             // 지도 새로고침
             await this.dataManager.loadSensoryData();
             this.refreshVisualization();
-            
+
             // 팝업 닫기
             this.mapManager.getMap().closePopup();
-            
+
         } catch (error) {
             this.handleError('삭제 중 오류가 발생했습니다', error);
         }
@@ -370,7 +390,7 @@ class SensmapApp {
     showAlertBanner(message) {
         const alertBanner = document.getElementById('alertBanner');
         const alertText = document.getElementById('alertText');
-        
+
         if (alertBanner && alertText) {
             alertText.textContent = message;
             alertBanner.style.display = 'flex';
@@ -380,15 +400,15 @@ class SensmapApp {
     // 에러 처리
     handleError(userMessage, error) {
         console.error('🚨 애플리케이션 에러:', error);
-        
+
         // 사용자에게 친화적인 메시지 표시
         this.showToast(userMessage, 'error', 5000);
-        
+
         // 개발 모드에서는 더 상세한 정보 표시
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
             console.error('상세 에러 정보:', error);
         }
-        
+
         // 에러 리포팅 (필요시)
         // this.reportError(error, userMessage);
     }
@@ -409,7 +429,7 @@ class SensmapApp {
 
             // 향후 에러 리포팅 서비스에 전송
             console.log('📊 에러 리포트:', errorReport);
-            
+
         } catch (reportingError) {
             console.error('에러 리포팅 실패:', reportingError);
         }
@@ -432,14 +452,14 @@ class SensmapApp {
     debug() {
         console.log('🔍 Sensmap 디버그 정보:');
         console.table(this.getAppStatus());
-        
+
         if (this.dataManager) {
             console.log('📊 데이터 통계:');
             console.log('- 총 리포트:', this.dataManager.getSensoryData().size);
             console.log('- 그리드 셀:', this.dataManager.getGridData().size);
             console.log('- 실행취소 스택:', this.dataManager.getUndoStack().length);
         }
-        
+
         if (this.authManager) {
             console.log('🔐 인증 상태:');
             console.log('- 로그인:', this.authManager.getIsLoggedIn());
@@ -465,7 +485,7 @@ class SensmapApp {
             const csvData = this.dataManager.exportToCSV();
             const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
-            
+
             if (link.download !== undefined) {
                 const url = URL.createObjectURL(blob);
                 link.setAttribute('href', url);
@@ -474,12 +494,12 @@ class SensmapApp {
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-                
+
                 this.showToast('데이터가 내보내기되었습니다.', 'success');
             } else {
                 throw new Error('브라우저가 다운로드를 지원하지 않습니다.');
             }
-            
+
         } catch (error) {
             this.handleError('데이터 내보내기 중 오류가 발생했습니다', error);
         }
@@ -491,13 +511,13 @@ class SensmapApp {
             try {
                 this.dataManager?.clearCache();
                 this.showToast('캐시가 정리되었습니다.', 'success');
-                
+
                 // 데이터 다시 로드
                 setTimeout(() => {
                     this.dataManager?.loadSensoryData();
                     this.refreshVisualization();
                 }, 1000);
-                
+
             } catch (error) {
                 this.handleError('캐시 정리 중 오류가 발생했습니다', error);
             }
@@ -508,11 +528,11 @@ class SensmapApp {
     measurePerformance() {
         if (performance.mark && performance.measure) {
             performance.mark('sensmap-render-start');
-            
+
             requestAnimationFrame(() => {
                 performance.mark('sensmap-render-end');
                 performance.measure('sensmap-render', 'sensmap-render-start', 'sensmap-render-end');
-                
+
                 const measure = performance.getEntriesByName('sensmap-render')[0];
                 console.log(`🚀 렌더링 시간: ${measure.duration.toFixed(2)}ms`);
             });
@@ -522,18 +542,18 @@ class SensmapApp {
     // 접근성 지원 확인
     checkAccessibility() {
         const issues = [];
-        
+
         // 기본적인 접근성 확인
         if (!document.querySelector('[alt]')) issues.push('이미지 alt 텍스트 누락');
         if (!document.querySelector('[aria-label]')) issues.push('ARIA 레이블 누락');
         if (!document.querySelector('[role]')) issues.push('역할 정의 누락');
-        
+
         if (issues.length > 0) {
             console.warn('♿ 접근성 개선 필요:', issues);
         } else {
             console.log('♿ 접근성 검사 통과');
         }
-        
+
         return issues;
     }
 
@@ -742,17 +762,17 @@ window.app = null;
 document.addEventListener('DOMContentLoaded', () => {
     try {
         window.app = new SensmapApp();
-        
+
         // 전역 접근을 위한 별칭 추가
         window.authManager = window.app.authManager;
-        
+
         // 개발 모드에서 디버그 함수들을 전역으로 노출
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
             window.debugSensmap = () => window.app.debug();
             window.restartSensmap = () => window.app.restart();
             window.exportSensmapData = () => window.app.exportData();
             window.clearSensmapCache = () => window.app.clearCache();
-            
+
             console.log('🔧 개발 모드 활성화');
             console.log('사용 가능한 디버그 함수:');
             console.log('- debugSensmap(): 앱 상태 확인');
@@ -760,10 +780,10 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('- exportSensmapData(): 데이터 내보내기');
             console.log('- clearSensmapCache(): 캐시 정리');
         }
-        
+
     } catch (error) {
         console.error('🚨 애플리케이션 시작 실패:', error);
-        
+
         // 기본 에러 UI 표시
         document.body.innerHTML = `
             <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: 'Segoe UI', sans-serif; padding: 20px; text-align: center;">
