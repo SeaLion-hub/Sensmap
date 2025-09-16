@@ -64,7 +64,7 @@ class SensmapApp {
             this.routeManager = new RouteManager(this);
             window.app = this;                  // 앱을 전역에 노출
             window.routeManager = this.routeManager; // routeManager 전역 노출
-            this.routeManager.setAvoidPreviewMode(true, { source: 'lastSent' });
+            this.routeManager.setAvoidPreviewMode(true, { source: 'autoTrigger' });
 
             // 6단계: UI 핸들러 초기화 (마지막)
             console.log('🖥️ UI 핸들러 초기화...');
@@ -1171,4 +1171,5 @@ window.addEventListener('unhandledrejection', (event) => {
     event.preventDefault(); // 브라우저 콘솔에 에러가 출력되는 것을 방지
 
 });
+
 
