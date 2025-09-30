@@ -1,4 +1,3 @@
-
 export class AuthManager {
     constructor(app) {
         this.app = app;
@@ -272,6 +271,19 @@ export class AuthManager {
                 // 로그인 성공
                 this.saveAuth(data.data.token, data.data.user);
                 this.hideLoginModal();
+                
+                // 프로필 정보를 localStorage에도 저장
+                if (data.data.user.profile_set && 
+                    data.data.user.noise_threshold !== undefined) {
+                    const profile = {
+                        noiseThreshold: data.data.user.noise_threshold,
+                        lightThreshold: data.data.user.light_threshold,
+                        odorThreshold: data.data.user.odor_threshold,
+                        crowdThreshold: data.data.user.crowd_threshold
+                    };
+                    localStorage.setItem('sensmap_profile', JSON.stringify(profile));
+                }
+                
                 this.app.showToast(`${data.data.user.name}님 환영합니다!`, 'success');
                 
                 // 폼 초기화
@@ -334,21 +346,58 @@ export class AuthManager {
             const data = await response.json();
 
             if (response.ok && data.success) {
-                // 회원가입 성공
-                this.app.showToast('회원가입이 완료되었습니다! 로그인해주세요.', 'success');
+                // 회원가입 성공 후 자동 로그인 시도
+                this.app.showToast('회원가입이 완료되었습니다! 자동으로 로그인됩니다.', 'success');
                 
-                // 로그인 폼으로 전환하고 이메일 미리 채우기
-                setTimeout(() => {
-                    this.showLoginForm();
-                    const loginEmailInput = document.querySelector('#loginEmail');
-                    if (loginEmailInput) {
-                        loginEmailInput.value = email;
+                setTimeout(async () => {
+                    try {
+                        // 자동 로그인 시도
+                        const loginResponse = await fetch(`${this.getServerUrl()}/api/users/signin`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ email, password })
+                        });
+
+                        const loginData = await loginResponse.json();
+                        
+                        if (loginData.success) {
+                            this.saveAuth(loginData.data.token, loginData.data.user);
+                            this.hideLoginModal();
+                            
+                            // 폼 초기화
+                            form.reset();
+                            this.clearFormErrors();
+                            this.resetPasswordStrength();
+                            
+                            // 프로필 설정이 안 되어 있으면 프로필 패널 열기
+                            if (!loginData.data.user.profile_set) {
+                                setTimeout(() => {
+                                    this.app.showToast('이제 개인 감각 프로필을 설정해주세요!', 'info');
+                                    this.showInitialProfilePanel();
+                                }, 1000);
+                            } else {
+                                this.app.showToast(`${loginData.data.user.name}님 환영합니다!`, 'success');
+                            }
+                        } else {
+                            // 자동 로그인 실패 시 수동 로그인 안내
+                            this.showLoginForm();
+                            const loginEmailInput = document.querySelector('#loginEmail');
+                            if (loginEmailInput) {
+                                loginEmailInput.value = email;
+                            }
+                            this.app.showToast('가입은 완료되었습니다. 로그인해주세요.', 'info');
+                        }
+                    } catch (autoLoginError) {
+                        console.error('자동 로그인 실패:', autoLoginError);
+                        this.showLoginForm();
+                        const loginEmailInput = document.querySelector('#loginEmail');
+                        if (loginEmailInput) {
+                            loginEmailInput.value = email;
+                        }
+                        this.app.showToast('가입은 완료되었습니다. 로그인해주세요.', 'info');
                     }
-                    
-                    // 폼 초기화
-                    form.reset();
-                    this.clearFormErrors();
-                    this.resetPasswordStrength();
                 }, 1500);
                 
             } else {
@@ -504,6 +553,18 @@ export class AuthManager {
                     this.currentUser = data.data;
                     this.isLoggedIn = true;
                     this.updateUI();
+                    
+                    // 프로필 정보가 있으면 localStorage에 저장
+                    if (data.data.profile_set && data.data.noise_threshold !== undefined) {
+                        const profile = {
+                            noiseThreshold: data.data.noise_threshold,
+                            lightThreshold: data.data.light_threshold,
+                            odorThreshold: data.data.odor_threshold,
+                            crowdThreshold: data.data.crowd_threshold
+                        };
+                        localStorage.setItem('sensmap_profile', JSON.stringify(profile));
+                    }
+                    
                     return true;
                 }
             }
@@ -556,9 +617,6 @@ export class AuthManager {
     logout() {
         this.clearAuth();
         this.app.showToast('로그아웃되었습니다.', 'info');
-        
-        // 필요시 메인 페이지로 이동
-        // window.location.href = '/';
     }
 
     /**
@@ -649,6 +707,111 @@ export class AuthManager {
     }
 
     /**
+     * 초기 프로필 설정 패널 표시
+     */
+    showInitialProfilePanel() {
+        // 모든 패널 닫기
+        this.app.uiHandler.closeAllPanels();
+        
+        // 프로필 패널 열기
+        const panel = document.getElementById('profilePanel');
+        if (panel) {
+            panel.classList.add('open');
+            panel.setAttribute('aria-hidden', 'false');
+            
+            // 패널 제목을 초기 설정용으로 변경
+            const panelTitle = panel.querySelector('.panel-header h3');
+            if (panelTitle) {
+                panelTitle.textContent = '🎯 개인 감각 프로필 설정';
+            }
+            
+            // 안내 메시지 추가
+            const panelContent = panel.querySelector('.panel-content');
+            if (panelContent && !panel.querySelector('.initial-profile-notice')) {
+                const notice = document.createElement('div');
+                notice.className = 'initial-profile-notice';
+                notice.innerHTML = `
+                    <div style="background: #dbeafe; border: 1px solid #93c5fd; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                        <div style="color: #1e40af; font-weight: 600; margin-bottom: 8px;">
+                            👋 안녕하세요! 개인화된 감각지도를 위해 설정해주세요
+                        </div>
+                        <div style="color: #374151; font-size: 14px; line-height: 1.5;">
+                            각 감각 요소에 대한 민감도를 설정하면, 지도에서 개인화된 정보를 볼 수 있습니다.<br>
+                            나중에 언제든지 변경할 수 있습니다.
+                        </div>
+                    </div>
+                `;
+                panelContent.insertBefore(notice, panelContent.firstChild);
+            }
+            
+            // 첫 번째 입력 필드에 포커스
+            const firstInput = panel.querySelector('input');
+            if (firstInput) {
+                setTimeout(() => firstInput.focus(), 100);
+            }
+        }
+    }
+
+    /**
+     * 프로필 업데이트
+     */
+    async updateUserProfile(profileData) {
+        try {
+            const response = await fetch(`${this.getServerUrl()}/api/users/profile`, {
+                method: 'PUT',
+                headers: this.getAuthHeaders(),
+                body: JSON.stringify(profileData)
+            });
+
+            const data = await response.json();
+            
+            if (data.success) {
+                // 현재 사용자 정보 업데이트
+                if (this.currentUser) {
+                    this.currentUser.noise_threshold = profileData.noiseThreshold;
+                    this.currentUser.light_threshold = profileData.lightThreshold;
+                    this.currentUser.odor_threshold = profileData.odorThreshold;
+                    this.currentUser.crowd_threshold = profileData.crowdThreshold;
+                    this.currentUser.profile_set = true;
+                    
+                    // localStorage 업데이트
+                    localStorage.setItem('sensmap_user', JSON.stringify(this.currentUser));
+                }
+                
+                return data;
+            } else {
+                throw new Error(data.message || '프로필 업데이트에 실패했습니다.');
+            }
+        } catch (error) {
+            console.error('프로필 업데이트 실패:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * 사용자가 프로필을 설정했는지 확인
+     */
+    isProfileSet() {
+        return this.currentUser && this.currentUser.profile_set;
+    }
+
+    /**
+     * 사용자 프로필 가져오기
+     */
+    getUserProfile() {
+        if (this.currentUser && this.currentUser.profile_set) {
+            return {
+                noiseThreshold: this.currentUser.noise_threshold,
+                lightThreshold: this.currentUser.light_threshold,
+                odorThreshold: this.currentUser.odor_threshold,
+                crowdThreshold: this.currentUser.crowd_threshold
+            };
+        }
+        return null;
+    }
+
+    /**
+     * UI 업데이트
      */
     updateUI() {
         const userInfo = document.getElementById('userInfo');
@@ -740,13 +903,17 @@ export class AuthManager {
                 headers: this.getAuthHeaders()
             });
 
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
             const data = await response.json();
             
-            if (data.success) {
+            if (data.success && Array.isArray(data.data)) {
                 this.displayMyData(data.data);
                 this.updateMyDataStats(data.data);
             } else {
-                throw new Error(data.message || '데이터 로드 실패');
+                throw new Error(data.message || '데이터 형식 오류');
             }
 
         } catch (error) {
@@ -807,13 +974,13 @@ export class AuthManager {
                     </div>
                     ${report.wheelchair ? '<div class="data-wheelchair">♿ 휠체어 접근 제약</div>' : ''}
                     <div class="data-actions">
-                        <button class="edit-btn" onclick="authManager.editMyData(${report.id})">
+                        <button class="edit-btn" data-id="${report.id}">
                             <i class="fas fa-edit"></i> 수정
                         </button>
-                        <button class="delete-btn" onclick="authManager.deleteMyData(${report.id})">
+                        <button class="delete-btn" data-id="${report.id}">
                             <i class="fas fa-trash"></i> 삭제
                         </button>
-                        <button class="locate-btn" onclick="authManager.locateOnMap(${report.lat}, ${report.lng})">
+                        <button class="locate-btn" data-lat="${report.lat}" data-lng="${report.lng}">
                             <i class="fas fa-map-marker-alt"></i> 지도에서 보기
                         </button>
                     </div>
@@ -822,6 +989,29 @@ export class AuthManager {
         }).join('');
 
         dataList.innerHTML = reportsHtml;
+
+        // 이벤트 리스너 추가 (이벤트 위임 방식)
+        dataList.querySelectorAll('.edit-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const reportId = parseInt(e.currentTarget.dataset.id);
+                this.editMyData(reportId);
+            });
+        });
+
+        dataList.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const reportId = parseInt(e.currentTarget.dataset.id);
+                this.deleteMyData(reportId);
+            });
+        });
+
+        dataList.querySelectorAll('.locate-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const lat = parseFloat(e.currentTarget.dataset.lat);
+                const lng = parseFloat(e.currentTarget.dataset.lng);
+                this.locateOnMap(lat, lng);
+            });
+        });
     }
 
     /**
@@ -970,5 +1160,4 @@ export class AuthManager {
             'Content-Type': 'application/json'
         };
     }
-
 }
