@@ -175,26 +175,34 @@ export class RouteManager {
         const sampleAt = sm?.sampleAt || sm?.sample;
         if (!coords?.length || !sampleAt) return 0;
 
+        // Get user profile (default to 5 if not set)
+        const profile = this.app?.uiHandler?.getSensitivityProfile?.() || {
+        noiseThreshold: 5, lightThreshold: 5, odorThreshold: 5, crowdThreshold: 5
+        };
+
         const keys = ['noise', 'light', 'odor', 'crowd'];
         const { perSensorMax, targetMax, gamma } = (this.sensoryNorm || {});
         const step = Math.max(1, Math.floor(coords.length / Math.max(10, Math.floor(coords.length / 30))));
         const vals = [];
 
         for (let i = 0; i < coords.length; i += step) {
-            const [lat, lng] = coords[i];
-            let sum = 0, cnt = 0;
-            let v;
-            try { v = sampleAt.call(sm, lat, lng) || {}; } catch { v = {}; }
-            for (const k of keys) {
-                const raw = v[k];
-                if (!Number.isFinite(raw)) continue;
-                const max = (perSensorMax && perSensorMax[k]) ? perSensorMax[k] : 100;
-                const n01 = Math.max(0, Math.min(1, raw / max));   // 0~1
-                sum += n01; cnt++;
-            }
-            if (cnt) vals.push(sum / cnt); // 지점별 평균(0~1)
+        const [lat, lng] = coords[i];
+        let sum = 0, cnt = 0;
+        let v;
+        try { v = sampleAt.call(sm, lat, lng) || {}; } catch { v = {}; }
+        for (const k of keys) {
+            const raw = v[k];
+            if (!Number.isFinite(raw)) continue;
+            const max = (perSensorMax && perSensorMax[k]) ? perSensorMax[k] : 100;
+            // Sensitivity: 0 = not sensitive, 10 = very sensitive → scale 0..1
+            const sensitivity = (profile[`${k}Threshold`] ?? 5) / 10; // 0 (not sensitive) ~ 1 (very sensitive)
+            const n01 = Math.max(0, Math.min(1, raw / max));
+            sum += n01 * sensitivity; // Weight by sensitivity
+            cnt++;
         }
-        if (!vals.length) return 0;
+        if (cnt) vals.push(sum / cnt);
+    }
+    if (!vals.length) return 0;
 
         // 경로 평균(0~1)
         let u = vals.reduce((a, b) => a + b, 0) / vals.length;
@@ -536,14 +544,47 @@ export class RouteManager {
     _getModeAvoidOpts(type) {
         const m = this.modeConfig[type] || {};
         if (type === 'time' || m.percentile == null) return null; // time: 회피 비활성
-        return {
-            baseRadius: m.baseRadius ?? 40,
-            maxCount: m.maxCount ?? 16,
-            layers: m.layers ?? 2,
-            percentile: m.percentile ?? 0.85,
-            ramp: 1.45,
-            corridorM: m.corridorM ?? 80
-        };
+
+        // 사용자 프로필 기반 회피 강도 자동 조절
+        const profile = this.app?.uiHandler?.getSensitivityProfile?.();
+        const thresholds = profile || { noiseThreshold: 5, lightThreshold: 5, odorThreshold: 5, crowdThreshold: 5 };
+        const sensitivities = [
+            (thresholds.noiseThreshold ?? 5) / 10,
+            (thresholds.lightThreshold ?? 5) / 10,
+            (thresholds.odorThreshold ?? 5) / 10,
+            (thresholds.crowdThreshold ?? 5) / 10
+        ];
+        const avgSens = sensitivities.reduce((a, b) => a + b, 0) / sensitivities.length;
+
+        // 기본값 복사
+        let percentile = m.percentile ?? 0.85;
+        let layers = m.layers ?? 2;
+        let baseRadius = m.baseRadius ?? 40;
+        let maxCount = m.maxCount ?? 16;
+        let corridorM = m.corridorM ?? 80;
+
+        // 매우 둔감하면 회피 비활성
+        if (avgSens <= 0.15) return null;
+
+        // 둔감(낮음): 회피 완화
+        if (avgSens > 0.15 && avgSens <= 0.35) {
+            percentile = Math.min(0.97, Math.max(percentile, 0.92));
+            layers = Math.max(1, Math.min(1, layers));
+            baseRadius = Math.max(30, Math.floor(baseRadius * 0.9));
+            maxCount = Math.min(12, maxCount);
+            corridorM = Math.max(50, Math.min(70, corridorM));
+        }
+
+        // 예민(높음): 회피 강화
+        if (avgSens >= 0.65) {
+            percentile = Math.min(percentile, 0.78);
+            layers = Math.max(3, layers);
+            baseRadius = Math.min(80, Math.ceil(baseRadius * 1.1));
+            maxCount = Math.max(24, maxCount);
+            corridorM = Math.min(140, Math.max(100, corridorM));
+        }
+
+        return { baseRadius, maxCount, layers, percentile, ramp: 1.45, corridorM };
     }
 
     _sortCandidatesByModeCost(routes, type) {
@@ -558,13 +599,25 @@ export class RouteManager {
             return routes.slice().sort((a, b) => (a.duration || Infinity) - (b.duration || Infinity));
         }
 
+        // 사용자 평균 민감도(0~1)
+        const profile = this.app?.uiHandler?.getSensitivityProfile?.();
+        const thresholds = profile || { noiseThreshold: 5, lightThreshold: 5, odorThreshold: 5, crowdThreshold: 5 };
+        const sensitivities = [
+            (thresholds.noiseThreshold ?? 5) / 10,
+            (thresholds.lightThreshold ?? 5) / 10,
+            (thresholds.odorThreshold ?? 5) / 10,
+            (thresholds.crowdThreshold ?? 5) / 10
+        ];
+        const avgSens = sensitivities.reduce((a, b) => a + b, 0) / sensitivities.length;
+
         if (type === 'balanced') {
             const { kSens = 2.0, kTimeSec = 1.0, kDistM = 0.15 } = this.modeConfig.balanced || {};
+            const kSensScaled = kSens * (0.5 + avgSens); // 0.5x ~ 1.5x
             const withCost = routes.map((r, i) => {
                 const dur = (r.duration || 0); // sec
                 const dis = (r.distance || 0); // m
                 // sensN은 0..1 → 분 스케일 비슷하게 60을 곱해 합산
-                const cost = kTimeSec * dur + kDistM * dis + kSens * sensN(i) * 60;
+                const cost = kTimeSec * dur + kDistM * dis + kSensScaled * sensN(i) * 60;
                 return { r, cost };
             });
             withCost.sort((a, b) => a.cost - b.cost);
@@ -573,9 +626,10 @@ export class RouteManager {
 
         // sensory: 감각 가중 크게, 시간은 약하게
         const { kSens = 4.0, kTimeMin = 0.10 } = this.modeConfig.sensory || {};
+        const kSensScaled = kSens * (0.6 + 0.8 * avgSens); // 0.6x ~ 1.4x
         const withCost = routes.map((r, i) => {
             const tMin = (r.duration || 0) / 60;
-            const cost = kSens * sensN(i) + kTimeMin * tMin;
+            const cost = kSensScaled * sensN(i) + kTimeMin * tMin;
             return { r, cost };
         });
         withCost.sort((a, b) => a.cost - b.cost);
@@ -590,8 +644,15 @@ export class RouteManager {
         // 기준(최단시간) 하나 잡아둔다
         const baseBest = baseRoutes.reduce((a, b) => (a.duration || Infinity) <= (b.duration || Infinity) ? a : b);
 
-        // 1) time 모드: 회피 자체를 안 씀 → baseline만 반환
-        if (type === 'time') {
+        // 사용자 평균 민감도 계산
+        const profile = this.app?.uiHandler?.getSensitivityProfile?.();
+        const thresholds = profile || { noiseThreshold: 5, lightThreshold: 5, odorThreshold: 5, crowdThreshold: 5 };
+        const avgSens = ([thresholds.noiseThreshold, thresholds.lightThreshold, thresholds.odorThreshold, thresholds.crowdThreshold]
+            .map(v => (v ?? 5) / 10)
+            .reduce((a, b) => a + b, 0) / 4);
+
+        // 1) time 모드 또는 매우 낮은 민감도: 회피 자체를 안 씀 → baseline만 반환
+        if (type === 'time' || avgSens <= 0.15) {
             this.lastAvoidSets = [[]];             // 인덱스 0은 baseline placeholder
             const sorted = baseRoutes.slice().sort((a, b) => (a.duration || Infinity) - (b.duration || Infinity));
             this._lastDebugCandidates = sorted.slice();
@@ -600,11 +661,15 @@ export class RouteManager {
 
         // 2) sensory/balanced: 회피 세트 구성
         const avoidOpts = this.lastPreviewOpts ? { ...this._defaultAvoidOpts(), ...this.lastPreviewOpts } : this._defaultAvoidOpts();
-        const levelsAuto = this._buildAvoidPolygonsPercentile(avoidOpts);
+        const tuned = this._getModeAvoidOpts(type);
+        const effectiveAvoid = tuned ? { ...avoidOpts, ...tuned } : null;
+        const levelsAuto = effectiveAvoid ? this._buildAvoidPolygonsPercentile(effectiveAvoid) : [];
 
         // 세트 인덱스를 baseline=0, 레벨 1..N 로 고정(프리뷰 인덱싱용)
         const avoidSets = [[]];
-        if (type === 'balanced') {
+        if (!levelsAuto.length) {
+            // 회피 비활성 → baseline만
+        } else if (type === 'balanced') {
             // 완화: 첫 레벨만(필요하면 corridor 필터 적용하는 로직이 따로 있을 수 있음)
             avoidSets.push([...(levelsAuto[0] || [])]);
         } else {
