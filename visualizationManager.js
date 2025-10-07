@@ -1,4 +1,5 @@
 import { GridDebugLayer } from './gridDebugLayer.js';
+import { clip01, vScoreVector } from './sensoryScorer.js';
 // ==========================
 // FixedHeatLayer + VisualizationManager (single-pass version)
 // ==========================
@@ -7,7 +8,8 @@ class FixedHeatLayer extends L.Layer {
     constructor(points01, opts = {}) {
         super();
         this.points = points01 || []; // [[lat,lng,v01]]
-
+        // 반경의 기준 줌을 고정하고 싶을 때 사용 (지정 안 하면 onAdd 시점의 줌)
+        this._designZoom = Number.isFinite(opts.designZoom) ? opts.designZoom : null;
         this.options = {
             // 코어 = 픽셀 스케일 모드 (지도와 동일 배율)
             baseRadiusPx: opts.baseRadiusPx ?? 12,     // 기준 줌에서의 픽셀 반경
@@ -42,7 +44,8 @@ class FixedHeatLayer extends L.Layer {
             lowAlphaKnee: Number.isFinite(opts.lowAlphaKnee) ? opts.lowAlphaKnee : 0.35, // v가 이 값 아래면 강하게 투명
             lowAlphaScale: Number.isFinite(opts.lowAlphaScale) ? opts.lowAlphaScale : 0.25, // 무릎 아래 최대 비율(0~1)
             lowAlphaGamma: Number.isFinite(opts.lowAlphaGamma) ? opts.lowAlphaGamma : 2.0,  // 곡률(클수록 더 투명)
-            midAlphaStart: Number.isFinite(opts.midAlphaStart) ? opts.midAlphaStart : 0.55  // 무릎 넘긴 뒤 시작 불투명도
+            midAlphaStart: Number.isFinite(opts.midAlphaStart) ? opts.midAlphaStart : 0.55,  // 무릎 넘긴 뒤 시작 불투명도designZoom: 
+            designZoom: this._designZoom,
         };
 
         this._map = null;
@@ -111,9 +114,9 @@ class FixedHeatLayer extends L.Layer {
 
         this._ctx = this._canvas.getContext('2d', { alpha: true });
 
-        // 기준 줌
-        this._refZoom = map.getZoom();
-
+        this._refZoom = (typeof this._designZoom === 'number')
+            ? this._designZoom
+            : map.getZoom();
         map.on('move zoom zoomstart zoomend viewreset resize', this._reset);
         map.on('move', this._redraw);
         map.on('zoomanim', this._reset);
@@ -332,6 +335,7 @@ export class VisualizationManager {
 
         this._gridDebugLayer = null;
         this._gridDebugOn = false;
+        this._heatRefZoom = null;
 
         // 'g' 단축키: map 준비가 안되었으면 안전하게 무시
         this._onKeyDown = (e) => {
@@ -344,10 +348,122 @@ export class VisualizationManager {
     async init() {
         this.isInitialized = true;
         window.addEventListener('keydown', this._onKeyDown);
+        this._installLiveHeatmapHooks();
+        this._startFallbackWatchers();
     }
 
     // 외부에서 수동으로도 호출 가능
     updateVisualization() { this.refreshVisualization(); }
+    // 부하를 줄이는 디바운스(같은 프레임에서 여러 번 호출되면 1번만 갱신)
+    _requestHeatmapRefresh() {
+        if (this._refreshReq) cancelAnimationFrame(this._refreshReq);
+        this._refreshReq = requestAnimationFrame(() => {
+            this._refreshReq = null;
+            // show/hide, 모드 전환 등을 전부 여기서 가드
+            this.refreshVisualization();
+        });
+    }
+
+    _startFallbackWatchers() {
+        // 프로필 스냅샷
+        let lastProfile = JSON.stringify(this.getSensitivityProfile());
+
+        // 그리드 간단 시그니처(셀 수 + 리포트 수) — dataManager 이벤트가 없어도 감지
+        const gridSig = () => {
+            const g = this.app?.dataManager?.getGridData?.();
+            if (!g || !g.size) return '0|0';
+            let cells = 0, reports = 0;
+            g.forEach(c => { cells++; reports += (c?.reports?.length || 0); });
+            return `${cells}|${reports}`;
+        };
+        let lastGrid = gridSig();
+
+        this._watchTimer = setInterval(() => {
+            const p = JSON.stringify(this.getSensitivityProfile());
+            if (p !== lastProfile) { lastProfile = p; this._requestHeatmapRefresh(); }
+            const s = gridSig();
+            if (s !== lastGrid) { lastGrid = s; this._requestHeatmapRefresh(); }
+        }, 1000);
+    }
+
+    _isOnMap(layer) { return !!(layer && layer._map); }
+
+    _detachHeatLayer() {
+        if (this._heatLayer && this._isOnMap(this._heatLayer)) {
+            try { this._heatLayer.remove(); } catch { /* no-op */ }
+        }
+    }
+
+    _installLiveHeatmapHooks() {
+        // 1) 같은 탭에서 프로필이 바뀌었을 때: 커스텀 이벤트로 통일
+        window.addEventListener('sensmap:profile-changed', () => this._requestHeatmapRefresh());
+        // 2) 다른 탭에서 localStorage가 바뀌었을 때
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'sensmap_profile') this._requestHeatmapRefresh();
+        });
+        // 3) 데이터가 바뀌었을 때(보고서 추가/삭제 등)
+        document.addEventListener('sensmap:data-updated', () => this._requestHeatmapRefresh());
+
+        // 4) 가능하면 dataManager의 이벤트/메서드에 직접 연결 (방어적)
+        const dm = this.app?.dataManager;
+        if (!dm) return;
+        // a) EventEmitter 스타일
+        ['update', 'updated', 'change', 'changed', 'dataUpdated', 'gridChanged', 'reportAdded']
+            .forEach(ev => { try { dm.on?.(ev, () => this._requestHeatmapRefresh()); } catch { } });
+        // b) 메서드 후킹(폴백)
+        ['addReport', 'saveReport', 'setGridData', 'mergeReports'].forEach(fn => {
+            if (typeof dm[fn] === 'function' && !dm[`__vmWrapped_${fn}`]) {
+                const orig = dm[fn].bind(dm);
+                dm[fn] = (...args) => {
+                    const r = orig(...args);
+                    queueMicrotask(() => this._requestHeatmapRefresh());
+                    return r;
+                };
+                dm[`__vmWrapped_${fn}`] = true;
+            }
+        });
+    }
+    // 그리기용 포인트(0~1) 계산만 분리
+    _computeHeatmapPoints() {
+        const now = Date.now();
+        const profile = this.getSensitivityProfile();
+        const grid = this.app?.dataManager?.getGridData?.();
+        const base = [];
+        if (!grid || grid.size === 0) return base;
+
+        grid.forEach((cellData, gridKey) => {
+            if (!cellData?.reports?.length) return;
+            const center = this._getGridCenter(gridKey, cellData);
+            let totalW = 0;
+            const wsum = { noise: 0, light: 0, odor: 0, crowd: 0 };
+            for (const report of cellData.reports) {
+                const ts = report.timestamp ?? report.created_at ?? report.createdAt ?? null;
+                const rawType = (report.type ?? '').toString().toLowerCase();
+                const normType = rawType.includes('irreg') ? 'irregular'
+                    : rawType.includes('reg') ? 'regular'
+                        : 'regular';
+                const w = this._timeDecay(ts, normType, now);
+                if (w <= 0.1) continue;
+                if (report.noise != null) wsum.noise += report.noise * w;
+                if (report.light != null) wsum.light += report.light * w;
+                if (report.odor != null) wsum.odor += report.odor * w;
+                if (report.crowd != null) wsum.crowd += report.crowd * w;
+                totalW += w;
+            }
+            if (totalW <= 0) return;
+            const avg = {
+                noise: wsum.noise / totalW,
+                light: wsum.light / totalW,
+                odor: wsum.odor / totalW,
+                crowd: wsum.crowd / totalW
+            };
+            const score = this.calculatePersonalizedScore(avg, profile); // 0..10
+            if (!Number.isFinite(score)) return;
+            const v01 = Math.max(0, Math.min(1, score / 10));
+            base.push([center.lat, center.lng, v01]);
+        });
+        return base;
+    }
 
     refreshVisualization() {
         if (!this.isInitialized || !this.app?.mapManager) {
@@ -358,16 +474,25 @@ export class VisualizationManager {
 
         try {
             const btn = document.getElementById('showDataBtn');
-            const showData = !(btn && !btn.classList.contains('active'));
-
-            this.app.mapManager.clearVisualizationLayers?.();
+            const showData = !!this.showData; // ✅ 단일 소스
 
             const mode = this.getDisplayMode();
-            if (!showData) { this.app.mapManager.clearLayers?.(); return; }
+            if (!showData) {
+                // ✅ 히트맵을 지도에서 확실히 떼기
+                this._detachHeatLayer();
+                this.app.mapManager.clearVisualizationLayers?.();
+                this.app.mapManager.clearLayers?.();
+                return;
+            }
 
-            if (mode === 'heatmap') this.createHeatmapVisualization();
-            else this.createSensoryVisualization?.();
-
+            if (mode === 'heatmap') {
+                // 히트맵은 레이어를 남겨두고 포인트만 교체
+                this.createHeatmapVisualization();
+            } else {
+                // 다른 모드로 넘어갈 때만 정리
+                this.app.mapManager.clearVisualizationLayers?.();
+                this.createSensoryVisualization?.();
+            }
         } catch (e) {
             console.error('시각화 새로고침 실패:', e);
         }
@@ -413,80 +538,47 @@ export class VisualizationManager {
 
     // ===== Heatmap (FixedHeatLayer 사용) =====
     createHeatmapVisualization() {
+        if (!this.showData) { this._detachHeatLayer(); return; }
         try {
             const map = this.app.mapManager.getMap();
-            const now = Date.now();
-            const profile = this.getSensitivityProfile();
-
-            const base = [];
-            const grid = this.app?.dataManager?.getGridData?.();
-            if (!grid || grid.size === 0) {
-                if (this._heatLayer) { map.removeLayer(this._heatLayer); this._heatLayer = null; }
-                return;
-            }
-
-            grid.forEach((cellData, gridKey) => {
-                if (!cellData?.reports?.length) return;
-
-                const center = this._getGridCenter(gridKey, cellData);
-                let totalW = 0;
-                const wsum = { noise: 0, light: 0, odor: 0, crowd: 0 };
-
-                for (const report of cellData.reports) {
-                    const ts = report.timestamp ?? report.created_at ?? report.createdAt ?? null;
-                    const rawType = (report.type ?? '').toString().toLowerCase();
-                    const normType = rawType.includes('irreg') ? 'irregular'
-                        : rawType.includes('reg') ? 'regular'
-                            : 'regular';
-
-                    const w = this._timeDecay(ts, normType, now);
-                    if (w <= 0.1) continue;
-
-                    if (report.noise != null) wsum.noise += report.noise * w;
-                    if (report.light != null) wsum.light += report.light * w;
-                    if (report.odor != null) wsum.odor += report.odor * w;
-                    if (report.crowd != null) wsum.crowd += report.crowd * w;
-                    totalW += w;
+            const base = this._computeHeatmapPoints();
+            // 포인트가 0이어도 레이어는 지도에 붙여두고 빈 상태로 갱신 (다음 갱신 시 바로 보이게)
+            if (!this._heatLayer || !this._isOnMap(this._heatLayer)) {
+                // mapManager가 지운 "떨어진" 인스턴스는 버리고 새로 만든다
+                if (this._heatLayer && !this._isOnMap(this._heatLayer)) {
+                    try { this._heatLayer.remove?.(); } catch { }
+                    this._heatLayer = null;
                 }
-                if (totalW <= 0) return;
-
-                const avg = {
-                    noise: wsum.noise / totalW,
-                    light: wsum.light / totalW,
-                    odor: wsum.odor / totalW,
-                    crowd: wsum.crowd / totalW
-                };
-                const score = this.calculatePersonalizedScore(avg, profile); // 0~10
-                if (!Number.isFinite(score)) return;
-
-                const v01 = Math.max(0, Math.min(1, score / 10)); // 0~1
-                base.push([center.lat, center.lng, v01]);
-            });
-
-            if (this._heatLayer) { map.removeLayer(this._heatLayer); this._heatLayer = null; }
-            if (base.length === 0) return;
-
-            this._heatLayer = new FixedHeatLayer(base, {
-                baseRadiusPx: 8,
-                blurRatio: 0.45,
-                centerOpacity: 0.6,
-                edgeOpacity: 0.0,
-                composite: 'source-over',
-                midStop: 0.7,
-                midMix: 0.8,
-                edgeBias: 0.2,
-                lowAlphaKnee: 0.35,
-                lowAlphaScale: 0.6,
-                lowAlphaGamma: 1,
-                midAlphaStart: 0.55,
-                overlapMode: 'divide',
-                overlapRadiusMul: 1.0,
-                alphaFloor: 0.10
-            });
-            this._heatLayer.addTo(map);
-
-            if (typeof this.app.mapManager.setHeatmapLayer === 'function') {
-                this.app.mapManager.setHeatmapLayer(this._heatLayer);
+                // 첫 생성 시의 줌을 기억해 두면 이후에도 반경 스케일이 안정적
+                this._heatRefZoom = this._heatRefZoom ?? map.getZoom();
+                this._heatLayer = new FixedHeatLayer(base, {
+                    baseRadiusPx: 8,
+                    blurRatio: 0.45,
+                    centerOpacity: 0.6,
+                    edgeOpacity: 0.01,
+                    composite: 'source-over',
+                    midStop: 0.7,
+                    midMix: 0.8,
+                    edgeBias: 0.2,
+                    lowAlphaKnee: 0.35,
+                    lowAlphaScale: 0.6,
+                    lowAlphaGamma: 1,
+                    midAlphaStart: 0.55,
+                    overlapMode: 'divide',
+                    overlapRadiusMul: 1.0,
+                    alphaFloor: 0.10,
+                    // 반경 스케일 기준이 바뀌지 않게 고정(패치 2와 세트)
+                    designZoom: this._heatRefZoom
+                });
+                this._heatLayer.addTo(map);
+                if (typeof this.app.mapManager.setHeatmapLayer === 'function') {
+                    this.app.mapManager.setHeatmapLayer(this._heatLayer);
+                }
+            } else {
+                // 이미 붙어 있으면 데이터만 교체
+                this._heatLayer.setPoints(base);
+                // 혹시라도 clearVisualizationLayers로 떨어진 상태면 다시 붙인다(안전망)
+                if (!this._isOnMap(this._heatLayer)) this._heatLayer.addTo(map);
             }
         } catch (e) {
             console.error('Heatmap creation failed:', e);
@@ -506,25 +598,33 @@ export class VisualizationManager {
         }
     }
     calculatePersonalizedScore(sensoryData, profile) {
-        const w = {
-            noise: profile.noiseThreshold / 10,
-            light: profile.lightThreshold / 10,
-            odor: profile.odorThreshold / 10,
-            crowd: profile.crowdThreshold / 10
+        const T = {
+            noise: clip01(sensoryData.noise),
+            light: clip01(sensoryData.light),
+            odor: clip01(sensoryData.odor),
+            crowd: clip01(sensoryData.crowd)
         };
-        let num = 0, den = 0;
-        for (const k of Object.keys(w)) {
-            const v = sensoryData[k];
-            if (v != null) { num += v * w[k]; den += w[k]; }
-        }
-        return den > 0 ? num / den : 0;
+        return vScoreVector(profile, T); // ✅ 3번째 인자 제거
+    }
+    _syncShowDataBtn() {
+        const btn = document.getElementById('showDataBtn');
+        if (!btn) return;
+        // active = "보이기" 상태라고 가정
+        btn.classList.toggle('active', !!this.showData);
     }
 
-    setDisplayMode(m) { this.currentDisplayMode = m; }
+    setDataDisplay(show) {
+        this.showData = !!show;
+        this._syncShowDataBtn();
+        if (!this.showData) this._detachHeatLayer(); // 즉시 제거
+        this._requestHeatmapRefresh();
+        return this.showData;
+    }
+
+    setDisplayMode(m) { this.currentDisplayMode = m; this._requestHeatmapRefresh(); }
     getDisplayMode() { return this.currentDisplayMode; }
-    setSensoryFilter(f) { this.currentSensoryFilter = f; }
-    getSensoryFilter() { return this.currentSensoryFilter; }
-    toggleDataDisplay() { this.showData = !this.showData; return this.showData; }
+    setSensoryFilter(f) { this.currentSensoryFilter = f; this._requestHeatmapRefresh(); }
+    toggleDataDisplay() { return this.setDataDisplay(!this.showData); }
     getDataDisplayStatus() { return this.showData; }
 
     _getGridCenter(gridKey, cellDataOpt) {

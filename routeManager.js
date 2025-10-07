@@ -1,4 +1,6 @@
 // routeManager.js - 모드별 회피/감각 가중 + 코리도 타깃 회피 + lastSent 프리뷰
+import { clip01, vScoreVector } from './sensoryScorer.js';
+
 export class RouteManager {
     constructor(app) {
         this.app = app;
@@ -22,8 +24,8 @@ export class RouteManager {
         // 주의: percentile은 "낮을수록 더 강하게 회피(핫스팟 더 많이 포함)".
         // time 모드: 회피 완전 비활성(percentile = null)
         this.modeConfig = {
-            sensory: { kSens: 0.1, kTimeMin: 0, percentile: 0.75, baseRadius: 60, maxCount: 32, layers: 3, corridorM: 100 },
-            balanced: { kSens: 0.07, percentile: 0.90, baseRadius: 50, maxCount: 20, layers: 2, corridorM: 70, kTimeSec: 0, kDistM: 0 },
+            sensory: { kSens: 0.1, kTimeMin: 0, percentile: 0.55, baseRadius: 50, maxCount: 32, layers: 3, corridorM: 100 },
+            balanced: { kSens: 0.07, percentile: 0.78, baseRadius: 50, maxCount: 20, layers: 2, corridorM: 70, kTimeSec: 0, kDistM: 0 },
             time: { kSens: 0.0, percentile: null } // 회피/프리뷰 없음, baseline만
         };
 
@@ -173,48 +175,36 @@ export class RouteManager {
     _pureSensoryScore(coords) {
         const sm = this.app?.sensoryManager;
         const sampleAt = sm?.sampleAt || sm?.sample;
+        const profile = this.app?.uiHandler?.getSensitivityProfile?.() || {
+            noiseThreshold: 5, lightThreshold: 5, odorThreshold: 5, crowdThreshold: 5
+        };
         if (!coords?.length || !sampleAt) return 0;
 
-        // Get user profile (default to 5 if not set)
-        const profile = this.app?.uiHandler?.getSensitivityProfile?.() || {
-        noiseThreshold: 5, lightThreshold: 5, odorThreshold: 5, crowdThreshold: 5
-        };
-
-        const keys = ['noise', 'light', 'odor', 'crowd'];
-        const { perSensorMax, targetMax, gamma } = (this.sensoryNorm || {});
-        const step = Math.max(1, Math.floor(coords.length / Math.max(10, Math.floor(coords.length / 30))));
-        const vals = [];
-
+        let acc = 0, cnt = 0;
+        const sampleN = Math.max(10, Math.floor(coords.length / 30));
+        const step = Math.max(1, Math.floor(coords.length / sampleN));
         for (let i = 0; i < coords.length; i += step) {
-        const [lat, lng] = coords[i];
-        let sum = 0, cnt = 0;
-        let v;
-        try { v = sampleAt.call(sm, lat, lng) || {}; } catch { v = {}; }
-        for (const k of keys) {
-            const raw = v[k];
-            if (!Number.isFinite(raw)) continue;
-            const max = (perSensorMax && perSensorMax[k]) ? perSensorMax[k] : 100;
-            // Sensitivity: 0 = not sensitive, 10 = very sensitive → scale 0..1
-            const sensitivity = (profile[`${k}Threshold`] ?? 5) / 10; // 0 (not sensitive) ~ 1 (very sensitive)
-            const n01 = Math.max(0, Math.min(1, raw / max));
-            sum += n01 * sensitivity; // Weight by sensitivity
-            cnt++;
+            const [lat, lng] = coords[i];
+            let v = {};
+            try { v = sampleAt.call(sm, lat, lng) || {}; } catch { }
+            const T = {
+                noise: clip01(v.noise),
+                light: clip01(v.light),
+                odor: clip01(v.odor),
+                crowd: clip01(v.crowd)
+            };
+            const vs = vScoreVector(profile, T); // 0~10
+            if (Number.isFinite(vs)) { acc += vs; cnt++; }
         }
-        if (cnt) vals.push(sum / cnt);
-    }
-    if (!vals.length) return 0;
-
-        // 경로 평균(0~1)
-        let u = vals.reduce((a, b) => a + b, 0) / vals.length;
-
-        // 감마 보정(선택)
+        // 필요 시 gamma/targetMax로 톤 보정 (선택)
+        if (!cnt) return 0;
+        let mean = acc / cnt; // 0~10
+        const { gamma, targetMax = 10 } = (this.sensoryNorm || {});
         if (Number.isFinite(gamma) && gamma !== 1.0) {
-            u = Math.pow(Math.max(0, Math.min(1, u)), gamma);
+            const u01 = Math.max(0, Math.min(1, mean / 10));
+            mean = Math.pow(u01, gamma) * (targetMax || 10);
         }
-
-        // 0~targetMax로 확장 (기본 0~10)
-        const t = Number.isFinite(targetMax) ? targetMax : 10;
-        return u * t;
+        return Math.max(0, Math.min(targetMax || 10, mean));
     }
 
 
@@ -409,8 +399,19 @@ export class RouteManager {
         return [];
     }
     _pointScore(p) {
-        const vals = [p.noise, p.light, p.odor, p.crowd].filter(v => typeof v === 'number');
-        return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+        // 1) 개인 민감도 s (0~10)
+        const profile = this.app?.uiHandler?.getSensitivityProfile?.() || {
+            noiseThreshold: 5, lightThreshold: 5, odorThreshold: 5, crowdThreshold: 5
+        };
+        // 2) 포인트의 감각값 t (0~10로 클리핑)
+        const T = {
+            noise: clip01(p.noise),
+            light: clip01(p.light),
+            odor: clip01(p.odor),
+            crowd: clip01(p.crowd)
+        };
+        // 3) 공통 스코어러: 채널별 v(s,t) → 최댓값(0~10)
+        return vScoreVector(profile, T);
     }
     _computePercentileThreshold(scores, q = 0.85) {
         if (!scores.length) return Infinity;
@@ -489,26 +490,35 @@ export class RouteManager {
     ==========================*/
     _scoreRoute(coords) {
         const sm = this.app?.sensoryManager;
-        if (sm?.scoreRoute) {
-            try { return sm.scoreRoute(coords, 'sensory'); } catch { }
+        const sampleAt = sm?.sampleAt || sm?.sample;
+        const profile = this.app?.uiHandler?.getSensitivityProfile?.() || {
+            noiseThreshold: 5, lightThreshold: 5, odorThreshold: 5, crowdThreshold: 5
+        };
+        if (!coords?.length || !sampleAt) {
+            // 샘플러가 없으면 포인트 폴백으로 근사 (아래 함수도 동일 공통식 적용)
+            return this._scoreRouteWithPoints(coords);
         }
-        if (sm?.sampleAt || sm?.sample) {
-            // 샘플러가 있으면 기존 폴백(희소 샘플) 사용
-            let acc = 0, cnt = 0;
-            const sampler = sm.sampleAt || sm.sample;
-            const sampleN = Math.max(10, Math.floor(coords.length / 30));
-            for (let i = 0; i < coords.length; i += Math.max(1, Math.floor(coords.length / sampleN))) {
-                const [lat, lng] = coords[i];
-                try {
-                    const v = sampler.call(sm, lat, lng) || {};
-                    const vals = [v.noise, v.light, v.odor, v.crowd].filter(x => typeof x === 'number');
-                    if (vals.length) { acc += vals.reduce((a, b) => a + b, 0) / vals.length; cnt++; }
-                } catch { }
-            }
-            return cnt ? (acc / cnt) : 0;
+
+        let acc = 0, cnt = 0;
+        const sampleN = Math.max(10, Math.floor(coords.length / 30));
+        const step = Math.max(1, Math.floor(coords.length / sampleN));
+
+        for (let i = 0; i < coords.length; i += step) {
+            const [lat, lng] = coords[i];
+            let v = {};
+            try { v = sampleAt.call(sm, lat, lng) || {}; } catch { }
+            // t를 0~10로 클리핑
+            const T = {
+                noise: clip01(v.noise),
+                light: clip01(v.light),
+                odor: clip01(v.odor),
+                crowd: clip01(v.crowd)
+            };
+            // 채널별 v(s,t) → 최댓값(0~10)
+            const vs = vScoreVector(profile, T);
+            if (Number.isFinite(vs)) { acc += vs; cnt++; }
         }
-        // 포인트 기반 역거리 가중 폴백
-        return this._scoreRouteWithPoints(coords);
+        return cnt ? (acc / cnt) : 0; // 평균 불편도(0~10)
     }
     _scoreRouteWithPoints(coords, { samplePts = 80, radM = 120, k = 6 } = {}) {
         const pts = this._getAllSensoryPoints();
