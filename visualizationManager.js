@@ -44,7 +44,10 @@ class FixedHeatLayer extends L.Layer {
             lowAlphaKnee: Number.isFinite(opts.lowAlphaKnee) ? opts.lowAlphaKnee : 0.35, // v가 이 값 아래면 강하게 투명
             lowAlphaScale: Number.isFinite(opts.lowAlphaScale) ? opts.lowAlphaScale : 0.25, // 무릎 아래 최대 비율(0~1)
             lowAlphaGamma: Number.isFinite(opts.lowAlphaGamma) ? opts.lowAlphaGamma : 2.0,  // 곡률(클수록 더 투명)
-            midAlphaStart: Number.isFinite(opts.midAlphaStart) ? opts.midAlphaStart : 0.55,  // 무릎 넘긴 뒤 시작 불투명도designZoom: 
+            midAlphaStart: Number.isFinite(opts.midAlphaStart) ? opts.midAlphaStart : 0.55,
+            // 전역 표시 강도 (0~1). intensity=0.7일 때 현행과 동일
+            intensity: Number.isFinite(opts.intensity) ? opts.intensity : 0.7,
+            intensityRef: Number.isFinite(opts.intensityRef) ? opts.intensityRef : 0.7,
             designZoom: this._designZoom,
         };
 
@@ -231,7 +234,7 @@ class FixedHeatLayer extends L.Layer {
             const midStart = Number.isFinite(this.options.midAlphaStart) ? this.options.midAlphaStart : 0.55;
 
             const baseCenterOpacity = Math.max(0, Math.min(1, this.options.centerOpacity ?? 0.75));
-            const edgeOpacity = Math.max(0, Math.min(1, this.options.edgeOpacity ?? 0.0));
+            const edgeOpacityBase = Math.max(0, Math.min(1, this.options.edgeOpacity ?? 0.0));
 
             // 5) 렌더 루프
             for (let i = 0; i < vis.length; i++) {
@@ -299,12 +302,21 @@ class FixedHeatLayer extends L.Layer {
                     nearEdgeA = Math.max(alphaFloor * 0.6, nearEdgeA * atten);
                 }
 
+                // ----- 전역 표시 강도(0..1) 반영: 0.7일 때 k=1 -----
+                const iRef = Number.isFinite(this.options.intensityRef) ? this.options.intensityRef : 0.7;
+                const iRaw = Number.isFinite(this.options.intensity) ? this.options.intensity : iRef;
+                const k = Math.max(0, Math.min(1, iRaw)) / Math.max(1e-6, iRef);
+                const centerAF = Math.max(0, Math.min(1, centerA * k));
+                const midAF = Math.max(0, Math.min(1, midA * k));
+                const nearEdgeAF = Math.max(0, Math.min(1, nearEdgeA * k));
+                const edgeOpacity = Math.max(0, Math.min(1, edgeOpacityBase * k));
+
                 // ----- 그라데이션 그리기 -----
                 const blur = Math.max(2, Math.round(r * blurRatio));
                 const g = this._ctx.createRadialGradient(x, y, 0, x, y, r);
-                g.addColorStop(0.00, this._hexToRgba(centerHex, centerA));              // 중심
-                g.addColorStop(midStop, this._hexToRgba(midHex, midA));               // 중간
-                g.addColorStop(0.85, this._hexToRgba(edgeHex, nearEdgeA));          // 외곽 근처
+                g.addColorStop(0.00, this._hexToRgba(centerHex, centerAF));           // 중심
+                g.addColorStop(midStop, this._hexToRgba(midHex, midAF));            // 중간
+                g.addColorStop(0.85, this._hexToRgba(edgeHex, nearEdgeAF));       // 외곽 근처
                 g.addColorStop(1.00, this._hexToRgba(edgeHex, edgeOpacity));        // 완전 외곽(투명)
 
                 ctx.fillStyle = g;
@@ -336,6 +348,8 @@ export class VisualizationManager {
         this._gridDebugLayer = null;
         this._gridDebugOn = false;
         this._heatRefZoom = null;
+        // 전역 표시 강도(0~1) — 0.7이 baseline(현재와 동일)
+        this.displayIntensity = 0.7;
 
         // 'g' 단축키: map 준비가 안되었으면 안전하게 무시
         this._onKeyDown = (e) => {
@@ -350,6 +364,8 @@ export class VisualizationManager {
         window.addEventListener('keydown', this._onKeyDown);
         this._installLiveHeatmapHooks();
         this._startFallbackWatchers();
+        // ✅ 기존 UI 자동 연동 (슬라이더/버튼을 "감지"해서 바인딩)
+        this._installIntensityAndFilterUI();
     }
 
     // 외부에서 수동으로도 호출 가능
@@ -428,6 +444,7 @@ export class VisualizationManager {
         const now = Date.now();
         const profile = this.getSensitivityProfile();
         const grid = this.app?.dataManager?.getGridData?.();
+        const filter = (this.currentSensoryFilter || 'all');
         const base = [];
         if (!grid || grid.size === 0) return base;
 
@@ -457,7 +474,15 @@ export class VisualizationManager {
                 odor: wsum.odor / totalW,
                 crowd: wsum.crowd / totalW
             };
-            const score = this.calculatePersonalizedScore(avg, profile); // 0..10
+            // 감각별 보기: 선택 채널만 반영
+            let score = 0;
+            if (filter === 'all') {
+                score = this.calculatePersonalizedScore(avg, profile); // 0..10
+            } else {
+                const T = { noise: 0, light: 0, odor: 0, crowd: 0 };
+                T[filter] = clip01(avg[filter]);
+                score = vScoreVector(profile, T); // 0..10
+            }
             if (!Number.isFinite(score)) return;
             const v01 = Math.max(0, Math.min(1, score / 10));
             base.push([center.lat, center.lng, v01]);
@@ -568,15 +593,19 @@ export class VisualizationManager {
                     overlapRadiusMul: 1.0,
                     alphaFloor: 0.10,
                     // 반경 스케일 기준이 바뀌지 않게 고정(패치 2와 세트)
-                    designZoom: this._heatRefZoom
+                    designZoom: this._heatRefZoom,
+                    // ✅ 표시 강도 연동 (0~1), baseline=0.7
+                    intensity: this.displayIntensity,
+                    intensityRef: 0.7
                 });
                 this._heatLayer.addTo(map);
                 if (typeof this.app.mapManager.setHeatmapLayer === 'function') {
                     this.app.mapManager.setHeatmapLayer(this._heatLayer);
                 }
             } else {
-                // 이미 붙어 있으면 데이터만 교체
+                // 이미 붙어 있으면 데이터/옵션만 교체
                 this._heatLayer.setPoints(base);
+                this._heatLayer.setOptions({ intensity: this.displayIntensity });
                 // 혹시라도 clearVisualizationLayers로 떨어진 상태면 다시 붙인다(안전망)
                 if (!this._isOnMap(this._heatLayer)) this._heatLayer.addTo(map);
             }
@@ -613,6 +642,46 @@ export class VisualizationManager {
         btn.classList.toggle('active', !!this.showData);
     }
 
+    // === 기존 UI 자동 감지/바인딩 ===
+    _installIntensityAndFilterUI() {
+        // 1) 표시 강도 슬라이더(여러 셀렉터 중 "있는 것"을 자동 사용)
+        const sliderSelectors = [
+            '#displayIntensity', '#heatIntensity', 'input[name="displayIntensity"]',
+            'input[name="heatIntensity"]', '[data-intensity]', '[data-role="intensity"]',
+            '.intensity-slider'
+        ];
+        let sliderEl = null;
+        for (const sel of sliderSelectors) { const el = document.querySelector(sel); if (el) { sliderEl = el; break; } }
+        if (sliderEl) {
+            // 초기값이 있으면 그 값을 baseline으로 반영
+            const initVal = parseFloat(sliderEl.value ?? sliderEl.getAttribute?.('value'));
+            if (Number.isFinite(initVal)) this.setDisplayIntensity(initVal);
+            sliderEl.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                this.setDisplayIntensity(val);
+            });
+        }
+        // 2) 감각별 버튼: data-sensory="all|noise|light|odor|crowd" 우선
+        document.addEventListener('click', (ev) => {
+            const el = ev.target.closest?.('[data-sensory]');
+            if (!el) return;
+            const key = (el.getAttribute('data-sensory') || '').toLowerCase();
+            this.setSensoryFilter(key, /*forceHeatmap=*/true);
+        });
+        // 2-a) 과거 ID 기반 버튼도 자동 지원
+        const idMap = [
+            ['#btnAll', 'all'], ['#btnNoise', 'noise'], ['#btnLight', 'light'],
+            ['#btnOdor', 'odor'], ['#btnCrowd', 'crowd']
+        ];
+        idMap.forEach(([id, key]) => {
+            const el = document.querySelector(id);
+            if (el) el.addEventListener('click', () => this.setSensoryFilter(key, /*forceHeatmap=*/true));
+        });
+        // 2-b) select 박스가 있다면 id="sensoryFilterSelect"
+        const sel = document.getElementById('sensoryFilterSelect');
+        if (sel) sel.addEventListener('change', (e) => this.setSensoryFilter(e.target.value, /*forceHeatmap=*/true));
+    }
+
     setDataDisplay(show) {
         this.showData = !!show;
         this._syncShowDataBtn();
@@ -623,7 +692,28 @@ export class VisualizationManager {
 
     setDisplayMode(m) { this.currentDisplayMode = m; this._requestHeatmapRefresh(); }
     getDisplayMode() { return this.currentDisplayMode; }
-    setSensoryFilter(f) { this.currentSensoryFilter = f; this._requestHeatmapRefresh(); }
+    // 감각 버튼을 눌러도 항상 '히트맵' 모드로 보이게 한다.
+    setSensoryFilter(f, forceHeatmap = true) {
+        const allow = new Set(['all','noise','light','odor','crowd']);
+        this.currentSensoryFilter = allow.has(f) ? f : 'all';  // '전체' 버튼이 없어도 안전
+        if (forceHeatmap) {
+            // 히트맵 모드 강제
+            if (this.currentDisplayMode !== 'heatmap') this.setDisplayMode('heatmap');
+            // 히트맵 레이어가 꺼져 있으면 켬
+            if (!this.showData) this.setDataDisplay(true);
+        }
+        // 이미 heatmap 모드여도 새 필터 반영을 위해 갱신
+        this._requestHeatmapRefresh();
+        return this.currentSensoryFilter;
+    }
+    setDisplayIntensity(v) {
+        const n = Math.max(0, Math.min(1, Number(v)));
+        this.displayIntensity = Number.isFinite(n) ? n : 0.7;
+        // 레이어가 있으면 즉시 반영
+        if (this._heatLayer) this._heatLayer.setOptions({ intensity: this.displayIntensity });
+        else this._requestHeatmapRefresh();
+        return this.displayIntensity;
+    }
     toggleDataDisplay() { return this.setDataDisplay(!this.showData); }
     getDataDisplayStatus() { return this.showData; }
 
