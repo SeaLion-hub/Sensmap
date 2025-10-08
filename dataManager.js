@@ -210,6 +210,17 @@ export class DataManager {
             this.gridData.set(gridKey, {
                 lat: this.snapToGrid(report.lat),
                 lng: this.snapToGrid(report.lng),
+                // quantized cell geometry (added)
+                center: { 
+                    lat: this.snapToGrid(report.lat) + this.gridSize / 2, 
+                    lng: this.snapToGrid(report.lng) + this.gridSize / 2 
+                },
+                bounds: { 
+                    south: this.snapToGrid(report.lat), 
+                    west: this.snapToGrid(report.lng), 
+                    north: this.snapToGrid(report.lat) + this.gridSize, 
+                    east: this.snapToGrid(report.lng) + this.gridSize 
+                },
                 reports: [],
                 aggregated: { noise: [], light: [], odor: [], crowd: [] },
                 averages: { noise: 0, light: 0, odor: 0, crowd: 0 },
@@ -538,4 +549,44 @@ export class DataManager {
         localStorage.removeItem('sensmap_offline_data');
         console.log('✅ 데이터 캐시가 정리되었습니다.');
     }
+
+    // Quantized grid geometry helpers (added)
+    getGridBounds(gridKey) {
+        // Prefer stored bounds if available
+        const cell = this.gridData?.get?.(gridKey);
+        if (cell?.bounds && typeof cell.bounds.south === 'number') {
+            return { 
+                south: cell.bounds.south, west: cell.bounds.west, 
+                north: cell.bounds.north, east: cell.bounds.east 
+            };
+        }
+        // Derive from gridKey of form "lat,lng" (SW corner) plus gridSize
+        if (typeof gridKey === 'string' && gridKey.includes(',')) {
+            const [a,b] = gridKey.split(',');
+            const south = parseFloat(a), west = parseFloat(b);
+            if (Number.isFinite(south) && Number.isFinite(west)) {
+                const size = this.gridSize || 0.0005;
+                return { south, west, north: south + size, east: west + size };
+            }
+        }
+        return null;
+    }
+
+    _getGridCenter(gridKey) {
+        const b = this.getGridBounds(gridKey);
+        if (b) {
+            return { lat: (b.south + b.north) / 2, lng: (b.west + b.east) / 2 };
+        }
+        // Fallback: try parse gridKey directly
+        if (typeof gridKey === 'string' && gridKey.includes(',')) {
+            const [a,b] = gridKey.split(',');
+            const lat = parseFloat(a), lng = parseFloat(b);
+            if (Number.isFinite(lat) && Number.isFinite(lng)) {
+                const size = this.gridSize || 0.0005;
+                return { lat: lat + size/2, lng: lng + size/2 };
+            }
+        }
+        return null;
+    }
+
 }

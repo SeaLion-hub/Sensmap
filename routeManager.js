@@ -24,8 +24,8 @@ export class RouteManager {
         // 주의: percentile은 "낮을수록 더 강하게 회피(핫스팟 더 많이 포함)".
         // time 모드: 회피 완전 비활성(percentile = null)
         this.modeConfig = {
-            sensory: { kSens: 0.1, kTimeMin: 0, percentile: 0.55, baseRadius: 50, maxCount: 32, layers: 3, corridorM: 100 },
-            balanced: { kSens: 0.07, percentile: 0.78, baseRadius: 50, maxCount: 20, layers: 2, corridorM: 70, kTimeSec: 0, kDistM: 0 },
+            sensory: { kSens: 0.1, kTimeMin: 0, percentile: 0.55, baseRadius: 46, maxCount: 32, layers: 3, corridorM: 100 },
+            balanced: { kSens: 0.07, percentile: 0.78, baseRadius: 43, maxCount: 20, layers: 2, corridorM: 70, kTimeSec: 0, kDistM: 0 },
             time: { kSens: 0.0, percentile: null } // 회피/프리뷰 없음, baseline만
         };
 
@@ -48,6 +48,47 @@ export class RouteManager {
             if (partial[key]) Object.assign(this.modeConfig[key], partial[key]);
         }
         if (this.isAvoidPreviewMode) this.refreshAvoidPreview(); // 즉시 반영
+    }
+
+    // === 셀 중심 계산 헬퍼 ===
+    _cellCenter(cell, gridKey) {
+        const dm = this.app?.dataManager;
+        // 1) 명시적 center 우선
+        if (cell?.center && Number.isFinite(cell.center.lat) && Number.isFinite(cell.center.lng)) {
+            return { lat: cell.center.lat, lng: cell.center.lng };
+        }
+        // 2) bounds 기반
+        let b = cell?.bounds;
+        if (!b && typeof dm?.getGridBounds === 'function') {
+            try { b = dm.getGridBounds(gridKey); } catch { }
+        }
+        if (b) {
+            if (typeof b.getCenter === 'function') return b.getCenter();
+            if ([b.south, b.west, b.north, b.east].every(Number.isFinite)) {
+                return { lat: (b.south + b.north) / 2, lng: (b.west + b.east) / 2 };
+            }
+            if (b.center && Number.isFinite(b.center.lat) && Number.isFinite(b.center.lng)) {
+                return { lat: b.center.lat, lng: b.center.lng };
+            }
+        }
+        // 3) gridKey(SW 모서리) + gridSize 로 계산
+        const size =
+            Number(dm?.gridSize) ||
+            (typeof dm?.getGridSize === 'function' ? Number(dm.getGridSize()) : 0.0005);
+        if (typeof gridKey === 'string' && gridKey.includes(',') && Number.isFinite(size)) {
+            const [southStr, westStr] = gridKey.split(',');
+            const south = parseFloat(southStr), west = parseFloat(westStr);
+            if (Number.isFinite(south) && Number.isFinite(west)) {
+                return { lat: south + size / 2, lng: west + size / 2 };
+            }
+        }
+        // 4) cell.lat/lng 가 있으면 (대개 SW 모서리) → center로 보정
+        if (Number.isFinite(cell?.lat) && Number.isFinite(cell?.lng) && Number.isFinite(size)) {
+            return { lat: cell.lat + size / 2, lng: cell.lng + size / 2 };
+        }
+        // 5) 최후 보루: 현재 맵 중심
+        const map = this.app?.mapManager?.getMap?.();
+        return map?.getCenter?.() || { lat: 37.5665, lng: 126.9780 };
     }
 
     /* =========================
@@ -377,21 +418,42 @@ export class RouteManager {
     ==========================*/
     _getAllSensoryPoints() {
         const sm = this.app?.sensoryManager;
+        // 센서리 매니저가 있더라도 좌표를 셀 중심으로 스냅해주면
+        // 회피/프리뷰의 원이 그리드 중앙에 정렬된다.
         if (sm) {
             try {
-                if (sm.getAllPoints) return sm.getAllPoints() || [];
-                if (sm.getVisiblePoints) return sm.getVisiblePoints() || [];
+                const raw =
+                    (typeof sm.getAllPoints === 'function' && sm.getAllPoints()) ||
+                    (typeof sm.getVisiblePoints === 'function' && sm.getVisiblePoints()) || [];
+                const dm = this.app?.dataManager;
+                const size =
+                    Number(dm?.gridSize) ||
+                    (typeof dm?.getGridSize === 'function' ? Number(dm.getGridSize()) : 0.0005);
+                const snap = (lat, lng) => {
+                    if (!Number.isFinite(size)) return { lat, lng };
+                    const south = Math.floor(lat / size) * size;
+                    const west = Math.floor(lng / size) * size;
+                    return { lat: south + size / 2, lng: west + size / 2 };
+                };
+                return raw.map(p => {
+                    const c = snap(p.lat, p.lng);
+                    return { ...p, lat: c.lat, lng: c.lng };
+                });
             } catch { }
         }
         const dm = this.app?.dataManager;
         if (dm?.gridData && typeof dm.gridData.forEach === 'function') {
             const out = [];
             try {
-                dm.gridData.forEach(cell => {
+                // Map.forEach(value, key) 시그니처 사용 → gridKey 획득
+                dm.gridData.forEach((cell, gridKey) => {
                     const a = cell.averages || {};
-                    if (typeof cell.lat === 'number' && typeof cell.lng === 'number') {
-                        out.push({ lat: cell.lat, lng: cell.lng, noise: a.noise, light: a.light, odor: a.odor, crowd: a.crowd });
-                    }
+                    const center = this._cellCenter(cell, gridKey);
+                    out.push({
+                        lat: center.lat,
+                        lng: center.lng,
+                        noise: a.noise, light: a.light, odor: a.odor, crowd: a.crowd
+                    });
                 });
             } catch { }
             return out;

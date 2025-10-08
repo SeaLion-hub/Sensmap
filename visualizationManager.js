@@ -552,7 +552,7 @@ export class VisualizationManager {
                 // 첫 생성 시의 줌을 기억해 두면 이후에도 반경 스케일이 안정적
                 this._heatRefZoom = this._heatRefZoom ?? map.getZoom();
                 this._heatLayer = new FixedHeatLayer(base, {
-                    baseRadiusPx: 8,
+                    baseRadiusPx: 7,
                     blurRatio: 0.45,
                     centerOpacity: 0.6,
                     edgeOpacity: 0.01,
@@ -629,28 +629,41 @@ export class VisualizationManager {
 
     _getGridCenter(gridKey, cellDataOpt) {
         const dm = this.app?.dataManager;
-        if (!dm) return { lat: 37.5665, lng: 126.9780 };
-        if (typeof dm.getGridBounds === 'function') {
-            try { const b = dm.getGridBounds(gridKey); if (b?.getCenter) return b.getCenter(); } catch { }
+        // 1) dataManager에 저장된 셀 조회
+        const grid = (typeof dm?.getGridData === 'function') ? dm.getGridData() : dm?.gridData;
+        const cell = grid?.get ? grid.get(gridKey) : grid?.[gridKey];
+        // 1-a) 명시적 center가 있으면 최우선 사용
+        if (cell?.center && Number.isFinite(cell.center.lat) && Number.isFinite(cell.center.lng)) {
+            return { lat: cell.center.lat, lng: cell.center.lng };
         }
-        const alt = ['getCellBounds', 'getGridCellBounds', 'boundsForGrid', 'boundsForCell'];
-        for (const fn of alt) {
-            if (typeof dm[fn] === 'function') {
-                try { const b = dm[fn](gridKey); if (b?.getCenter) return b.getCenter(); } catch { }
+        // 2) bounds 기반 계산
+        let b = cell?.bounds || cellDataOpt?.bounds;
+        if (!b && typeof dm?.getGridBounds === 'function') {
+            try { b = dm.getGridBounds(gridKey); } catch { }
+        }
+        if (b) {
+            if (typeof b.getCenter === 'function') return b.getCenter();                 // LatLngBounds
+            if (Number.isFinite(b.south) && Number.isFinite(b.west)                      // {south,west,north,east}
+                && Number.isFinite(b.north) && Number.isFinite(b.east)) {
+                return { lat: (b.south + b.north) / 2, lng: (b.west + b.east) / 2 };
+            }
+            if (b.center && Number.isFinite(b.center.lat) && Number.isFinite(b.center.lng)) {
+                return { lat: b.center.lat, lng: b.center.lng };
             }
         }
-        const grid = (typeof dm.getGridData === 'function') ? dm.getGridData() : dm.gridData;
-        const cell = grid?.get ? grid.get(gridKey) : grid?.[gridKey];
-        const boundsObj = cell?.bounds || cellDataOpt?.bounds;
-        if (boundsObj?.getCenter) return boundsObj.getCenter();
-        if (boundsObj?.center) return boundsObj.center;
-
+        // 3) gridKey(=SW 모서리)와 gridSize로 중심 계산
         if (typeof gridKey === 'string' && gridKey.includes(',')) {
-            const parts = gridKey.split(','); const lat = parseFloat(parts[0]); const lng = parseFloat(parts[1]);
-            if (!Number.isNaN(lat) && !Number.isNaN(lng)) return { lat, lng };
+            const [southStr, westStr] = gridKey.split(',');
+            const south = parseFloat(southStr), west = parseFloat(westStr);
+            if (Number.isFinite(south) && Number.isFinite(west)) {
+                const size = Number(dm?.gridSize)
+                    || (typeof dm?.getGridSize === 'function' ? Number(dm.getGridSize()) : 0.0005);
+                return { lat: south + size / 2, lng: west + size / 2 };
+            }
         }
-        const map = this.app?.mapManager?.getMap?.(); const center = map?.getCenter?.();
-        return center || { lat: 37.5665, lng: 126.9780 };
+        // 4) 최후 보루
+        const map = this.app?.mapManager?.getMap?.();
+        return map?.getCenter?.() || { lat: 37.5665, lng: 126.9780 };
     }
 
     _timeDecay(timestamp, type = 'regular', now = Date.now()) {
