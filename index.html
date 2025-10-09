@@ -543,6 +543,22 @@
                     <div class="timetable-date" id="timetableDateLabel"></div>
                     <div class="timetable-select" id="timetableSelectInfo" aria-live="polite"></div>
                 </div>
+                <div class="timetable-header" style="gap:8px;">
+                    <label for="timetableDaySelect" class="timetable-select">요일 선택</label>
+                    <select id="timetableDaySelect" class="timetable-select" aria-label="요일 선택">
+                        <option value="0">일</option>
+                        <option value="1">월</option>
+                        <option value="2">화</option>
+                        <option value="3">수</option>
+                        <option value="4">목</option>
+                        <option value="5">금</option>
+                        <option value="6">토</option>
+                    </select>
+                    <label class="timetable-select" style="display:flex;align-items:center;gap:6px;">
+                        <input type="checkbox" id="timetableRepeatWeekly" />
+                        매주 반복
+                    </label>
+                </div>
 
                 <!-- 시간표 그리드 -->
                 <div class="timetable-grid" id="timetableGrid">
