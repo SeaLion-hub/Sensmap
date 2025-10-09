@@ -482,10 +482,12 @@ class SensmapApp {
 
         // Store timetable data for this location
         const locationKey = this.clickedLocation ? `${this.clickedLocation.lat},${this.clickedLocation.lng}` : 'current';
-        // Persist per-day timetable structure
+        // Persist per-day timetable structure (backward compatible)
         const savedTimetables = JSON.parse(localStorage.getItem('sensmap_timetables') || '{}');
         const entry = savedTimetables[locationKey] || { location: this.clickedLocation, byDay: {}, repeat: false };
-        entry.byDay[this.timetableDay] = Array.from(this.timetableData.entries());
+        if (!entry.byDay || typeof entry.byDay !== 'object') entry.byDay = {};
+        const dayIdx = Number.isFinite(this.timetableDay) ? this.timetableDay : new Date().getDay();
+        entry.byDay[dayIdx] = Array.from(this.timetableData.entries());
         entry.repeat = !!this.timetableRepeat;
         entry.appliedAt = new Date().toISOString();
         savedTimetables[locationKey] = entry;
@@ -538,6 +540,9 @@ class SensmapApp {
             if (dayEl) dayEl.value = String(this.timetableDay);
 
             // apply current day's selections
+            if (!savedData.byDay || typeof savedData.byDay !== 'object') {
+                savedData.byDay = {};
+            }
             this._reloadDaySelections(savedData);
             this.showToast('저장된 시간표를 불러왔습니다', 'info');
         }
