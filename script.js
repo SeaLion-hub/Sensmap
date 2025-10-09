@@ -15,9 +15,7 @@ class SensmapApp {
         this.currentToast = null;
         this.undoTimeout = null;
 
-        this.timetableData = new Map(); // per-hour selections for current day
-        this.timetableDay = new Date().getDay();
-        this.timetableRepeat = false;
+        this.timetableData = new Map();
 
         console.log(`🗺️ Sensmap v${this.version} 초기화 시작...`);
 
@@ -307,9 +305,8 @@ class SensmapApp {
         const savedTimetables = JSON.parse(localStorage.getItem('sensmap_timetables') || '{}');
         const savedData = savedTimetables[locationKey];
 
-        if (savedData && savedData.byDay) {
-            const arr = savedData.byDay[this.timetableDay] || [];
-            arr.forEach(([key, data]) => {
+        if (savedData) {
+            savedData.selections.forEach(([key, data]) => {
                 const cell = document.querySelector(`.time-cell[data-key="${key}"]`);
                 if (cell) {
                     cell.classList.add('has-timetable', data.type);
@@ -319,20 +316,6 @@ class SensmapApp {
     }
 
     setupTimetableEventListeners() {
-        // 요일 선택
-        document.getElementById('timetableDaySelect')?.addEventListener('change', (e) => {
-            const day = parseInt(e.target.value);
-            if (Number.isFinite(day) && day >= 0 && day <= 6) {
-                this.timetableDay = day;
-                this._reloadDaySelections();
-            }
-        });
-
-        // 반복 체크
-        document.getElementById('timetableRepeatWeekly')?.addEventListener('change', (e) => {
-            this.timetableRepeat = !!e.target.checked;
-        });
-
         // 시간 셀 선택
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('time-cell')) {
@@ -435,11 +418,6 @@ class SensmapApp {
             dateLabel.textContent = `${today.getFullYear()}.${String(today.getMonth() + 1).padStart(2, '0')}.${String(today.getDate()).padStart(2, '0')}`;
         }
 
-        const daySel = document.getElementById('timetableDaySelect');
-        if (daySel) {
-            daySel.value = String(this.timetableDay);
-        }
-
         this.updateTimetableSelectionInfo();
     }
 
@@ -482,13 +460,15 @@ class SensmapApp {
 
         // Store timetable data for this location
         const locationKey = this.clickedLocation ? `${this.clickedLocation.lat},${this.clickedLocation.lng}` : 'current';
-        // Persist per-day timetable structure
+        const timetableInfo = {
+            location: this.clickedLocation,
+            selections: Array.from(this.timetableData.entries()),
+            appliedAt: new Date().toISOString()
+        };
+
+        // Save to localStorage for persistence
         const savedTimetables = JSON.parse(localStorage.getItem('sensmap_timetables') || '{}');
-        const entry = savedTimetables[locationKey] || { location: this.clickedLocation, byDay: {}, repeat: false };
-        entry.byDay[this.timetableDay] = Array.from(this.timetableData.entries());
-        entry.repeat = !!this.timetableRepeat;
-        entry.appliedAt = new Date().toISOString();
-        savedTimetables[locationKey] = entry;
+        savedTimetables[locationKey] = timetableInfo;
         localStorage.setItem('sensmap_timetables', JSON.stringify(savedTimetables));
 
         this.showToast(`${this.timetableData.size}개의 시간대가 적용되었습니다`, 'success');
@@ -528,17 +508,22 @@ class SensmapApp {
         const savedData = savedTimetables[locationKey];
 
         if (savedData) {
-            // restore repeat and selected day
-            this.timetableRepeat = !!savedData.repeat;
-            const repeatEl = document.getElementById('timetableRepeatWeekly');
-            if (repeatEl) repeatEl.checked = this.timetableRepeat;
+            // Clear current selections
+            this.timetableData.clear();
+            document.querySelectorAll('.time-cell.selected').forEach(cell => {
+                cell.classList.remove('selected', 'irregular', 'regular');
+            });
 
-            // set dropdown to current day
-            const dayEl = document.getElementById('timetableDaySelect');
-            if (dayEl) dayEl.value = String(this.timetableDay);
+            // Apply saved selections
+            savedData.selections.forEach(([key, data]) => {
+                this.timetableData.set(key, data);
+                const cell = document.querySelector(`.time-cell[data-key="${key}"]`);
+                if (cell) {
+                    cell.classList.add('selected', data.type);
+                }
+            });
 
-            // apply current day's selections
-            this._reloadDaySelections(savedData);
+            this.updateTimetableSelectionInfo();
             this.showToast('저장된 시간표를 불러왔습니다', 'info');
         }
     }
@@ -555,10 +540,8 @@ class SensmapApp {
 
         const hour = date.getHours();
         const timeKey = String(hour).padStart(2, '0');
-        const day = date.getDay();
-        // prefer specific day schedule, else if repeat==true and a default (e.g., any day key like 'all') is used
-        const dayArr = (timetable.byDay && timetable.byDay[day]) || [];
-        return dayArr.some(([key, data]) => key === timeKey);
+
+        return timetable.selections.some(([key, data]) => key === timeKey);
     }
 
     viewTimetableInfo(gridKey) {
@@ -603,27 +586,6 @@ class SensmapApp {
 
         // Show in a modal or enhanced popup
         this.showTimetableModal(timetableContent);
-    }
-
-    _reloadDaySelections(savedDataOpt) {
-        // Clear UI selections
-        this.timetableData.clear();
-        document.querySelectorAll('.time-cell.selected').forEach(cell => {
-            cell.classList.remove('selected', 'irregular', 'regular');
-        });
-
-        const savedTimetables = JSON.parse(localStorage.getItem('sensmap_timetables') || '{}');
-        const locationKey = this.clickedLocation ? `${this.clickedLocation.lat},${this.clickedLocation.lng}` : 'current';
-        const savedData = savedDataOpt || savedTimetables[locationKey];
-        if (!savedData || !savedData.byDay) { this.updateTimetableSelectionInfo(); return; }
-
-        const arr = savedData.byDay[this.timetableDay] || [];
-        arr.forEach(([key, data]) => {
-            this.timetableData.set(key, data);
-            const cell = document.querySelector(`.time-cell[data-key="${key}"]`);
-            if (cell) cell.classList.add('selected', data.type);
-        });
-        this.updateTimetableSelectionInfo();
     }
 
     // 감각 정보 입력 패널 열기
