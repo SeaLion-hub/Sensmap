@@ -283,6 +283,19 @@ export class UIHandler {
             submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 저장 중...';
             submitButton.disabled = true;
 
+            // attach timetable (byDay + repeat) if type is regular and user selected any slots
+            if (selectedType === 'regular') {
+                try {
+                    const locKey = this.clickedLocation ? `${this.clickedLocation.lat},${this.clickedLocation.lng}` : 'current';
+                    const savedTimetables = JSON.parse(localStorage.getItem('sensmap_timetables') || '{}');
+                    const entry = savedTimetables[locKey];
+                    if (entry && entry.byDay) {
+                        reportData.timetable = entry.byDay; // {0:[...],1:[...],...}
+                        reportData.timetableRepeat = !!entry.repeat;
+                    }
+                } catch (_) {}
+            }
+
             const result = await this.app.dataManager.submitSensoryData(reportData);
             
             if (result.success) {
