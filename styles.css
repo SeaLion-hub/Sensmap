@@ -2588,19 +2588,6 @@ html {
     font-weight: 600;
 }
 
-/* Weekday select & repeat */
-#timetableDaySelect {
-    padding: 6px 8px;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    background: #fff;
-}
-
-#timetableRepeatWeekly {
-    width: 16px;
-    height: 16px;
-}
-
 .timetable-grid {
     display: grid;
     grid-template-columns: 120px 1fr;

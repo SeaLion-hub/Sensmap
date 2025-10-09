@@ -459,26 +459,7 @@ export class VisualizationManager {
                 const normType = rawType.includes('irreg') ? 'irregular'
                     : rawType.includes('reg') ? 'regular'
                         : 'regular';
-                // Enforce timetable filtering for regular data
-                if (normType === 'regular') {
-                    const nowD = new Date(now);
-                    const day = nowD.getDay();
-                    const hourKey = String(nowD.getHours()).padStart(2, '0');
-                    let withinSchedule = false; // default: hide unless timetable explicitly allows
-                    if (report.timetable && typeof report.timetable === 'object') {
-                        try {
-                            const dayArr = report.timetable[String(day)] ?? report.timetable[day] ?? [];
-                            if (Array.isArray(dayArr)) {
-                                withinSchedule = dayArr.some(([k]) => String(k) === hourKey);
-                            }
-                        } catch (_) { withinSchedule = false; }
-                    }
-                    if (!withinSchedule) continue;
-                }
-                // Repeated regular data: no age decay, rely purely on timetable to toggle
-                const w = (normType === 'regular' && report.timetable && report.timetable_repeat)
-                    ? 1.0
-                    : this._timeDecay(ts, normType, now);
+                const w = this._timeDecay(ts, normType, now);
                 if (w <= 0.1) continue;
                 if (report.noise != null) wsum.noise += report.noise * w;
                 if (report.light != null) wsum.light += report.light * w;
