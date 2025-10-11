@@ -761,6 +761,7 @@ export class VisualizationManager {
         if (typeof dm?.calculateTimeDecay === 'function') {
             try { return dm.calculateTimeDecay(timestamp, type, now); } catch { }
         }
+        // Fallback implementation (should not be used if dataManager is available)
         const ageMs = Math.max(0, now - (typeof timestamp === 'number' ? timestamp : new Date(timestamp).getTime()));
         const halfLife = (type === 'irregular') ? (12 * 60 * 60 * 1000) : (7 * 24 * 60 * 60 * 1000);
         const lambda = Math.log(2) / halfLife;

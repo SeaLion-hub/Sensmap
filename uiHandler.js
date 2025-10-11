@@ -162,6 +162,22 @@ export class UIHandler {
         }
     }
 
+    toggleUserLocation() {
+        try {
+            const btn = document.getElementById('locateBtn');
+            const isTracking = !!this.app?._geo?.isTracking;
+            if (!isTracking) {
+                if (btn) btn.classList.add('active');
+                this.app.startUserLocation();
+            } else {
+                if (btn) btn.classList.remove('active');
+                this.app.stopUserLocation();
+            }
+        } catch (e) {
+            this.app.handleError('위치 추적 전환 중 오류가 발생했습니다', e);
+        }
+    }
+
     /**
      * ESC 키 처리 - 우선순위에 따라 단계적으로 닫기
      */
@@ -222,6 +238,11 @@ export class UIHandler {
         this.clickedLocation = e.latlng;
         const gridKey = this.app.dataManager.getGridKey(e.latlng);
         const cellData = this.app.dataManager.getGridData().get(gridKey);
+
+        // Clear timetable selections when clicking a new location
+        if (this.app.clearTimetableSelections) {
+            this.app.clearTimetableSelections();
+        }
 
         this.app.showLocationPopup(e.latlng, gridKey, cellData);
     }

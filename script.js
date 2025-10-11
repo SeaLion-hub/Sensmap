@@ -268,32 +268,8 @@ class SensmapApp {
     }
 
     createTimetableGrid() {
-        const timeColumn = document.getElementById('timeColumn');
-        if (!timeColumn) return;
-
-        const timeSlots = ['06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23'];
-
-        timeColumn.innerHTML = '';
-
-        // Time header
-        const timeHeader = document.createElement('div');
-        timeHeader.className = 'time-header';
-        timeHeader.textContent = '선택';
-        timeColumn.appendChild(timeHeader);
-
-        // Time slots
-        timeSlots.forEach(time => {
-            const cell = document.createElement('div');
-            cell.className = 'time-cell';
-            cell.dataset.time = time;
-            cell.dataset.key = time;
-
-            // Add tooltip for better UX
-            cell.title = `${time}:00`;
-
-            timeColumn.appendChild(cell);
-        });
-
+        // Clear any existing selections on page load
+        this.clearTimetableSelections();
         // Apply existing timetable data if available
         this.applyExistingTimetableData();
     }
@@ -443,13 +419,17 @@ class SensmapApp {
 
     clearTimetable() {
         if (confirm('선택된 모든 시간대를 초기화하시겠습니까?')) {
-            this.timetableData.clear();
-            document.querySelectorAll('.time-cell.selected').forEach(cell => {
-                cell.classList.remove('selected', 'irregular', 'regular');
-            });
-            this.updateTimetableSelectionInfo();
+            this.clearTimetableSelections();
             this.showToast('시간표가 초기화되었습니다', 'info');
         }
+    }
+
+    clearTimetableSelections() {
+        this.timetableData.clear();
+        document.querySelectorAll('.time-cell.selected').forEach(cell => {
+            cell.classList.remove('selected', 'irregular', 'regular');
+        });
+        this.updateTimetableSelectionInfo();
     }
 
     applyTimetable() {
@@ -478,6 +458,17 @@ class SensmapApp {
         if (timetableSection) {
             timetableSection.style.display = 'none';
         }
+
+        // If currently submitting a regular report, ensure the latest timetable is attached from memory
+        try {
+            const selectedType = document.querySelector('.type-option.selected')?.dataset.type || 'irregular';
+            if (selectedType === 'regular') {
+                const entries = Array.from(this.timetableData.entries());
+                if (entries.length > 0) {
+                    // keep localStorage already saved; UIHandler will read from app state on submit
+                }
+            }
+        } catch (_) { }
     }
 
     showTimetableSection() {

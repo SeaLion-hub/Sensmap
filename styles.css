@@ -2590,7 +2590,7 @@ html {
 
 .timetable-grid {
     display: grid;
-    grid-template-columns: 120px 1fr;
+    grid-template-columns: 1fr;
     border: 1px solid #e5e7eb;
     border-radius: 10px;
     overflow: hidden;
@@ -2599,7 +2599,6 @@ html {
 
 .time-slots {
     background: #f3f4f6;
-    border-right: 1px solid #e5e7eb;
 }
 
 .time-slot-header,
@@ -2621,6 +2620,9 @@ html {
     border-bottom: 1px solid #eef2f7;
     cursor: pointer;
     transition: background 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
 .time-slot:hover {
@@ -2628,8 +2630,7 @@ html {
 }
 
 .time-column {
-    display: grid;
-    grid-template-rows: 42px repeat(18, 44px);
+    display: none; /* Hidden since we're using single column layout */
 }
 
 .time-header {
@@ -2639,11 +2640,18 @@ html {
 }
 
 .time-cell {
-    border-bottom: 1px solid #eef2f7;
     position: relative;
     cursor: pointer;
     background: #ffffff;
     transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    min-width: 40px;
+    min-height: 32px;
 }
 
 .time-cell:hover {
@@ -2711,14 +2719,18 @@ html {
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .timetable-grid {
-        grid-template-columns: 96px 1fr;
+        grid-template-columns: 1fr;
     }
 
     .time-column {
-        grid-template-rows: 40px repeat(18, 42px);
+        grid-template-rows: 40px repeat(24, 42px);
     }
 
     .time-slot {
+        padding: 10px;
+    }
+    
+    .time-cell {
         padding: 10px;
     }
 }
@@ -2732,5 +2744,13 @@ html {
         flex-direction: column;
         align-items: flex-start;
         gap: 6px;
+    }
+    
+    .time-slot {
+        padding: 8px;
+    }
+    
+    .time-cell {
+        padding: 8px;
     }
 }

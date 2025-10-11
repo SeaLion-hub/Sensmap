@@ -14,6 +14,15 @@ export class DataManager {
         this.setupNetworkListeners();
     }
 
+    // Centralized time decay with type and optional timetable awareness
+    calculateTimeDecay(timestamp, type = 'regular', now = Date.now()) {
+        const tsNum = (typeof timestamp === 'number') ? timestamp : new Date(timestamp).getTime();
+        const ageMs = Math.max(0, now - tsNum);
+        const halfLife = (type === 'irregular') ? (12 * 60 * 60 * 1000) : (7 * 24 * 60 * 60 * 1000);
+        const lambda = Math.log(2) / halfLife;
+        return Math.exp(-lambda * ageMs);
+    }
+
     setupNetworkListeners() {
         window.addEventListener('online', () => {
             this.isOnline = true;
@@ -172,6 +181,11 @@ export class DataManager {
     }
 
     addToSensoryData(report) {
+        // Debug: Log timetable data for regular reports
+        if (report.type === 'regular') {
+            console.log(`🔍 Regular data ${report.id}: timetable=`, report.timetable, 'timetable_repeat=', report.timetable_repeat);
+        }
+        
         this.sensoryData.set(report.id, {
             ...report,
             lat: parseFloat(report.lat),
