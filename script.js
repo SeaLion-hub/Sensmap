@@ -17,7 +17,7 @@ class SensmapApp {
 
         this.timetableData = new Map(); // per-hour selections for current day
         this.timetableDay = new Date().getDay();
-        this.timetableRepeat = false;
+        this.timetableRepeat = true; // Always true for regular data
 
         console.log(`🗺️ Sensmap v${this.version} 초기화 시작...`);
 
@@ -270,32 +270,8 @@ class SensmapApp {
     }
 
     createTimetableGrid() {
-        const timeColumn = document.getElementById('timeColumn');
-        if (!timeColumn) return;
-
-        const timeSlots = ['06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23'];
-
-        timeColumn.innerHTML = '';
-
-        // Time header
-        const timeHeader = document.createElement('div');
-        timeHeader.className = 'time-header';
-        timeHeader.textContent = '선택';
-        timeColumn.appendChild(timeHeader);
-
-        // Time slots
-        timeSlots.forEach(time => {
-            const cell = document.createElement('div');
-            cell.className = 'time-cell';
-            cell.dataset.time = time;
-            cell.dataset.key = time;
-
-            // Add tooltip for better UX
-            cell.title = `${time}:00`;
-
-            timeColumn.appendChild(cell);
-        });
-
+        // Clear any existing selections on page load
+        this.clearTimetableSelections();
         // Apply existing timetable data if available
         this.applyExistingTimetableData();
     }
@@ -324,14 +300,12 @@ class SensmapApp {
             const day = parseInt(e.target.value);
             if (Number.isFinite(day) && day >= 0 && day <= 6) {
                 this.timetableDay = day;
+                this.clearTimetableSelections(); // Clear selections when day changes
                 this._reloadDaySelections();
             }
         });
 
-        // 반복 체크
-        document.getElementById('timetableRepeatWeekly')?.addEventListener('change', (e) => {
-            this.timetableRepeat = !!e.target.checked;
-        });
+        // Weekly repeat is always true for regular data - no checkbox needed
 
         // 시간 셀 선택
         document.addEventListener('click', (e) => {
@@ -465,13 +439,17 @@ class SensmapApp {
 
     clearTimetable() {
         if (confirm('선택된 모든 시간대를 초기화하시겠습니까?')) {
-            this.timetableData.clear();
-            document.querySelectorAll('.time-cell.selected').forEach(cell => {
-                cell.classList.remove('selected', 'irregular', 'regular');
-            });
-            this.updateTimetableSelectionInfo();
+            this.clearTimetableSelections();
             this.showToast('시간표가 초기화되었습니다', 'info');
         }
+    }
+
+    clearTimetableSelections() {
+        this.timetableData.clear();
+        document.querySelectorAll('.time-cell.selected').forEach(cell => {
+            cell.classList.remove('selected', 'irregular', 'regular');
+        });
+        this.updateTimetableSelectionInfo();
     }
 
     applyTimetable() {
@@ -488,7 +466,7 @@ class SensmapApp {
         if (!entry.byDay || typeof entry.byDay !== 'object') entry.byDay = {};
         const dayIdx = Number.isFinite(this.timetableDay) ? this.timetableDay : new Date().getDay();
         entry.byDay[dayIdx] = Array.from(this.timetableData.entries());
-        entry.repeat = !!this.timetableRepeat;
+        entry.repeat = true; // Always true for regular data
         entry.appliedAt = new Date().toISOString();
         savedTimetables[locationKey] = entry;
         localStorage.setItem('sensmap_timetables', JSON.stringify(savedTimetables));
@@ -500,6 +478,17 @@ class SensmapApp {
         if (timetableSection) {
             timetableSection.style.display = 'none';
         }
+
+        // If currently submitting a regular report, ensure the latest timetable is attached from memory
+        try {
+            const selectedType = document.querySelector('.type-option.selected')?.dataset.type || 'irregular';
+            if (selectedType === 'regular') {
+                const entries = Array.from(this.timetableData.entries());
+                if (entries.length > 0) {
+                    // keep localStorage already saved; UIHandler will read from app state on submit
+                }
+            }
+        } catch (_) { }
     }
 
     showTimetableSection() {
@@ -530,10 +519,8 @@ class SensmapApp {
         const savedData = savedTimetables[locationKey];
 
         if (savedData) {
-            // restore repeat and selected day
-            this.timetableRepeat = !!savedData.repeat;
-            const repeatEl = document.getElementById('timetableRepeatWeekly');
-            if (repeatEl) repeatEl.checked = this.timetableRepeat;
+            // restore selected day (repeat is always true for regular data)
+            this.timetableRepeat = true;
 
             // set dropdown to current day
             const dayEl = document.getElementById('timetableDaySelect');

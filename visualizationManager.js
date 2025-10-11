@@ -464,15 +464,20 @@ export class VisualizationManager {
                     const nowD = new Date(now);
                     const day = nowD.getDay();
                     const hourKey = String(nowD.getHours()).padStart(2, '0');
-                    let withinSchedule = false; // default: hide unless timetable explicitly allows
+                    let withinSchedule = false;
+                    
                     if (report.timetable && typeof report.timetable === 'object') {
                         try {
                             const dayArr = report.timetable[String(day)] ?? report.timetable[day] ?? [];
                             if (Array.isArray(dayArr)) {
                                 withinSchedule = dayArr.some(([k]) => String(k) === hourKey);
                             }
-                        } catch (_) { withinSchedule = false; }
+                        } catch (e) { 
+                            withinSchedule = false; 
+                        }
                     }
+                    // Regular data without timetable should not be shown (no schedule = never show)
+                    // Regular data with timetable should only show when current time matches
                     if (!withinSchedule) continue;
                 }
                 // Repeated regular data: no age decay, rely purely on timetable to toggle
@@ -780,6 +785,7 @@ export class VisualizationManager {
         if (typeof dm?.calculateTimeDecay === 'function') {
             try { return dm.calculateTimeDecay(timestamp, type, now); } catch { }
         }
+        // Fallback implementation (should not be used if dataManager is available)
         const ageMs = Math.max(0, now - (typeof timestamp === 'number' ? timestamp : new Date(timestamp).getTime()));
         const halfLife = (type === 'irregular') ? (12 * 60 * 60 * 1000) : (7 * 24 * 60 * 60 * 1000);
         const lambda = Math.log(2) / halfLife;

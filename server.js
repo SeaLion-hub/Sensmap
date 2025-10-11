@@ -529,8 +529,8 @@ app.post('/api/reports', optionalAuth, async (req, res) => {
             duration: duration && duration > 0 ? parseInt(duration) : null,
             wheelchair: Boolean(wheelchair),
             user_id: req.user ? req.user.userId : null, // 로그인한 사용자면 ID 저장, 아니면 null
-            timetable: timetable && typeof timetable === 'object' ? timetable : null,
-            timetable_repeat: timetableRepeat ? true : false
+            timetable: (timetable && typeof timetable === 'object' && Object.keys(timetable).length > 0) ? timetable : null,
+            timetable_repeat: (timetableRepeat === true || timetableRepeat === 'true') ? true : false
         };
 
         const newReport = await pool.query(
