@@ -417,15 +417,41 @@ export class RouteManager {
        감각 포인트/퍼센타일 → 회피 폴리곤
     ==========================*/
     _getAllSensoryPoints() {
+        // Get data directly from dataManager to ensure we have timetable information
+        const dm = this.app?.dataManager;
+        if (dm?.sensoryData && typeof dm.sensoryData.forEach === 'function') {
+            const out = [];
+            try {
+                // Get all sensory reports with timetable information
+                dm.sensoryData.forEach((report, reportId) => {
+                    // Apply timetable filtering for regular data
+                    if (this._shouldIncludeReport(report)) {
+                        out.push({
+                            lat: report.lat,
+                            lng: report.lng,
+                            noise: report.noise,
+                            light: report.light,
+                            odor: report.odor,
+                            crowd: report.crowd,
+                            type: report.type,
+                            timetable: report.timetable,
+                            timetable_repeat: report.timetable_repeat
+                        });
+                    }
+                });
+            } catch (e) {
+                console.error('Error getting sensory data for routes:', e);
+            }
+            return out;
+        }
+        
+        // Fallback to original method if dataManager doesn't have sensoryData
         const sm = this.app?.sensoryManager;
-        // 센서리 매니저가 있더라도 좌표를 셀 중심으로 스냅해주면
-        // 회피/프리뷰의 원이 그리드 중앙에 정렬된다.
         if (sm) {
             try {
                 const raw =
                     (typeof sm.getAllPoints === 'function' && sm.getAllPoints()) ||
                     (typeof sm.getVisiblePoints === 'function' && sm.getVisiblePoints()) || [];
-                const dm = this.app?.dataManager;
                 const size =
                     Number(dm?.gridSize) ||
                     (typeof dm?.getGridSize === 'function' ? Number(dm.getGridSize()) : 0.0005);
@@ -441,11 +467,10 @@ export class RouteManager {
                 });
             } catch { }
         }
-        const dm = this.app?.dataManager;
+        
         if (dm?.gridData && typeof dm.gridData.forEach === 'function') {
             const out = [];
             try {
-                // Map.forEach(value, key) 시그니처 사용 → gridKey 획득
                 dm.gridData.forEach((cell, gridKey) => {
                     const a = cell.averages || {};
                     const center = this._cellCenter(cell, gridKey);
@@ -460,6 +485,54 @@ export class RouteManager {
         }
         return [];
     }
+
+    // Check if a report should be included based on timetable filtering and time decay (same logic as visualizationManager)
+    _shouldIncludeReport(report) {
+        const now = Date.now();
+        const rawType = report.type?.toString().toLowerCase() || 'regular';
+        const normType = rawType.includes('irreg') ? 'irregular'
+            : rawType.includes('reg') ? 'regular'
+                : 'regular';
+        
+        // Apply timetable filtering for regular data
+        if (normType === 'regular') {
+            const nowD = new Date(now);
+            const day = nowD.getDay();
+            const hourKey = String(nowD.getHours()).padStart(2, '0');
+            let withinSchedule = false;
+            
+            if (report.timetable && typeof report.timetable === 'object') {
+                try {
+                    const dayArr = report.timetable[String(day)] ?? report.timetable[day] ?? [];
+                    if (Array.isArray(dayArr)) {
+                        withinSchedule = dayArr.some(([k]) => String(k) === hourKey);
+                    }
+                } catch (e) { 
+                    withinSchedule = false; 
+                }
+            }
+            // Regular data without timetable should not be included
+            // Regular data with timetable should only be included when current time matches
+            return withinSchedule;
+        }
+        
+        // For irregular data, apply time decay
+        if (normType === 'irregular') {
+            const dm = this.app?.dataManager;
+            if (typeof dm?.calculateTimeDecay === 'function') {
+                try {
+                    const decay = dm.calculateTimeDecay(report.timestamp || report.created_at, 'irregular', now);
+                    return decay > 0.1; // Only include if decay is significant
+                } catch (e) {
+                    return true; // Fallback to include if error
+                }
+            }
+        }
+        
+        // Default: include the report
+        return true;
+    }
+
     _pointScore(p) {
         // 1) 개인 민감도 s (0~10)
         const profile = this.app?.uiHandler?.getSensitivityProfile?.() || {
