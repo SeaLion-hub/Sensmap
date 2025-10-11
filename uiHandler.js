@@ -304,33 +304,6 @@ export class UIHandler {
             submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 저장 중...';
             submitButton.disabled = true;
 
-            // attach timetable (byDay + repeat) using live DOM state as source of truth
-            if (selectedType === 'regular') {
-                try {
-                    // day selection
-                    const daySel = document.getElementById('timetableDaySelect');
-                    const dayIdx = daySel ? parseInt(daySel.value) : (Number.isFinite(this.app.timetableDay) ? this.app.timetableDay : new Date().getDay());
-                    // repeat flag - always true for regular data
-                    const repeatFlag = true;
-                    // collect selected time cells
-                    const selectedCells = Array.from(document.querySelectorAll('.time-cell.selected'));
-                    const entries = selectedCells.map(cell => {
-                        const key = cell.getAttribute('data-key');
-                        const time = cell.getAttribute('data-time');
-                        return [key, { time, type: 'regular' }];
-                    });
-
-                    if (entries.length > 0 && Number.isFinite(dayIdx)) {
-                        reportData.timetable = {};
-                        reportData.timetable[dayIdx] = entries;
-                        reportData.timetableRepeat = repeatFlag;
-                    } else {
-                        delete reportData.timetable;
-                        delete reportData.timetableRepeat;
-                    }
-                } catch (_) { /* ignore */ }
-            }
-
             const result = await this.app.dataManager.submitSensoryData(reportData);
             
             if (result.success) {

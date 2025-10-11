@@ -62,7 +62,7 @@ async function cleanupExpiredData() {
             DELETE FROM sensory_reports 
             WHERE 
                 (type = 'irregular' AND created_at < NOW() - INTERVAL '6 hours') OR
-                (type = 'regular' AND COALESCE(timetable_repeat, false) = false AND created_at < NOW() - INTERVAL '7 days')
+                (type = 'regular' AND created_at < NOW() - INTERVAL '7 days')
         `);
         if (result.rowCount > 0) {
             console.log(`🧹 ${result.rowCount}개의 만료된 데이터를 자동으로 정리했습니다.`);
@@ -199,8 +199,6 @@ async function initializeDatabase() {
                 type VARCHAR(20) NOT NULL CHECK (type IN ('irregular', 'regular')),
                 duration INTEGER CHECK (duration > 0),
                 wheelchair BOOLEAN DEFAULT FALSE,
-                timetable JSONB,
-                timetable_repeat BOOLEAN DEFAULT FALSE,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
                 updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
             )
@@ -257,21 +255,6 @@ async function initializeDatabase() {
                 FOR EACH ROW
                 EXECUTE FUNCTION update_updated_at_column();
         `);
-
-        // Safe add columns if missing (for existing deployments)
-        try {
-            const colq = `SELECT column_name FROM information_schema.columns WHERE table_name = 'sensory_reports'`;
-            const cols = await pool.query(colq);
-            const names = new Set(cols.rows.map(r => r.column_name));
-            if (!names.has('timetable')) {
-                await pool.query(`ALTER TABLE sensory_reports ADD COLUMN timetable JSONB`);
-            }
-            if (!names.has('timetable_repeat')) {
-                await pool.query(`ALTER TABLE sensory_reports ADD COLUMN timetable_repeat BOOLEAN DEFAULT FALSE`);
-            }
-        } catch (e) {
-            console.warn('⚠️ timetable 컬럼 추가 중 경고:', e.message);
-        }
 
         // 인덱스 생성
         await pool.query('CREATE INDEX IF NOT EXISTS idx_sensory_reports_location ON sensory_reports (lat, lng)');
@@ -492,11 +475,7 @@ app.get('/api/reports', optionalAuth, async (req, res) => {
                 u.email as user_email
             FROM sensory_reports sr
             LEFT JOIN users u ON sr.user_id = u.id
-            WHERE (
-                sr.created_at > NOW() - INTERVAL '${parseInt(recent_hours)} hours'
-            ) OR (
-                sr.type = 'regular' AND COALESCE(sr.timetable_repeat, false) = true
-            )
+            WHERE sr.created_at > NOW() - INTERVAL '${parseInt(recent_hours)} hours'
             ORDER BY sr.created_at DESC 
             LIMIT 2000
         `);
@@ -516,7 +495,7 @@ app.post('/api/reports', optionalAuth, async (req, res) => {
             return res.status(400).json(createResponse(false, null, '', validation.message));
         }
 
-        const { lat, lng, noise, light, odor, crowd, type, duration, wheelchair, timetable, timetableRepeat } = req.body;
+        const { lat, lng, noise, light, odor, crowd, type, duration, wheelchair } = req.body;
         
         const cleanData = {
             lat: parseFloat(lat),
@@ -528,16 +507,14 @@ app.post('/api/reports', optionalAuth, async (req, res) => {
             type: type,
             duration: duration && duration > 0 ? parseInt(duration) : null,
             wheelchair: Boolean(wheelchair),
-            user_id: req.user ? req.user.userId : null, // 로그인한 사용자면 ID 저장, 아니면 null
-            timetable: (timetable && typeof timetable === 'object' && Object.keys(timetable).length > 0) ? timetable : null,
-            timetable_repeat: (timetableRepeat === true || timetableRepeat === 'true') ? true : false
+            user_id: req.user ? req.user.userId : null // 로그인한 사용자면 ID 저장, 아니면 null
         };
 
         const newReport = await pool.query(
-            `INSERT INTO sensory_reports (lat, lng, noise, light, odor, crowd, type, duration, wheelchair, user_id, timetable, timetable_repeat)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+            `INSERT INTO sensory_reports (lat, lng, noise, light, odor, crowd, type, duration, wheelchair, user_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
             [cleanData.lat, cleanData.lng, cleanData.noise, cleanData.light, cleanData.odor, 
-             cleanData.crowd, cleanData.type, cleanData.duration, cleanData.wheelchair, cleanData.user_id, cleanData.timetable, cleanData.timetable_repeat]
+             cleanData.crowd, cleanData.type, cleanData.duration, cleanData.wheelchair, cleanData.user_id]
         );
 
         // 사용자 정보도 함께 반환 (있는 경우)
@@ -602,7 +579,7 @@ app.put('/api/reports/:id', verifyToken, async (req, res) => {
             return res.status(404).json(createResponse(false, null, '', '수정할 수 있는 데이터를 찾을 수 없습니다.'));
         }
 
-        const { lat, lng, noise, light, odor, crowd, type, duration, wheelchair, timetable, timetableRepeat } = req.body;
+        const { lat, lng, noise, light, odor, crowd, type, duration, wheelchair } = req.body;
         
         const cleanData = {
             lat: parseFloat(lat),
@@ -613,18 +590,16 @@ app.put('/api/reports/:id', verifyToken, async (req, res) => {
             crowd: crowd !== null && crowd !== undefined ? parseInt(crowd) : null,
             type: type,
             duration: duration && duration > 0 ? parseInt(duration) : null,
-            wheelchair: Boolean(wheelchair),
-            timetable: timetable && typeof timetable === 'object' ? timetable : null,
-            timetable_repeat: timetableRepeat ? true : false
+            wheelchair: Boolean(wheelchair)
         };
 
         const result = await pool.query(
             `UPDATE sensory_reports 
              SET lat = $1, lng = $2, noise = $3, light = $4, odor = $5, crowd = $6, 
-                 type = $7, duration = $8, wheelchair = $9, timetable = $10, timetable_repeat = $11, updated_at = NOW()
-             WHERE id = $12 AND user_id = $13 RETURNING *`,
+                 type = $7, duration = $8, wheelchair = $9, updated_at = NOW()
+             WHERE id = $10 AND user_id = $11 RETURNING *`,
             [cleanData.lat, cleanData.lng, cleanData.noise, cleanData.light, cleanData.odor, 
-             cleanData.crowd, cleanData.type, cleanData.duration, cleanData.wheelchair, cleanData.timetable, cleanData.timetable_repeat, reportId, req.user.userId]
+             cleanData.crowd, cleanData.type, cleanData.duration, cleanData.wheelchair, reportId, req.user.userId]
         );
 
         res.status(200).json(createResponse(true, result.rows[0], '감각 데이터가 성공적으로 수정되었습니다.'));
