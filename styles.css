@@ -2767,3 +2767,41 @@ html {
         padding: 8px;
     }
 }
+
+/* 내 데이터 리스트 스타일 */
+.mydata-list .card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 14px;
+    transition: all 0.2s;
+}
+
+.mydata-list .card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    border-color: #d1d5db;
+}
+
+.mydata-list .icon-btn {
+    background: #f3f4f6;
+    border: none;
+    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 14px;
+    color: #4b5563;
+}
+
+.mydata-list .icon-btn:hover {
+    background: #e5e7eb;
+    color: #111827;
+}
+
+.mydata-list .icon-btn:active {
+    transform: scale(0.95);
+}

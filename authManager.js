@@ -699,28 +699,7 @@ export class AuthManager {
         }
     }
 
-    /**
-     * 내 데이터 패널 표시
-     */
-    async showMyData() {
-        if (!this.requestAuth('내 데이터를 보려면')) {
-            return;
-        }
-
-        try {
-            // 내 데이터 패널 열기
-            this.app.uiHandler.closeAllPanels();
-            const panel = document.getElementById('myDataPanel');
-            panel.classList.add('open');
-            panel.setAttribute('aria-hidden', 'false');
-            
-            // 데이터 로드
-            await this.loadMyData();
-            
-        } catch (error) {
-            this.app.handleError('내 데이터를 불러오는 중 오류가 발생했습니다', error);
-        }
-    }
+    
 
     /**
      * 내 데이터 패널 닫기
@@ -969,6 +948,95 @@ export class AuthManager {
             'Authorization': `Bearer ${this.token}`,
             'Content-Type': 'application/json'
         };
+    }
+
+    /**
+     * 내 데이터 패널 열기 (최초 1년치 로드 → 캐시 → UI 렌더)
+     */
+    async showMyData() {
+        if (!this.getIsLoggedIn?.() || !this.token) {
+            this.app.showToast('로그인 후 이용하세요.', 'warning');
+            this.showLoginModal();
+            return;
+        }
+
+        try {
+            // 패널 열기 (기존 openPanel 메서드 사용)
+            if (this.app.uiHandler.openPanel) {
+                this.app.uiHandler.openPanel('myDataPanel');
+            } else {
+                // 폴백
+                const panel = document.getElementById('myDataPanel');
+                if (panel) {
+                    this.app.uiHandler.closeAllPanels();
+                    panel.classList.add('open');
+                    panel.setAttribute('aria-hidden', 'false');
+                    this.app.uiHandler.addPanelToStack('myDataPanel');
+                }
+            }
+
+            // 1년치 데이터 한 번에 가져오기 (클라이언트 필터링 방식)
+            const url = `${this.getServerUrl()}/api/reports/my?recent_hours=8760`;
+            const res = await fetch(url, { 
+                headers: this.getAuthHeaders() 
+            });
+
+            const json = await res.json();
+
+            if (json?.success) {
+                // 원본 데이터 캐시 저장
+                this._myReportsCache = Array.isArray(json.data) ? json.data : [];
+                
+                // UI 렌더링 (필터는 uiHandler가 적용)
+                if (this.app.uiHandler.renderMyData) {
+                    this.app.uiHandler.renderMyData(this._myReportsCache);
+                }
+                
+                this.app.showToast(`내 데이터 ${this._myReportsCache.length}건을 불러왔습니다`, 'success');
+            } else {
+                const errorMsg = json?.error || json?.message || '내 데이터를 불러오지 못했습니다.';
+                this.app.showToast(errorMsg, 'error');
+                
+                // 에러 시에도 빈 배열로 초기화
+                this._myReportsCache = [];
+                if (this.app.uiHandler.renderMyData) {
+                    this.app.uiHandler.renderMyData([]);
+                }
+            }
+
+        } catch (e) {
+            console.error('showMyData error:', e);
+            this.app.showToast('서버 오류로 내 데이터를 불러오지 못했습니다.', 'error');
+            
+            // 에러 시 빈 상태 표시
+            this._myReportsCache = [];
+            if (this.app.uiHandler.renderMyData) {
+                this.app.uiHandler.renderMyData([]);
+            }
+        }
+    }
+
+    /**
+     * 내 데이터 패널 닫기
+     */
+    closeMyData() {
+        if (this.app.uiHandler.closeCurrentPanel) {
+            this.app.uiHandler.closeCurrentPanel();
+        } else {
+            // 폴백
+            const panel = document.getElementById('myDataPanel');
+            if (panel) {
+                panel.classList.remove('open');
+                panel.setAttribute('aria-hidden', 'true');
+            }
+        }
+    }
+
+    /**
+     * 캐시된 내 데이터 반환
+     */
+    getMyReportsCache() {
+        return this._myReportsCache || [];
     }
 
 }
