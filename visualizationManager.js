@@ -639,17 +639,26 @@ export class VisualizationManager {
         }
     }
 
-    // ===== 개인화/공통 유틸 =====
     getSensitivityProfile() {
         try {
             const saved = localStorage.getItem('sensmap_profile');
             return saved ? JSON.parse(saved) : {
-                noiseThreshold: 5, lightThreshold: 5, odorThreshold: 5, crowdThreshold: 5
+                noiseThreshold: 5,
+                lightThreshold: 5,
+                odorThreshold: 5,
+                crowdThreshold: 5
             };
-        } catch {
-            return { noiseThreshold: 5, lightThreshold: 5, odorThreshold: 5, crowdThreshold: 5 };
+        } catch (error) {
+            console.warn('프로필 로드 실패:', error);
+            return {
+                noiseThreshold: 5,
+                lightThreshold: 5,
+                odorThreshold: 5,
+                crowdThreshold: 5
+            };
         }
     }
+
     calculatePersonalizedScore(sensoryData, profile) {
         const T = {
             noise: clip01(sensoryData.noise),

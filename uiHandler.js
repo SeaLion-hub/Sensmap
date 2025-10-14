@@ -72,6 +72,17 @@ export class UIHandler {
                 this.openContactModal();
             });
 
+            // Sensory help modal
+            // header-level sensoryHelpBtn removed
+            document.querySelectorAll('.sensory-help-btn')?.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const field = e.currentTarget?.dataset?.field;
+                    this.openSensoryHelpModal(field);
+                    e.stopPropagation();
+                });
+            });
+            document.getElementById('closeSensoryHelpBtn')?.addEventListener('click', () => this.closeSensoryHelpModal());
+
             // Panel controls - 개선된 닫기 로직
             document.getElementById('closeSettingsBtn')?.addEventListener('click', () => this.closeSettingsPanel());
             document.getElementById('closeContactBtn')?.addEventListener('click', () => this.closeContactModal());
@@ -143,6 +154,9 @@ export class UIHandler {
                 }
                 if (!e.target.closest('.modal-overlay') && !e.target.closest('#contactBtn')) {
                     this.closeContactModal();
+                }
+                if (!e.target.closest('.modal-overlay') && !e.target.closest('#sensoryHelpBtn') && !e.target.closest('.sensory-help-btn')) {
+                    this.closeSensoryHelpModal();
                 }
             });
 
@@ -621,6 +635,35 @@ export class UIHandler {
         const modal = document.getElementById('contactModal');
         modal.classList.remove('show');
         this.removePanelFromStack('contactModal');
+    }
+
+    openSensoryHelpModal(section) {
+        const modal = document.getElementById('sensoryHelpModal');
+        if (!modal) return;
+        modal.classList.add('show');
+        modal.setAttribute('aria-hidden', 'false');
+        this.addPanelToStack('sensoryHelpModal');
+
+        // 섹션 표시 제어: 특정 섹션만 강조
+        const sections = modal.querySelectorAll('.help-section');
+        sections.forEach(sec => {
+            const key = sec.getAttribute('data-help');
+            if (!section || key !== section) {
+                sec.style.display = 'none';
+                sec.classList.remove('active');
+            } else {
+                sec.style.display = '';
+                sec.classList.add('active');
+            }
+        });
+    }
+
+    closeSensoryHelpModal() {
+        const modal = document.getElementById('sensoryHelpModal');
+        if (!modal) return;
+        modal.classList.remove('show');
+        modal.setAttribute('aria-hidden', 'true');
+        this.removePanelFromStack('sensoryHelpModal');
     }
 
     openProfilePanel() {

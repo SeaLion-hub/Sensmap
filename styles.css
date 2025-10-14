@@ -1,3 +1,32 @@
+/* Sensory per-field help button */
+.help-btn.sensory-help-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 0;
+    margin-right: 8px;
+    width: 24px;
+    height: 24px;
+    border-radius: 9999px;
+    border: none;
+    background: #eef2ff;
+    color: #4f46e5;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.05s;
+}
+
+.help-btn.sensory-help-btn i { font-size: 14px; }
+
+.help-btn.sensory-help-btn:hover { background: #e0e7ff; }
+.help-btn.sensory-help-btn:active { transform: translateY(1px); }
+
+.field-header { display: flex; align-items: center; gap: 8px; }
+.field-header .form-label { margin-right: 0; }
+
+/* Force help button to the left of the label */
+.smart-form-group .field-header .sensory-help-btn { order: 0; }
+.smart-form-group .field-header .form-label { order: 1; }
+.smart-form-group .field-header .skip-btn { order: 2; margin-left: auto; }
 #loginModal .modal-content {
     background: white;
     border-radius: 24px;

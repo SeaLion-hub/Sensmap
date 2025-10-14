@@ -7,14 +7,6 @@ export class MapManager {
         this.currentRoute = null;
     }
 
-    clearVisualizationLayers() {
-        try {
-            this.getSensoryLayers()?.clearLayers();
-            const heat = this.getHeatmapLayer?.();
-            if (heat) { this.getMap().removeLayer(heat); this.setHeatmapLayer(null); }
-        } catch (e) { console.warn(e); }
-    }
-
     initializeMap() {
         this.map = L.map('map').setView([37.5665, 126.9780], 14);
         this.sensoryLayers = L.layerGroup().addTo(this.map);
@@ -46,7 +38,7 @@ export class MapManager {
                     (position) => {
                         const { latitude, longitude } = position.coords;
                         this.map.setView([latitude, longitude], 16);
-                        window.app?.showToast?.('현재 위치로 이동했습니다', 'success');
+                        window.sensmapApp.showToast('현재 위치로 이동했습니다', 'success');
                     },
                     (error) => {
                         console.warn('위치 정보 가져오기 실패:', error);
@@ -61,7 +53,7 @@ export class MapManager {
 
     clearLayers() {
         this.sensoryLayers.clearLayers();
-
+        
         if (this.heatmapLayer) {
             this.map.removeLayer(this.heatmapLayer);
             this.heatmapLayer = null;

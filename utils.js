@@ -87,14 +87,14 @@ class Utils {
                 <div class="popup-subtitle">좌표: ${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}</div>
             </div>
             <div class="action-grid">
-                <button class="action-btn start" onclick="window.app.routeManager.setRoutePointFromPopup(${latlng.lat}, ${latlng.lng}, 'start')">
+                <button class="action-btn start" onclick="window.sensmapApp.routeManager.setRoutePointFromPopup(${latlng.lat}, ${latlng.lng}, 'start')">
                     <i class="fas fa-play"></i>출발
                 </button>
-                <button class="action-btn end" onclick="window.app.routeManager.setRoutePointFromPopup(${latlng.lat}, ${latlng.lng}, 'end')">
+                <button class="action-btn end" onclick="window.sensmapApp.routeManager.setRoutePointFromPopup(${latlng.lat}, ${latlng.lng}, 'end')">
                     <i class="fas fa-flag-checkered"></i>도착
                 </button>
             </div>
-            <button class="action-btn add" onclick="window.app.uiHandler.openSensoryPanel()">
+            <button class="action-btn add" onclick="window.sensmapApp.uiHandler.openSensoryPanel()">
                 <i class="fas fa-plus"></i> ${hasData ? '정보 추가' : '감각 정보 등록'}
             </button>
         `;
@@ -121,7 +121,7 @@ class Utils {
                                 ${report.wheelchair ? `<span class="data-badge">♿</span>` : ''}
                             </div>
                         </div>
-                        ${!this.app.dataManager.isOffline() ? `<button class="delete-btn" onclick="window.app.dataManager.deleteReport('${gridKey}', ${report.id})">삭제</button>` : ''}
+                        ${!this.app.dataManager.isOffline() ? `<button class="delete-btn" onclick="window.sensmapApp.dataManager.deleteReport('${gridKey}', ${report.id})">삭제</button>` : ''}
                     </div>
                 `;
             });
