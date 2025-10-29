@@ -150,7 +150,7 @@ export class UIHandler {
             document.getElementById('closeMyDataBtn')?.addEventListener('click', () => this.app.authManager.closeMyData());
 
             // 내 데이터 필터/정렬 툴바
-            ['mdPeriod', 'mdType', 'mdSort', 'mdSearch'].forEach(id => {
+            ['mdPeriod', 'mdType', 'mdSort'].forEach(id => {
                 document.getElementById(id)?.addEventListener('input', () => this.applyMyDataFilters());
             });
 
@@ -1073,9 +1073,6 @@ export class UIHandler {
         const sort = document.getElementById('mdSort');
         if (sort) sort.value = 'newest';
         
-        const search = document.getElementById('mdSearch');
-        if (search) search.value = '';
-        
         // 필터 적용하여 리스트 렌더링
         this.applyMyDataFilters();
     }
@@ -1090,7 +1087,6 @@ export class UIHandler {
         const period = (document.getElementById('mdPeriod')?.value || 'all');
         const type = (document.getElementById('mdType')?.value || 'all');
         const sort = (document.getElementById('mdSort')?.value || 'newest');
-        const q = (document.getElementById('mdSearch')?.value || '').trim().toLowerCase();
 
         const now = Date.now();
         let arr = (this._myReportsRaw || []).slice();
@@ -1108,19 +1104,6 @@ export class UIHandler {
         // 2) 유형 필터
         if (type !== 'all') {
             arr = arr.filter(r => r.type === type);
-        }
-
-        // 3) 검색 (간단: type, 좌표, 사용자 표시 필드)
-        if (q) {
-            arr = arr.filter(r => {
-                const fields = [
-                    r.type || '',
-                    `${r.lat ?? ''},${r.lng ?? ''}`,
-                    r.user_name || '',
-                    r.user_email || ''
-                ].join(' ').toLowerCase();
-                return fields.includes(q);
-            });
         }
 
         // 개인화 점수 계산 (시각화 매니저 로직 재사용)
@@ -1187,15 +1170,12 @@ export class UIHandler {
      */
     _renderMyDataStats(arr) {
         const totalEl = document.getElementById('mdTotal');
-        const avgEl = document.getElementById('mdAvgScore');
         const lastEl = document.getElementById('mdLast');
 
-        if (!totalEl || !avgEl || !lastEl) return;
+        if (!totalEl || !lastEl) return;
 
-        totalEl.textContent = String(arr.length);
-
-        const avg = arr.length ? (arr.reduce((s, x) => s + (x._score || 0), 0) / arr.length) : 0;
-        avgEl.textContent = avg.toFixed(1);
+        const totalCount = arr.length;
+        totalEl.textContent = totalCount.toLocaleString('ko-KR');
 
         const last = arr[0]?.created_at ? new Date(arr[0].created_at) : null;
         lastEl.textContent = last ? this._timeAgo(last) : '-';
