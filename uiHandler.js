@@ -6,7 +6,7 @@ export class UIHandler {
         this.totalTutorialSteps = 4;
         this.skippedFields = new Set();
         this.clickedLocation = null;
-
+        
         // 패널 상태 추적
         this.openPanels = new Set();
         this.panelStack = [];
@@ -17,6 +17,8 @@ export class UIHandler {
         };
 
         this.throttledRefreshVisualization = this.throttle(this.app.refreshVisualization.bind(this.app), 100);
+        
+        this.sessionTutorialShown = false; // 이번 세션에 튜토리얼이 실제로 화면에 떴는지
     }
 
     setupEventListeners() {
@@ -32,6 +34,46 @@ export class UIHandler {
                     this.updateTutorialStep();
                 });
             });
+
+
+                        // setupEventListeners() 끝쪽 아무 데 추가
+            const qModal = document.getElementById('questionModal');
+            const qClose = document.getElementById('closeQuestionBtn');
+            const qSubmit = document.getElementById('submitAnswerBtn');
+
+            qClose?.addEventListener('click', () => this.closeQuestionModal());
+            qSubmit?.addEventListener('click', () => {
+            const mood = document.getElementById('answerMood')?.value?.trim();
+            // TODO: 필요한 후속 처리 (저장/전송) 여기서
+            console.log('답변(기분):', mood);
+            this.closeQuestionModal();
+            });
+
+
+            // setupEventListeners() 어딘가
+            document.getElementById('questionForm')?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            const answers = Object.fromEntries(fd.entries());
+            // TODO: 저장/서버 전송/프로필 반영
+            console.log('질문 답변:', answers);
+            this.closeQuestionModal();
+            });
+
+            const moodSlider = document.getElementById('moodSens');
+            const moodValue = document.getElementById('moodValue');
+
+            function updateMoodValue() {
+            if (moodValue && moodSlider) moodValue.textContent = moodSlider.value;
+            }
+
+            // 초기 표시
+            updateMoodValue();
+
+            // 슬라이더 움직일 때마다 갱신
+            moodSlider?.addEventListener('input', updateMoodValue);
+
+
 
             // Updated header controls for new display modes
             document.getElementById('heatmapBtn')?.addEventListener('click', () => this.setDisplayMode('heatmap'));
@@ -72,26 +114,13 @@ export class UIHandler {
                 this.openContactModal();
             });
 
-            // Sensory help modal
-            // header-level sensoryHelpBtn removed
-            document.querySelectorAll('.sensory-help-btn')?.forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const field = e.currentTarget?.dataset?.field;
-                    this.openSensoryHelpModal(field);
-                    e.stopPropagation();
-                });
-            });
-            document.getElementById('closeSensoryHelpBtn')?.addEventListener('click', () => this.closeSensoryHelpModal());
-
             // Panel controls - 개선된 닫기 로직
             document.getElementById('closeSettingsBtn')?.addEventListener('click', () => this.closeSettingsPanel());
             document.getElementById('closeContactBtn')?.addEventListener('click', () => this.closeContactModal());
             document.getElementById('closePanelBtn')?.addEventListener('click', () => this.closeCurrentPanel());
             document.getElementById('cancelBtn')?.addEventListener('click', () => this.closeCurrentPanel());
             document.getElementById('closeProfileBtn')?.addEventListener('click', () => this.closeCurrentPanel());
-            ['cancelProfileBtn', 'cancelMyDataBtn'].forEach(id => {
-                document.getElementById(id)?.addEventListener('click', () => this.closeCurrentPanel());
-            });
+            document.getElementById('cancelProfileBtn')?.addEventListener('click', () => this.closeCurrentPanel());
             document.getElementById('cancelRouteBtn')?.addEventListener('click', () => this.app.routeManager.cancelRouteMode());
 
             // Route controls
@@ -166,9 +195,6 @@ export class UIHandler {
                 if (!e.target.closest('.modal-overlay') && !e.target.closest('#contactBtn')) {
                     this.closeContactModal();
                 }
-                if (!e.target.closest('.modal-overlay') && !e.target.closest('#sensoryHelpBtn') && !e.target.closest('.sensory-help-btn')) {
-                    this.closeSensoryHelpModal();
-                }
             });
 
             document.addEventListener('keydown', (e) => {
@@ -181,27 +207,195 @@ export class UIHandler {
             if (this.app.mapManager && this.app.mapManager.getMap()) {
                 this.app.mapManager.getMap().on('click', (e) => this.handleMapClick(e));
             }
+            
+            // 요소 가져오기
+            const moodIcon = document.getElementById('moodIcon');
+
+            const moodSrcFor = (v) => `./assets/mood-${v}.png`;
+            
+            function updateMoodUI() {
+            if (!moodSlider || !moodIcon) return;
+            const v = Number(moodSlider.value);
+            if (moodValue) moodValue.textContent = v;
+            const nextSrc = moodSrcFor(v);
+            // 매번 확실히 교체 (dataset 비교 없이)
+            moodIcon.src = nextSrc;
+            }
+
+            updateMoodUI();
+            moodSlider?.addEventListener('input', updateMoodUI);
+
+            // 소음 내성 슬라이더 바인딩 (mood 이미지를 재활용)
+            {
+            const s = document.getElementById('noiseShock');
+            const o = document.getElementById('noiseShockValue');
+            const i = document.getElementById('noiseShockIcon');
+            if (s && i) {
+                const srcFor = (v) => `./assets/mood-${v}.png`; // 파일명이 mood-1.png ~ mood-10.png
+                const update = () => {
+                const v = Number(s.value);
+                if (o) o.textContent = v;
+                i.src = srcFor(v);
+                };
+                update();
+                s.addEventListener('input', update);
+            }
+            }
+            
+            {
+            const flash = document.getElementById('lightFlash');
+            const flashvalue = document.getElementById('lightFlashValue');
+            const flashicon = document.getElementById('lightFlashIcon');
+            if (flash && flashicon) {
+                const srcFor = (v) => `./assets/mood-${v}.png`; // 파일명이 mood-1.png ~ mood-10.png
+                const update = () => {
+                const v = Number(flash.value);
+                if (flashvalue) flashvalue.textContent = v;
+                flashicon.src = srcFor(v);
+                };
+                update();
+                flash.addEventListener('input', update);
+            }
+            }
+            
+            {
+            const smellvar = document.getElementById('smell');
+            const smellvaluevar = document.getElementById('smellValue');
+            const smelliconvar = document.getElementById('smellIcon');
+            if (smellvar && smelliconvar) {
+                const srcFor = (v) => `./assets/mood-${v}.png`; // 파일명이 mood-1.png ~ mood-10.png
+                const update = () => {
+                const v = Number(smellvar.value);
+                if (smellvaluevar) smellvaluevar.textContent = v;
+                smelliconvar.src = srcFor(v);
+                };
+                update();
+                smellvar.addEventListener('input', update);
+            }
+            }
+
+            {
+            const crowd = document.getElementById('crowdAvoid');
+            const crowdvalue = document.getElementById('crowdAvoidValue');
+            const crowdicon = document.getElementById('crowdAvoidIcon');
+            if (crowd && crowdicon) {
+                const srcFor = (v) => `./assets/mood-${v}.png`; // 파일명이 mood-1.png ~ mood-10.png
+                const update = () => {
+                const v = Number(crowd.value);
+                if (crowdvalue) crowdvalue.textContent = v;
+                crowdicon.src = srcFor(v);
+                };
+                update();
+                crowd.addEventListener('input', update);
+            }
+            }
+            
+                        // === 질문 모달: 스텝 네비게이션 ===
+            (function initSurveyWizard(){
+            const modal = document.getElementById('questionModal');
+            const wizard = document.getElementById('surveyWizard');
+            if (!modal || !wizard) return;
+
+            const steps = Array.from(wizard.querySelectorAll('.tutorial-step'));
+            const prevBtn = wizard.querySelector('#surveyPrev');
+            const nextBtn = wizard.querySelector('#surveyNext');
+            const submitBtn = wizard.querySelector('#submitAnswerBtn');
+            const dotsWrap = wizard.querySelector('#surveyDots');
+
+            if (!steps.length || !prevBtn || !nextBtn || !submitBtn) return;
+
+            // 점(도트) 자동 생성
+            dotsWrap.innerHTML = '';
+            steps.forEach((_, i) => {
+                const dot = document.createElement('span');
+                dot.className = 'dot' + (i === 0 ? ' active' : '');
+                dot.dataset.step = (i + 1);
+                dotsWrap.appendChild(dot);
+            });
+
+            let idx = Math.max(0, steps.findIndex(s => s.classList.contains('active')));
+            if (idx === -1) idx = 0;
+            show(idx);
+
+            // 버튼 핸들러
+            prevBtn.addEventListener('click', () => {
+                if (idx > 0) show(--idx);
+            });
+            nextBtn.addEventListener('click', () => {
+                if (idx < steps.length - 1) show(++idx);
+            });
+
+            // 도트 클릭 이동
+            dotsWrap.addEventListener('click', (e) => {
+                const dot = e.target.closest('.dot');
+                if (!dot) return;
+                const target = Number(dot.dataset.step) - 1;
+                if (!Number.isNaN(target)) show(target);
+            });
+
+            // 모달이 열릴 때 항상 첫 스텝으로 리셋(선택)
+            modal.addEventListener('open', () => show(0)); // 모달 열기 코드에서 이 이벤트를 dispatch하면 됨
+
+            function show(i){
+                steps.forEach((s,k) => s.classList.toggle('active', k === i));
+                idx = i;
+
+                // 도트 상태
+                const dots = dotsWrap.querySelectorAll('.dot');
+                dots.forEach((d, k) => d.classList.toggle('active', k === i));
+
+                // Prev/Next/Submit 표시 제어
+                prevBtn.disabled = (i === 0);
+                nextBtn.style.display = (i === steps.length - 1) ? 'none' : '';
+                submitBtn.style.display = (i === steps.length - 1) ? '' : 'none';
+            }
+            })();
+
+
+
 
         } catch (error) {
             this.app.handleError('이벤트 리스너 설정 중 오류가 발생했습니다', error);
         }
     }
 
-    toggleUserLocation() {
-        try {
-            const btn = document.getElementById('locateBtn');
-            const isTracking = !!this.app?._geo?.isTracking;
-            if (!isTracking) {
-                if (btn) btn.classList.add('active');
-                this.app.startUserLocation();
-            } else {
-                if (btn) btn.classList.remove('active');
-                this.app.stopUserLocation();
-            }
-        } catch (e) {
-            this.app.handleError('위치 추적 전환 중 오류가 발생했습니다', e);
+    openQuestionModal() {
+        const modal = document.getElementById('questionModal');
+        if (!modal) return;
+        modal.classList.add('show');
+        modal.style.display = 'flex';
+
+        const wizard = document.getElementById('surveyWizard');
+        if (wizard) {
+            const steps = Array.from(wizard.querySelectorAll('.tutorial-step'));
+            // 1) 모든 active 제거
+            steps.forEach(s => s.classList.remove('active'));
+            // 2) data-step="1"을 활성화(없으면 첫 스텝)
+            (wizard.querySelector('.tutorial-step[data-step="1"]') || steps[0])?.classList.add('active');
+
+            // 3) 도트/버튼 상태 초기화
+            const dots = wizard.querySelectorAll('.tutorial-dots .dot');
+            dots.forEach((d, i) => d.classList.toggle('active', i === 0));
+
+            const prevBtn = wizard.querySelector('#surveyPrev');
+            const nextBtn = wizard.querySelector('#surveyNext');
+            const submitBtn = wizard.querySelector('#submitAnswerBtn');
+            if (prevBtn) prevBtn.disabled = true;          // 첫 스텝이니 Prev 비활성
+            if (nextBtn) nextBtn.style.display = '';       // Next 보이기
+            if (submitBtn) submitBtn.style.display = 'none'; // 제출 숨기기(마지막 스텝에서만)
         }
-    }
+        }
+
+        closeQuestionModal() {
+        const modal = document.getElementById('questionModal');
+        if (!modal) return;
+        modal.classList.remove('show');
+        modal.style.display = 'none';
+        
+        }
+
+        
+
 
     /**
      * ESC 키 처리 - 우선순위에 따라 단계적으로 닫기
@@ -264,11 +458,6 @@ export class UIHandler {
         const gridKey = this.app.dataManager.getGridKey(e.latlng);
         const cellData = this.app.dataManager.getGridData().get(gridKey);
 
-        // Clear timetable selections when clicking a new location
-        if (this.app.clearTimetableSelections) {
-            this.app.clearTimetableSelections();
-        }
-
         this.app.showLocationPopup(e.latlng, gridKey, cellData);
     }
 
@@ -329,33 +518,6 @@ export class UIHandler {
             submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 저장 중...';
             submitButton.disabled = true;
 
-            // attach timetable (byDay + repeat) using live DOM state as source of truth
-            if (selectedType === 'regular') {
-                try {
-                    // day selection
-                    const daySel = document.getElementById('timetableDaySelect');
-                    const dayIdx = daySel ? parseInt(daySel.value) : (Number.isFinite(this.app.timetableDay) ? this.app.timetableDay : new Date().getDay());
-                    // repeat flag - always true for regular data
-                    const repeatFlag = true;
-                    // collect selected time cells
-                    const selectedCells = Array.from(document.querySelectorAll('.time-cell.selected'));
-                    const entries = selectedCells.map(cell => {
-                        const key = cell.getAttribute('data-key');
-                        const time = cell.getAttribute('data-time');
-                        return [key, { time, type: 'regular' }];
-                    });
-
-                    if (entries.length > 0 && Number.isFinite(dayIdx)) {
-                        reportData.timetable = {};
-                        reportData.timetable[dayIdx] = entries;
-                        reportData.timetableRepeat = repeatFlag;
-                    } else {
-                        delete reportData.timetable;
-                        delete reportData.timetableRepeat;
-                    }
-                } catch (_) { /* ignore */ }
-            }
-
             const result = await this.app.dataManager.submitSensoryData(reportData);
             
             if (result.success) {
@@ -401,18 +563,6 @@ export class UIHandler {
             };
 
             localStorage.setItem('sensmap_profile', JSON.stringify(profile));
-            // 로그인 상태라면 서버에도 저장
-            if (this.app.authManager && this.app.authManager.getIsLoggedIn()) {
-                fetch(`${this.app.dataManager.getServerUrl()}/api/users/preferences`, {
-                    method: 'PUT',
-                    headers: this.app.authManager.getAuthHeaders(),
-                    body: JSON.stringify(profile)
-                }).then(r => r.json()).then(data => {
-                    if (!data.success) {
-                        console.warn('감각 프로필 서버 저장 실패:', data.message || data.error);
-                    }
-                }).catch(err => console.warn('감각 프로필 서버 저장 오류:', err));
-            }
             this.closeCurrentPanel();
 
             this.app.showToast('감각 프로필이 저장되었습니다', 'success');
@@ -518,14 +668,6 @@ export class UIHandler {
         selectedOptionElement.setAttribute('aria-pressed', 'true');
 
         this.updateDurationInput(selectedOptionElement.dataset.type);
-
-        // Show timetable only for 'regular', hide for 'irregular'
-        const selectedType = selectedOptionElement.dataset.type;
-        if (selectedType === 'regular') {
-            this.app.showTimetableSection();
-        } else {
-            this.app.hideTimetableSection();
-        }
     }
 
     updateDurationInput(type) {
@@ -648,61 +790,18 @@ export class UIHandler {
         this.removePanelFromStack('contactModal');
     }
 
-    openSensoryHelpModal(section) {
-        const modal = document.getElementById('sensoryHelpModal');
-        if (!modal) return;
-        modal.classList.add('show');
-        modal.setAttribute('aria-hidden', 'false');
-        this.addPanelToStack('sensoryHelpModal');
-
-        // 섹션 표시 제어: 특정 섹션만 강조
-        const sections = modal.querySelectorAll('.help-section');
-        sections.forEach(sec => {
-            const key = sec.getAttribute('data-help');
-            if (!section || key !== section) {
-                sec.style.display = 'none';
-                sec.classList.remove('active');
-            } else {
-                sec.style.display = '';
-                sec.classList.add('active');
-            }
-        });
-    }
-
-    closeSensoryHelpModal() {
-        const modal = document.getElementById('sensoryHelpModal');
-        if (!modal) return;
-        modal.classList.remove('show');
-        modal.setAttribute('aria-hidden', 'true');
-        this.removePanelFromStack('sensoryHelpModal');
-    }
-
     openProfilePanel() {
-    this.closeAllPanels();
-    const panel = document.getElementById('profilePanel');
-    panel.classList.add('open');
-    panel.setAttribute('aria-hidden', 'false');
-    this.addPanelToStack('profilePanel');
+        this.closeAllPanels();
+        const panel = document.getElementById('profilePanel');
+        panel.classList.add('open');
+        panel.setAttribute('aria-hidden', 'false');
+        this.addPanelToStack('profilePanel');
 
-    const firstInput = panel.querySelector('input, button');
-    if (firstInput) {
-        setTimeout(() => firstInput.focus(), 100);
+        const firstInput = panel.querySelector('input, button');
+        if (firstInput) {
+            setTimeout(() => firstInput.focus(), 100);
+        }
     }
-
-
-
-    document.querySelectorAll('.type-option').forEach(option => {
-            option.addEventListener('click', () => {
-                if (option.dataset.type === 'regular') {
-                    this.app.showTimetableSection();
-                } else {
-                    this.app.hideTimetableSection();
-                }
-            });
-        });
-
-    }
-
 
     openSensoryPanel() {
         this.closeAllPanels();
@@ -720,7 +819,6 @@ export class UIHandler {
             this.app.mapManager.getMap().closePopup();
         }
     }
-
 
     /**
      * 현재 최상위 패널만 닫기
@@ -761,7 +859,7 @@ export class UIHandler {
         }
     }
 
-    // Tutorial methods - 개선된 튜토리얼 로직
+    // Tutorial methods 
     handleTutorialNext() {
         if (this.currentTutorialStep < this.totalTutorialSteps) {
             this.nextTutorialStep();
@@ -809,8 +907,13 @@ export class UIHandler {
 
     showTutorial() {
         const overlay = document.getElementById('tutorialOverlay');
+        if (!overlay) return;
         if (overlay) {
             overlay.classList.add('show');
+            overlay.style.display = 'flex';
+            
+            this.sessionTutorialShown = true;
+            
             this.currentTutorialStep = 1;
             this.updateTutorialStep();
         }
@@ -820,14 +923,37 @@ export class UIHandler {
         const overlay = document.getElementById('tutorialOverlay');
         if (overlay) {
             overlay.classList.remove('show');
+            overlay.style.display = 'none';
         }
         localStorage.setItem('tutorialCompleted', 'true');
         
         // 튜토리얼 완료 후 사용자에게 피드백 제공
-        setTimeout(() => {
-            this.app.showToast('튜토리얼이 완료되었습니다! 이제 감각지도를 사용해보세요.', 'success');
-        }, 300);
+        if (this.sessionTutorialShown) {
+    // 지도/레이어 초기 상태가 정리될 시간을 살짝 준 뒤 오픈(애니메이션 충돌 방지)
+    setTimeout(() => this.openQuestionModal(), 150);
+     }
     }
+
+    checkTutorialCompletion() {
+  try {
+    const done = localStorage.getItem('tutorialCompleted') === '1';
+
+    if (!done) {
+      // 아직 완료 안 됐으면 실제로 튜토리얼을 띄운다 → 이후 completeTutorial 에서 질문 모달 띄움
+      this.showTutorial();
+    } else {
+      // 이미 완료 상태 → 자동 스킵. 이 경우에는 질문 모달을 띄우지 않음(요구사항: "닫는 순간"에만 질문)
+      this.sessionTutorialShown = false;
+    }
+  } catch (_) {
+    // 스토리지 에러 등 예외 시 안전하게 튜토리얼 보여주기
+    this.showTutorial();
+  }
+}
+
+
+
+
 
     // Accessibility settings methods
     toggleColorBlindMode(enabled) {
@@ -853,32 +979,6 @@ export class UIHandler {
     loadAccessibilitySettings() {
         try {
             this.loadSavedData();
-
-            // 로그인된 경우 서버에서 감각 프로필을 가져와 동기화
-            if (this.app.authManager && this.app.authManager.getIsLoggedIn()) {
-                fetch(`${this.app.dataManager.getServerUrl()}/api/users/preferences`, {
-                    headers: this.app.authManager.getAuthHeaders()
-                }).then(r => r.json()).then(data => {
-                    if (data && data.success && data.data) {
-                        const serverProfile = {
-                            noiseThreshold: data.data.noise_threshold,
-                            lightThreshold: data.data.light_threshold,
-                            odorThreshold: data.data.odor_threshold,
-                            crowdThreshold: data.data.crowd_threshold
-                        };
-                        localStorage.setItem('sensmap_profile', JSON.stringify(serverProfile));
-                        Object.keys(serverProfile).forEach(key => {
-                            const slider = document.getElementById(key);
-                            const valueDisplay = slider?.parentNode?.querySelector('.range-value');
-                            if (slider) {
-                                slider.value = serverProfile[key];
-                                if (valueDisplay) valueDisplay.textContent = serverProfile[key];
-                            }
-                        });
-                        this.app.refreshVisualization();
-                    }
-                }).catch(err => console.warn('감각 프로필 불러오기 실패:', err));
-            }
 
             const colorBlindMode = localStorage.getItem('colorBlindMode') === 'true';
             const highContrastMode = localStorage.getItem('highContrastMode') === 'true';
@@ -1387,4 +1487,3 @@ export class UIHandler {
     }
 
 }
-
