@@ -144,6 +144,17 @@ export class UIHandler {
             document.getElementById('reducedMotionMode')?.addEventListener('change', (e) => this.toggleReducedMotionMode(e.target.checked));
             document.getElementById('textSizeSlider')?.addEventListener('input', (e) => this.adjustTextSize(e.target.value));
 
+
+            // 내 데이터 버튼
+            document.getElementById('myDataBtn')?.addEventListener('click', () => this.app.authManager.showMyData());
+            document.getElementById('closeMyDataBtn')?.addEventListener('click', () => this.app.authManager.closeMyData());
+
+            // 내 데이터 필터/정렬 툴바
+            ['mdPeriod', 'mdType', 'mdSort', 'mdSearch'].forEach(id => {
+                document.getElementById(id)?.addEventListener('input', () => this.applyMyDataFilters());
+            });
+
+
             // Global event listeners - 개선된 조건부 처리
             document.addEventListener('click', (e) => {
                 if (!e.target.closest('.hamburger-menu')) {
@@ -1024,6 +1035,375 @@ export class UIHandler {
             reducedMotion: localStorage.getItem('reducedMotionMode') === 'true',
             textSize: localStorage.getItem('textSize') || '1'
         };
+    }
+
+    /**
+     * 패널 열기 헬퍼 (재사용 가능)
+     */
+    openPanel(panelId) {
+        this.closeAllPanels();
+        const panel = document.getElementById(panelId);
+        if (panel) {
+            panel.classList.add('open');
+            panel.setAttribute('aria-hidden', 'false');
+            this.addPanelToStack(panelId);
+        }
+    }
+
+    /**
+     * 원본 데이터 보관
+     */
+    _setMyReports(raw) {
+        this._myReportsRaw = Array.isArray(raw) ? raw : [];
+    }
+
+    /**
+     * 외부에서 최초 호출: 캐시 저장 후 필터 적용
+     */
+    renderMyData(raw) {
+        this._setMyReports(raw);
+        
+        // 기본값 설정: 전체기간/모든유형/최신순
+        const period = document.getElementById('mdPeriod');
+        if (period) period.value = 'all';
+        
+        const type = document.getElementById('mdType');
+        if (type) type.value = 'all';
+        
+        const sort = document.getElementById('mdSort');
+        if (sort) sort.value = 'newest';
+        
+        const search = document.getElementById('mdSearch');
+        if (search) search.value = '';
+        
+        // 필터 적용하여 리스트 렌더링
+        this.applyMyDataFilters();
+    }
+
+    /**
+     * 필터·정렬을 적용하고 리스트/통계 갱신
+     */
+    applyMyDataFilters() {
+        const listEl = document.getElementById('myDataList');
+        if (!listEl) return;
+
+        const period = (document.getElementById('mdPeriod')?.value || 'all');
+        const type = (document.getElementById('mdType')?.value || 'all');
+        const sort = (document.getElementById('mdSort')?.value || 'newest');
+        const q = (document.getElementById('mdSearch')?.value || '').trim().toLowerCase();
+
+        const now = Date.now();
+        let arr = (this._myReportsRaw || []).slice();
+
+        // 1) 기간 필터
+        if (period !== 'all') {
+            const hours = parseInt(period, 10);
+            arr = arr.filter(r => {
+                if (!r.created_at) return false;
+                const diff = now - new Date(r.created_at).getTime();
+                return diff <= hours * 3600 * 1000;
+            });
+        }
+
+        // 2) 유형 필터
+        if (type !== 'all') {
+            arr = arr.filter(r => r.type === type);
+        }
+
+        // 3) 검색 (간단: type, 좌표, 사용자 표시 필드)
+        if (q) {
+            arr = arr.filter(r => {
+                const fields = [
+                    r.type || '',
+                    `${r.lat ?? ''},${r.lng ?? ''}`,
+                    r.user_name || '',
+                    r.user_email || ''
+                ].join(' ').toLowerCase();
+                return fields.includes(q);
+            });
+        }
+
+        // 개인화 점수 계산 (시각화 매니저 로직 재사용)
+        const prof = this.app.visualizationManager?.getSensitivityProfile() || {
+            noiseThreshold: 5,
+            lightThreshold: 5,
+            odorThreshold: 5,
+            crowdThreshold: 5
+        };
+
+        const toScore = (r) => {
+            const w = {
+                noise: r.noise ?? 0,
+                light: r.light ?? 0,
+                odor: r.odor ?? 0,
+                crowd: r.crowd ?? 0
+            };
+            
+            // 간이 점수: 프로필 임계와 차이 기반 (0~10)
+            const deltas = [
+                Math.max(0, w.noise - prof.noiseThreshold),
+                Math.max(0, w.light - prof.lightThreshold),
+                Math.max(0, w.odor - prof.odorThreshold),
+                Math.max(0, w.crowd - prof.crowdThreshold)
+            ];
+            return parseFloat((deltas.reduce((s, x) => s + x, 0) / deltas.length).toFixed(2));
+        };
+
+        arr = arr.map(r => ({ ...r, _score: toScore(r) }));
+
+        // 4) 정렬
+        if (sort === 'newest') {
+            arr.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        } else if (sort === 'oldest') {
+            arr.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        } else if (sort === 'scoreDesc') {
+            arr.sort((a, b) => (b._score || 0) - (a._score || 0));
+        } else if (sort === 'scoreAsc') {
+            arr.sort((a, b) => (a._score || 0) - (b._score || 0));
+        }
+
+        // 통계 갱신
+        this._renderMyDataStats(arr);
+
+        // 리스트 렌더링
+        listEl.innerHTML = '';
+        if (arr.length === 0) {
+            listEl.innerHTML = `
+                <div class="empty-placeholder" style="text-align:center; padding:40px; color:#9ca3af;">
+                    <i class="fas fa-inbox" style="font-size:32px; margin-bottom:12px;"></i>
+                    <div style="font-size:14px; font-weight:600; margin-bottom:4px;">데이터가 없습니다</div>
+                    <div style="font-size:12px;">조건에 맞는 감각 정보가 없습니다.</div>
+                </div>
+            `;
+        } else {
+            arr.forEach(r => listEl.appendChild(this._renderMyDataItem(r)));
+        }
+
+        this._myReportsFiltered = arr;
+    }
+
+    /**
+     * 통계 카드 갱신
+     */
+    _renderMyDataStats(arr) {
+        const totalEl = document.getElementById('mdTotal');
+        const avgEl = document.getElementById('mdAvgScore');
+        const lastEl = document.getElementById('mdLast');
+
+        if (!totalEl || !avgEl || !lastEl) return;
+
+        totalEl.textContent = String(arr.length);
+
+        const avg = arr.length ? (arr.reduce((s, x) => s + (x._score || 0), 0) / arr.length) : 0;
+        avgEl.textContent = avg.toFixed(1);
+
+        const last = arr[0]?.created_at ? new Date(arr[0].created_at) : null;
+        lastEl.textContent = last ? this._timeAgo(last) : '-';
+    }
+
+    /**
+     * 아이템 카드 렌더 + 액션 바인딩
+     */
+    _renderMyDataItem(r) {
+        const el = document.createElement('div');
+        el.className = 'card';
+        el.innerHTML = `
+            <div class="card-row" style="display:flex;justify-content:space-between;align-items:center;">
+                <div style="flex:1;">
+                    <div style="font-weight:600; margin-bottom:4px;">
+                        ${r.type === 'regular' ? '🟢 지속적' : '⚡ 일시적'} · 
+                        <span style="font-size:12px; color:#6b7280;">${this._fmtDate(r.created_at)}</span>
+                    </div>
+                    <div style="font-size:12px; color:#6b7280; margin-bottom:6px;">
+                        📍 (${r.lat?.toFixed?.(5) || r.lat}, ${r.lng?.toFixed?.(5) || r.lng})
+                        ${r.wheelchair ? ' · ♿ 휠체어 제약' : ''}
+                    </div>
+                    <div style="display:flex; gap:10px; font-size:13px; flex-wrap:wrap;">
+                        <span>🔊 ${r.noise ?? '-'}</span>
+                        <span>💡 ${r.light ?? '-'}</span>
+                        <span>👃 ${r.odor ?? '-'}</span>
+                        <span>👥 ${r.crowd ?? '-'}</span>
+                        <span style="color:#3b82f6; font-weight:600;">점수 ${r._score}</span>
+                    </div>
+                </div>
+                <div style="display:flex; gap:6px; flex-shrink:0;">
+                    <button class="icon-btn" title="지도에서 보기" data-act="focus">
+                        <i class="fas fa-location-arrow"></i>
+                    </button>
+                    <button class="icon-btn" title="수정" data-act="edit">
+                        <i class="fas fa-pen"></i>
+                    </button>
+                    <button class="icon-btn" title="삭제" data-act="del">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+
+        // 1) 지도 포커스
+        el.querySelector('[data-act="focus"]').addEventListener('click', () => {
+            if (this.app.mapManager?.getMap) {
+                const map = this.app.mapManager.getMap();
+                map.setView([parseFloat(r.lat), parseFloat(r.lng)], 17);
+                
+                // 깜빡임 효과
+                const pulse = document.createElement('div');
+                pulse.style.cssText = `
+                    position:absolute; z-index:600; pointer-events:none;
+                    width:18px; height:18px; border-radius:50%; border:2px solid #3b82f6;
+                    opacity:.9; transform:translate(-50%,-50%);
+                    box-shadow:0 0 12px rgba(59,130,246,.8);
+                `;
+                const pt = map.latLngToContainerPoint([parseFloat(r.lat), parseFloat(r.lng)]);
+                const mapEl = document.getElementById('map');
+                pulse.style.left = pt.x + 'px';
+                pulse.style.top = pt.y + 'px';
+                mapEl.appendChild(pulse);
+                
+                pulse.animate([
+                    { transform: 'translate(-50%,-50%) scale(0.6)', opacity: 1 },
+                    { transform: 'translate(-50%,-50%) scale(2.0)', opacity: 0 }
+                ], {
+                    duration: 800,
+                    easing: 'ease-out'
+                }).onfinish = () => pulse.remove();
+                
+                // 패널 닫기
+                this.app.authManager.closeMyData();
+            }
+        });
+
+        // 2) 수정 (간단 인라인 프롬프트) - 백엔드 PUT 사용
+        el.querySelector('[data-act="edit"]').addEventListener('click', async () => {
+            const parse01 = (v) => {
+                const n = parseInt(v, 10);
+                return (Number.isInteger(n) && n >= 0 && n <= 10) ? n : null;
+            };
+
+            const noise = parse01(prompt('소음 수준 (0-10):', r.noise ?? ''));
+            const light = parse01(prompt('빛 강도 (0-10):', r.light ?? ''));
+            const odor = parse01(prompt('냄새 정도 (0-10):', r.odor ?? ''));
+            const crowd = parse01(prompt('혼잡도 (0-10):', r.crowd ?? ''));
+
+            if ([noise, light, odor, crowd].some(v => v === null)) {
+                this.app.showToast('0-10 사이의 정수만 입력하세요.', 'warning');
+                return;
+            }
+
+            const body = {
+                lat: parseFloat(r.lat),
+                lng: parseFloat(r.lng),
+                type: r.type,
+                duration: r.duration ?? null,
+                wheelchair: !!r.wheelchair,
+                noise,
+                light,
+                odor,
+                crowd
+            };
+
+            try {
+                const res = await fetch(`${this.app.authManager.getServerUrl()}/api/reports/${r.id}`, {
+                    method: 'PUT',
+                    headers: this.app.authManager.getAuthHeaders(),
+                    body: JSON.stringify(body)
+                });
+
+                const js = await res.json();
+
+                if (js?.success) {
+                    // 캐시 갱신
+                    const idx = this._myReportsRaw.findIndex(x => x.id === r.id);
+                    if (idx > -1) {
+                        this._myReportsRaw[idx] = { ...this._myReportsRaw[idx], ...js.data };
+                    }
+                    
+                    // 재렌더
+                    this.applyMyDataFilters();
+                    this.app.showToast('수정 완료', 'success');
+                    
+                    // 지도 데이터도 새로고침
+                    if (this.app.dataManager) {
+                        await this.app.dataManager.loadSensoryData();
+                        this.app.refreshVisualization();
+                    }
+                } else {
+                    this.app.showToast(js?.error || '수정 실패', 'error');
+                }
+            } catch (e) {
+                console.error('edit error:', e);
+                this.app.showToast('서버 오류', 'error');
+            }
+        });
+
+        // 3) 삭제 - 백엔드 DELETE 사용
+        el.querySelector('[data-act="del"]').addEventListener('click', async () => {
+            if (!confirm('이 데이터를 삭제할까요?')) return;
+
+            try {
+                const res = await fetch(`${this.app.authManager.getServerUrl()}/api/reports/${r.id}`, {
+                    method: 'DELETE',
+                    headers: this.app.authManager.getAuthHeaders()
+                });
+
+                const js = await res.json();
+
+                if (js?.success) {
+                    // 캐시에서 제거
+                    this._myReportsRaw = (this._myReportsRaw || []).filter(x => x.id !== r.id);
+                    
+                    // 재렌더
+                    this.applyMyDataFilters();
+                    this.app.showToast('삭제 완료', 'success');
+                    
+                    // 되돌리기 UI 표시 (기존 undo 기능 재사용)
+                    if (this.app.showUndoAction) {
+                        this.app.showUndoAction();
+                    }
+                    
+                    // 지도 데이터도 새로고침
+                    if (this.app.dataManager) {
+                        await this.app.dataManager.loadSensoryData();
+                        this.app.refreshVisualization();
+                    }
+                } else {
+                    this.app.showToast(js?.error || '삭제 실패', 'error');
+                }
+            } catch (e) {
+                console.error('delete error:', e);
+                this.app.showToast('서버 오류', 'error');
+            }
+        });
+
+        return el;
+    }
+
+    /**
+     * 유틸: 날짜 포맷
+     */
+    _fmtDate(d) {
+        try {
+            return new Date(d).toLocaleString('ko-KR', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } catch {
+            return '-';
+        }
+    }
+
+    /**
+     * 유틸: 상대 시간
+     */
+    _timeAgo(date) {
+        const diff = (Date.now() - date.getTime()) / 1000;
+        if (diff < 60) return `${Math.floor(diff)}초 전`;
+        if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
+        return `${Math.floor(diff / 86400)}일 전`;
     }
 
 }
