@@ -1,10 +1,6 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <script>
-        window.ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjMzOWIwNWViNGNhZjRhN2FhYmFkZWQ3YWJjYWU1YmY5IiwiaCI6Im11cm11cjY0In0=';  // ← 발급받은 키로 교체
-        // window.ORS_BASE_URL = 'https://api.openrouteservice.org'; // 기본값이면 생략 가능
-    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sensmap - Advanced Sensory Navigation</title>
@@ -226,11 +222,240 @@
             <button class="tutorial-skip" id="tutorialSkip">건너뛰기</button>
         </div>
     </div>
+    
+    <!-- 질문 모달 -->
+    <div class="modal-overlay" id="questionModal" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header">
+        <button class="close-btn" id="closeQuestionBtn" aria-label="질문 닫기">
+            <i class="fas fa-times"></i>
+        </button>
+        </div>
+<div class="modal-body">
+  <p>아래 질문에 답해주세요:</p>
+
+  <div id="surveyWizard" class="survey-wizard">
+    <div class="wizard-content">
+      <!-- Step 1 -->
+      <section class="tutorial-step active" data-step="1">
+        <div class="question-block">
+          <label for="soundFoodcourt">점심시간에 붐비고 시끄러운 푸드코트에서 얼마나 편안함을 느끼시나요?</label>
+          <input type="range" id="soundFoodcourt" name="soundFoodcourt" min="1" max="10" step="1" value="5">
+        <img src="./assets/FoodCourt.png" alt="푸드코트" class="range-thumb-img" loading="lazy">
+        
+        </div>
+      </section>
+
+      <!-- Step 2 -->
+      <section class="tutorial-step" data-step="2">
+        <div class="question-block">
+          <label for="soundTraffic">자동차 경적 소리와 사이렌이 울리는 복잡한 거리를 상상해 보세요. 이 소리가 얼마나 당신을 괴롭히나요?</label>
+          <input type="range" id="soundTraffic" name="soundTraffic" min="1" max="10" step="1" value="5">
+          <img src="./assets/CarSiren.png" alt="푸드코트" class="range-thumb-img" loading="lazy">
+        </div>
+      </section>
+
+      <!-- Step 3 -->
+      <section class="tutorial-step" data-step="3">
+        <div class="question-block">
+          <label for="soundMinor">도서관이나 조용한 스터디룸에 있을 때, 누군가 펜을 딸깍거리는 소리나 작은 속삭임과 같은 사소한 소리가 얼마나 잘 들리나요?</label>
+          <input type="range" id="soundMinor" name="soundMinor" min="1" max="10" step="1" value="5">
+          <img src="./assets/Library.png" alt="푸드코트" class="range-thumb-img" loading="lazy">
+        </div>
+      </section>
+
+      <!-- Step 4 -->
+      <section class="tutorial-step" data-step="4">
+        <div class="question-block">
+          <label for="soundBgm">낮은 볼륨으로 배경 음악이 재생될 때, 집중하거나 긴장을 푸는 데 어려움을 겪으시나요?</label>
+          <input type="range" id="soundBgm" name="soundBgm" min="1" max="10" step="1" value="5">
+          <img src="./assets/Quiet.png" alt="푸드코트" class="range-thumb-img" loading="lazy">
+        </div>
+      </section>
+
+      <!-- Step 5 -->
+      <section class="tutorial-step" data-step="5">
+        <div class="question-block">
+          <label for="lightMall">창문이 많고 강렬한 천장 조명이 있는 밝은 쇼핑몰에 들어가는 것에 대해 어떻게 느끼시나요?</label>
+          <input type="range" id="lightMall" name="lightMall" min="1" max="10" step="1" value="5">
+          <img src="./assets/brightmall.png" alt="푸드코트" class="range-thumb-img" loading="lazy">
+        </div>
+      </section>
+
+      <!-- Step 6 -->
+      <section class="tutorial-step" data-step="6">
+        <div class="question-block">
+          <label for="lightFlicker">형광등의 깜빡임이나 컴퓨터 화면의 눈부심을 알아차리거나 그로 인해 산만해지나요?</label>
+          <input type="range" id="lightFlicker" name="lightFlicker" min="1" max="10" step="1" value="5">
+          <img src="./assets/brightlight.png" alt="푸드코트" class="range-thumb-img" loading="lazy">
+        </div>
+      </section>
+
+      <!-- Step 7 -->
+      <section class="tutorial-step" data-step="7">
+        <div class="question-block">
+          <label for="lightGlare">햇빛이 강한 날, 차에 반사되는 밝은 햇빛을 상상해 보세요. 이것이 당신의 눈에 얼마나 불편함을 주나요?</label>
+          <input type="range" id="lightGlare" name="lightGlare" min="1" max="10" step="1" value="5">
+          <img src="./assets/carbright.png" alt="푸드코트" class="range-thumb-img" loading="lazy">
+        </div>
+      </section>
+
+      <!-- Step 8 -->
+      <section class="tutorial-step" data-step="8">
+        <div class="question-block">
+          <label for="lightControl">방에 있을 때 편안함을 느끼기 위해 조명을 제어하는 것이 얼마나 중요합니까?</label>
+          <input type="range" id="lightControl" name="lightControl" min="1" max="10" step="1" value="5">
+        </div>
+      </section>
+
+      <!-- Step 9 -->
+      <section class="tutorial-step" data-step="9">
+        <div class="question-block">
+          <label for="smellStore">베이커리나 향수 가게처럼 강한 향이 나는 가게에 들어갈 때 어떤 영향을 받으시나요?</label>
+          <input type="range" id="smellStore" name="smellStore" min="1" max="10" step="1" value="5">
+          <img src="./assets/smellStore.png" alt="푸드코트" class="range-thumb-img" loading="lazy">
+        </div>
+      </section>
+
+      <!-- Step 10 -->
+      <section class="tutorial-step" data-step="10">
+        <div class="question-block">
+          <label for="smellSubtle">누군가의 향수나 근처에서 요리하는 음식 냄새와 같은 미묘한 냄새를 얼마나 잘 알아차리고 반응하나요?</label>
+          <input type="range" id="smellSubtle" name="smellSubtle" min="1" max="10" step="1" value="5">
+        </div>
+      </section>
+
+      <!-- Step 11 -->
+      <section class="tutorial-step" data-step="11">
+        <div class="question-block">
+          <label for="smellUnpleasant">패스트푸드점이나 쓰레기차 옆을 지나가는 것을 상상해 보세요. 그 냄새가 당신의 편안함에 얼마나 영향을 미치나요?</label>
+          <input type="range" id="smellUnpleasant" name="smellUnpleasant" min="1" max="10" step="1" value="5">
+          <img src="./assets/SmellUnpleasant.png" alt="푸드코트" class="range-thumb-img" loading="lazy">
+        </div>
+      </section>
+
+      <!-- Step 12 -->
+      <section class="tutorial-step" data-step="12">
+        <div class="question-block">
+          <label for="smellAvoid">특유의 냄새 때문에 특정 공공장소나 공간을 피해야 했던 적이 있나요?</label>
+          <input type="range" id="smellAvoid" name="smellAvoid" min="1" max="10" step="1" value="5">
+          <img src="./assets/smellAvoid.png" alt="푸드코트" class="range-thumb-img" loading="lazy">
+        </div>
+      </section>
+
+      <!-- Step 13 -->
+      <section class="tutorial-step" data-step="13">
+        <div class="question-block">
+          <label for="crowdSubway">출퇴근 시간대에 매우 혼잡한 지하철역을 지나가는 것에 대해 어떻게 느끼시나요?</label>
+          <input type="range" id="crowdSubway" name="crowdSubway" min="1" max="10" step="1" value="5">
+          <img src="./assets/crowdSubway.png" alt="푸드코트" class="range-thumb-img" loading="lazy">
+        </div>
+      </section>
+
+      <!-- Step 14 -->
+      <section class="tutorial-step" data-step="14">
+        <div class="question-block">
+          <label for="crowdMarket">주말의 붐비는 슈퍼마켓을 상상해 보세요. 많은 사람들과 가까이 있는 것이 얼마나 당신을 괴롭히나요?</label>
+          <input type="range" id="crowdMarket" name="crowdMarket" min="1" max="10" step="1" value="5">
+        </div>
+      </section>
+
+      <!-- Step 15 -->
+      <section class="tutorial-step" data-step="15">
+        <div class="question-block">
+          <label for="crowdCinema">붐비는 엘리베이터나 만원인 영화관에 있는 것이 스트레스나 불안을 유발하나요?</label>
+          <input type="range" id="crowdCinema" name="crowdCinema" min="1" max="10" step="1" value="5">
+          <img src="./assets/crowdElevator.png" alt="푸드코트" class="range-thumb-img" loading="lazy"> 
+        </div>
+      </section>
+
+      <!-- Step 16 -->
+      <section class="tutorial-step" data-step="16">
+        <div class="question-block">
+          <label for="crowdContact">붐비는 인도에서 사람들과 부딪히는 것과 같이 우발적인 신체 접촉에 어떻게 반응하나요?</label>
+          <input type="range" id="crowdContact" name="crowdContact" min="1" max="10" step="1" value="5">
+        </div>
+      </section>
+
+      <!-- Step 17 -->
+      <section class="tutorial-step" data-step="17">
+        <div class="question-block">
+          <div class="label-with-icon">
+            <img id="noiseShockIcon" src="./assets/mood-5.png" alt="" aria-hidden="true" class="label-icon">
+            <label for="noiseShock">
+              1부터 10까지의 척도로, 화재 경보나 갑작스러운 굉음과 같이 예상치 못한 큰 소음을 얼마나 잘 참아낼 수 있나요?
+              <output id="noiseShockValue" for="noiseShock">5</output>
+            </label>
+          </div>
+          <input type="range" id="noiseShock" name="noiseShock" min="1" max="10" step="1" value="5">
+          <img src="./assets/noiseSh.png" alt="푸드코트" class="range-thumb-img" loading="lazy">
+        </div>
+      </section>
+
+      <!-- Step 18 -->
+      <section class="tutorial-step" data-step="18">
+        <div class="question-block">
+          <div class="label-with-icon">
+            <img id="lightFlashIcon" src="./assets/mood-5.png" alt="" aria-hidden="true" class="label-icon">
+            <label for="lightFlash">
+              1부터 10까지의 척도로, 경찰차나 콘서트 무대의 조명처럼 번쩍이는 불빛이 얼마나 성가시나요?
+              <output id="lightFlashValue" for="lightFlash">5</output>
+            </label>
+          </div>
+          <input type="range" id="lightFlash" name="lightFlash" min="1" max="10" step="1" value="5">
+        </div>
+      </section>
+
+      <!-- Step 19 -->
+      <section class="tutorial-step" data-step="19">
+        <div class="question-block">
+          <div class="label-with-icon">
+            <img id="smellIcon" src="./assets/mood-5.png" alt="" aria-hidden="true" class="label-icon">
+            <label for="smell">
+              1부터 10까지의 척도로, 강하고 낯선 냄새가 나는 밀폐된 공간에 있는 것이 얼마나 압도적인가요?
+              <output id="smellValue" for="smell">5</output>
+            </label>
+          </div>
+          <input type="range" id="smell" name="smell" min="1" max="10" step="1" value="5">
+        </div>
+      </section>
+
+      <!-- Step 20 -->
+      <section class="tutorial-step" data-step="20">
+        <div class="question-block">
+          <div class="label-with-icon">
+            <img id="crowdAvoidIcon" src="./assets/mood-5.png" alt="" aria-hidden="true" class="label-icon">
+            <label for="crowdAvoid">
+              1부터 10까지의 척도로, 혼잡한 지역을 피하기 위해 더 길거나 덜 편리한 경로를 선택할 가능성이 얼마나 됩니까?
+              <output id="crowdAvoidValue" for="crowdAvoid">5</output>
+            </label>
+          </div>
+          <input type="range" id="crowdAvoid" name="crowdAvoid" min="1" max="10" step="1" value="5">
+        </div>
+      </section>
+    </div>
+
+    <!-- 모달용 네비게이션: 반드시 wizard 내부에 둔다 -->
+    <div class="tutorial-navigation">
+      <button class="tutorial-btn secondary" id="surveyPrev">이전</button>
+      <div class="tutorial-dots" id="surveyDots"></div>
+      <button class="tutorial-btn primary" id="surveyNext">다음</button>
+    </div>
+
+    <!-- 마지막 스텝에서만 노출 -->
+    <button id="submitAnswerBtn" class="primary-btn" style="margin-top:12px; display:none;">제출</button>
+  </div>
+</div>
+
+        </div>
+    </div>
+    </div>
+
 
     <div class="loading-overlay" id="loadingOverlay">
         <div class="loading-spinner">
             <div class="spinner"></div>
-            <div class="loading-text" style="writing-mode: horizontal-tb; direction: ltr;">지도를 불러오는 중...</div>
+            <div class="loading-text">지도를 불러오는 중...</div>
         </div>
     </div>
 
@@ -476,57 +701,49 @@
                 <div class="smart-form-group" data-field="noise">
                     <div class="field-header">
                         <label class="form-label" for="noiseInput">소음 수준</label>
-                        <button type="button" class="help-btn sensory-help-btn" data-field="noise" title="소음 숫자 설명" aria-label="소음 숫자 설명">
-                            <i class="fas fa-question-circle"></i>
-                        </button>
                         <button type="button" class="skip-btn" data-field="noise">건너뛰기</button>
                     </div>
                     <div class="slider-container">
                         <input type="range" class="range-slider" id="noiseInput" name="noise" min="0" max="10" value="5" aria-describedby="noiseHelp">
                         <div class="range-value">5</div>
                     </div>
+                    <small id="noiseHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">0: 매우 조용함, 10: 매우 시끄러움</small>
                 </div>
 
                 <div class="smart-form-group" data-field="light">
                     <div class="field-header">
                         <label class="form-label" for="lightInput">빛 강도</label>
-                        <button type="button" class="help-btn sensory-help-btn" data-field="light" title="빛 숫자 설명" aria-label="빛 숫자 설명">
-                            <i class="fas fa-question-circle"></i>
-                        </button>
                         <button type="button" class="skip-btn" data-field="light">건너뛰기</button>
                     </div>
                     <div class="slider-container">
                         <input type="range" class="range-slider" id="lightInput" name="light" min="0" max="10" value="5" aria-describedby="lightHelp">
                         <div class="range-value">5</div>
                     </div>
+                    <small id="lightHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">0: 매우 어두움, 10: 매우 밝음</small>
                 </div>
                 
                 <div class="smart-form-group" data-field="odor">
                     <div class="field-header">
                         <label class="form-label" for="odorInput">냄새 정도</label>
-                        <button type="button" class="help-btn sensory-help-btn" data-field="odor" title="냄새 숫자 설명" aria-label="냄새 숫자 설명">
-                            <i class="fas fa-question-circle"></i>
-                        </button>
                         <button type="button" class="skip-btn" data-field="odor">건너뛰기</button>
                     </div>
                     <div class="slider-container">
                         <input type="range" class="range-slider" id="odorInput" name="odor" min="0" max="10" value="5" aria-describedby="odorHelp">
                         <div class="range-value">5</div>
                     </div>
+                    <small id="odorHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">0: 냄새 없음, 10: 매우 강한 냄새</small>
                 </div>
 
                 <div class="smart-form-group" data-field="crowd">
                     <div class="field-header">
                         <label class="form-label" for="crowdInput">혼잡도</label>
-                        <button type="button" class="help-btn sensory-help-btn" data-field="crowd" title="혼잡 숫자 설명" aria-label="혼잡 숫자 설명">
-                            <i class="fas fa-question-circle"></i>
-                        </button>
                         <button type="button" class="skip-btn" data-field="crowd">건너뛰기</button>
                     </div>
                     <div class="slider-container">
                         <input type="range" class="range-slider" id="crowdInput" name="crowd" min="0" max="10" value="5" aria-describedby="crowdHelp">
                         <div class="range-value">5</div>
                     </div>
+                    <small id="crowdHelp" style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">0: 한적함, 10: 매우 혼잡함</small>
                 </div>
 
                 <div class="form-group" id="durationGroup" style="display: none;">
@@ -545,139 +762,6 @@
                     </label>
                 </div>
 
-                               <section class="timetable-section" id="timetableSection" aria-label="시간표" style="display: none;">
-                <div class="timetable-header">
-                    <div class="timetable-title">시간표</div>
-                    <div class="timetable-date" id="timetableDateLabel"></div>
-                    <div class="timetable-select" id="timetableSelectInfo" aria-live="polite"></div>
-                </div>
-                <div class="timetable-header" style="gap:8px;">
-                    <label for="timetableDaySelect" class="timetable-select">요일 선택</label>
-                    <select id="timetableDaySelect" class="timetable-select" aria-label="요일 선택">
-                        <option value="0">일</option>
-                        <option value="1">월</option>
-                        <option value="2">화</option>
-                        <option value="3">수</option>
-                        <option value="4">목</option>
-                        <option value="5">금</option>
-                        <option value="6">토</option>
-                    </select>
-                </div>
-
-                <!-- 시간표 그리드 -->
-                <div class="timetable-grid" id="timetableGrid">
-                    <div class="time-slots">
-                        <div class="time-slot-header">시간</div>
-                        <div class="time-slot" data-time="00">
-                            <span>00:00</span>
-                            <div class="time-cell" data-key="00" data-time="00"></div>
-                        </div>
-                        <div class="time-slot" data-time="01">
-                            <span>01:00</span>
-                            <div class="time-cell" data-key="01" data-time="01"></div>
-                        </div>
-                        <div class="time-slot" data-time="02">
-                            <span>02:00</span>
-                            <div class="time-cell" data-key="02" data-time="02"></div>
-                        </div>
-                        <div class="time-slot" data-time="03">
-                            <span>03:00</span>
-                            <div class="time-cell" data-key="03" data-time="03"></div>
-                        </div>
-                        <div class="time-slot" data-time="04">
-                            <span>04:00</span>
-                            <div class="time-cell" data-key="04" data-time="04"></div>
-                        </div>
-                        <div class="time-slot" data-time="05">
-                            <span>05:00</span>
-                            <div class="time-cell" data-key="05" data-time="05"></div>
-                        </div>
-                        <div class="time-slot" data-time="06">
-                            <span>06:00</span>
-                            <div class="time-cell" data-key="06" data-time="06"></div>
-                        </div>
-                        <div class="time-slot" data-time="07">
-                            <span>07:00</span>
-                            <div class="time-cell" data-key="07" data-time="07"></div>
-                        </div>
-                        <div class="time-slot" data-time="08">
-                            <span>08:00</span>
-                            <div class="time-cell" data-key="08" data-time="08"></div>
-                        </div>
-                        <div class="time-slot" data-time="09">
-                            <span>09:00</span>
-                            <div class="time-cell" data-key="09" data-time="09"></div>
-                        </div>
-                        <div class="time-slot" data-time="10">
-                            <span>10:00</span>
-                            <div class="time-cell" data-key="10" data-time="10"></div>
-                        </div>
-                        <div class="time-slot" data-time="11">
-                            <span>11:00</span>
-                            <div class="time-cell" data-key="11" data-time="11"></div>
-                        </div>
-                        <div class="time-slot" data-time="12">
-                            <span>12:00</span>
-                            <div class="time-cell" data-key="12" data-time="12"></div>
-                        </div>
-                        <div class="time-slot" data-time="13">
-                            <span>13:00</span>
-                            <div class="time-cell" data-key="13" data-time="13"></div>
-                        </div>
-                        <div class="time-slot" data-time="14">
-                            <span>14:00</span>
-                            <div class="time-cell" data-key="14" data-time="14"></div>
-                        </div>
-                        <div class="time-slot" data-time="15">
-                            <span>15:00</span>
-                            <div class="time-cell" data-key="15" data-time="15"></div>
-                        </div>
-                        <div class="time-slot" data-time="16">
-                            <span>16:00</span>
-                            <div class="time-cell" data-key="16" data-time="16"></div>
-                        </div>
-                        <div class="time-slot" data-time="17">
-                            <span>17:00</span>
-                            <div class="time-cell" data-key="17" data-time="17"></div>
-                        </div>
-                        <div class="time-slot" data-time="18">
-                            <span>18:00</span>
-                            <div class="time-cell" data-key="18" data-time="18"></div>
-                        </div>
-                        <div class="time-slot" data-time="19">
-                            <span>19:00</span>
-                            <div class="time-cell" data-key="19" data-time="19"></div>
-                        </div>
-                        <div class="time-slot" data-time="20">
-                            <span>20:00</span>
-                            <div class="time-cell" data-key="20" data-time="20"></div>
-                        </div>
-                        <div class="time-slot" data-time="21">
-                            <span>21:00</span>
-                            <div class="time-cell" data-key="21" data-time="21"></div>
-                        </div>
-                        <div class="time-slot" data-time="22">
-                            <span>22:00</span>
-                            <div class="time-cell" data-key="22" data-time="22"></div>
-                        </div>
-                        <div class="time-slot" data-time="23">
-                            <span>23:00</span>
-                            <div class="time-cell" data-key="23" data-time="23"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 시간표 컨트롤 -->
-                <div class="timetable-controls">
-                    <button type="button" class="timetable-btn" id="clearTimetableBtn">
-                        <i class="fas fa-trash"></i> 초기화
-                    </button>
-                    <button type="button" class="timetable-btn" id="applyTimetableBtn">
-                        <i class="fas fa-check"></i> 적용
-                    </button>
-                </div>
-                </section>
-                
                 <button type="submit" class="primary-btn">
                     <i class="fas fa-save"></i>
                     감각 정보 저장
@@ -774,7 +858,7 @@
                     프로필 저장
                 </button>
                 
-                <button type="button" class="secondary-btn" id="cancelMyDataBtn">
+                <button type="button" class="secondary-btn" id="cancelProfileBtn">
                     <i class="fas fa-times"></i>
                     취소
                 </button>
@@ -835,76 +919,6 @@
         <button class="alert-close" id="alertClose" aria-label="알림 닫기">
             <i class="fas fa-times"></i>
         </button>
-    </div>
-
-    <!-- 감각 도움말 모달 -->
-    <div class="modal-overlay" id="sensoryHelpModal" aria-hidden="true">
-        <div class="modal-content" role="dialog" aria-labelledby="sensoryHelpTitle">
-            <div class="modal-header">
-                <h3 id="sensoryHelpTitle">감각 숫자 설명</h3>
-                <button class="close-btn" id="closeSensoryHelpBtn" aria-label="감각 도움말 닫기">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="help-section" data-help="noise">
-                    <h4>🔊 소음 (0–10)</h4>
-                    <p>0: 도서관, 숲 속에서 새벽 바람소리, 사람이 없는 한적한 공원</p>
-                    <p>1: 속삭임, 나뭇잎 흔들리는 소리, 조용한 골목길, 노트북 팬 소음(저소음)</p>
-                    <p>2: 조용한 사무실, 냉장고 돌아가는 소리, 도서관 발자국, 작은 카페</p>
-                    <p>3: 가까운 거리 대화, 조용한 상점 내부, 소형 자동차 소리, TV 낮은 볼륨</p>
-                    <p>4: 일반 사무실 분위기, 붐비는 카페, 음식점 피크타임, 청소기</p>
-                    <p>5: 번화가 차량 통행, 떠드는 학생 무리, 지하철 내부, TV 보통 볼륨</p>
-                    <p>6: 버스/오토바이 도로 소음, 큰 목소리 대화, 전화 벨소리, 지하철 방송</p>
-                    <p>7: 전동 드릴, 대형 트럭 근처, 헤어드라이어·믹서기, 붐비는 시장</p>
-                    <p>8: 지하철 열차 진입, 공사장 함마드릴, 록 콘서트 객석, 오토바이</p>
-                    <p>9: 앰뷸런스 사이렌, 대형 스피커 앞 콘서트, 폭죽 근거리</p>
-                    <p>10: 제트기 이륙 활주로, 로켓 발사, 활주로 엔진 테스트, 총성 근접 거리</p>
-                </div>
-                <div class="help-section" data-help="light">
-                    <h4>💡 빛 (0–10)</h4>
-                    <p>0: 별빛 밤하늘, 달빛, 아주 어두운 동굴, 영화관 상영 중</p>
-                    <p>1: 가로등 없는 밤길, 희미한 새벽녘, 창문 없는 어두운 방, 멀리 있는 촛불</p>
-                    <p>2: 가로등 있는 밤거리, 어두운 복도, 달 밝은 시골길, 간접조명 방</p>
-                    <p>3: 어두운 실내, 새벽 이른 아침 집안, 조명 약한 카페, 무드등 켜진 방</p>
-                    <p>4: 일반 거실 조명, 편안한 독서등, 밤의 사무실, 가정용 LED 조명</p>
-                    <p>5: 밝은 사무실, 독서실 조명, 병원 대기실, 교실 불 켜진 상태</p>
-                    <p>6: 흐린 날 실외, 밝은 카페, 쇼핑몰 내부, 사진 스튜디오 보조광</p>
-                    <p>7: 흐린 낮 실외, 밝은 사무실 천장등, 대형마트 내부, 병원 수술실 조명</p>
-                    <p>8: 맑은 날 그늘, 창가 햇살 들어오는 방, 체육관 실내, 무대 조명 아래</p>
-                    <p>9: 맑은 날 직사광선, 한낮의 해변, 햇빛 가득한 창가, 반사된 눈밭 풍경</p>
-                    <p>10: 한여름 정오 태양, 사막의 직사광선, 스튜디오 조명 직사, 용접 불꽃</p>
-                </div>
-                <div class="help-section" data-help="odor">
-                    <h4>👃 냄새 (0–10)</h4>
-                    <p>0: 거의 무취, 한적한 숲속 공기, 잘 환기된 방, 비 온 뒤 맑은 공기</p>
-                    <p>1: 아주 약한 향, 깨끗한 빨래 냄새, 종이 냄새, 잔잔한 풀내음</p>
-                    <p>2: 은은한 향, 차 한잔의 향기, 향초 향기, 멀리서 풍기는 음식 냄새</p>
-                    <p>3: 약간 느껴지는 냄새, 커피 향, 과일 껍질 향, 빵 굽는 냄새</p>
-                    <p>4: 분명하지만 불편하지 않은 냄새, 꽃 향기, 향수 소량, 구운 고기 냄새</p>
-                    <p>5: 강하게 인지되는 냄새, 향수 뿌린 사람 근처, 길거리 음식 냄새</p>
-                    <p>6: 다소 거슬리는 냄새, 담배 연기, 지하철 땀 냄새, 음식물 쓰레기통</p>
-                    <p>7: 매우 강하고 불쾌한 냄새, 암모니아 냄새, 하수구 냄새, 상한 음식 냄새</p>
-                    <p>8: 극도로 거슬리는 냄새, 썩은 달걀, 강한 화학 약품 냄새, 타는 냄새</p>
-                    <p>9: 견디기 힘든 냄새, 죽은 동물 사체, 부패한 고기, 강력 접착제 냄새</p>
-                    <p>10: 즉시 회피 반응을 일으키는 냄새, 독성 가스, 화학 화재 연기</p>
-                </div>
-                <div class="help-section" data-help="crowd">
-                    <h4>👥 혼잡도 (0–10)</h4>
-                    <p>0: 한적한 공원, 인적 드문 시골길, 텅 빈 도서관, 이른 새벽 해변</p>
-                    <p>1: 산책하는 몇몇 사람, 동네 작은 카페 조용한 시간, 텅 빈 버스</p>
-                    <p>2: 적당히 분산된 사람들, 낮 시간대 도서관, 평일 낮 지하철, 동네 편의점</p>
-                    <p>3: 여유로운 수준의 사람들, 일반적인 공원 주말 낮, 도심 작은 상점가</p>
-                    <p>4: 사람을 쉽게 피할 수 있는 수준, 지하철 평일 저녁 전, 쇼핑몰 비성수기</p>
-                    <p>5: 붐비는 수준, 인기 카페 주말, 마트 저녁 시간, 식당 점심시간</p>
-                    <p>6: 지하철 출퇴근 전, 맛집 웨이팅 줄, 번화가 메인 거리</p>
-                    <p>7: 이동이 불편함, 유명 축제 입구, 대형 마트 세일 시간</p>
-                    <p>8: 밀착된 수준, 콘서트 대기줄, 불꽃놀이 명당 자리, 할인이벤트 대기줄</p>
-                    <p>9: 밀집 상태, 지하철 퇴근 시간, 유명 관광지 성수기, 대형 집회 한복판</p>
-                    <p>10: 이동 불가, 콘서트 스탠딩 존, 지하철 만원, 대피 상황에서 인파 몰림</p>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- 외부 라이브러리 스크립트 -->
