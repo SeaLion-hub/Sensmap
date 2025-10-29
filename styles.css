@@ -1,6 +1,32 @@
-/* 기존 스타일은 그대로 유지하고, 로그인 모달 관련 스타일만 개선 */
+/* Sensory per-field help button */
+.help-btn.sensory-help-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 0;
+    margin-right: 8px;
+    width: 24px;
+    height: 24px;
+    border-radius: 9999px;
+    border: none;
+    background: #eef2ff;
+    color: #4f46e5;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.05s;
+}
 
-/* 개선된 로그인 모달 스타일 */
+.help-btn.sensory-help-btn i { font-size: 14px; }
+
+.help-btn.sensory-help-btn:hover { background: #e0e7ff; }
+.help-btn.sensory-help-btn:active { transform: translateY(1px); }
+
+.field-header { display: flex; align-items: center; gap: 8px; }
+.field-header .form-label { margin-right: 0; }
+
+/* Force help button to the left of the label */
+.smart-form-group .field-header .sensory-help-btn { order: 0; }
+.smart-form-group .field-header .form-label { order: 1; }
+.smart-form-group .field-header .skip-btn { order: 2; margin-left: auto; }
 #loginModal .modal-content {
     background: white;
     border-radius: 24px;
@@ -674,11 +700,20 @@ html, body {
 }
 
 .loading-text {
-  display: inline-block;     /* block → inline-block으로 변경 */
-  white-space: nowrap;       /* 줄바꿈 방지 */
-  font-size: 16px;           /* 글자 크기 (원하면 조절 가능) */
-  text-align: center;        /* 가운데 정렬 (원하면 제거 가능) */
-  width: auto;               /* 폭 자동 */
+    color: #6b7280;
+    font-weight: 500;
+    writing-mode: horizontal-tb;
+    /* 가로쓰기 강제 */
+    text-orientation: mixed;
+    /* 텍스트 방향 설정 */
+    direction: ltr;
+    /* 왼쪽에서 오른쪽으로 */
+    display: inline-block;
+    text-align: center;
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+    white-space: nowrap;
+    font-size: 16px; 
+    width: auto; 
 }
 
 /* Error Boundary */
@@ -2425,11 +2460,45 @@ html {
     50% { box-shadow: 0 0 0 10px rgba(26,115,232,0.08); transform: scale(1.05); }
     100% { box-shadow: 0 0 0 4px rgba(26,115,232,0.20); transform: scale(1); }
 }
+/* Timetable Modal and Summary Styles */
+.timetable-summary {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 16px;
+}
 
+.timetable-summary h4 {
+    color: #1f2937;
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 16px;
+}
 .label-with-icon {
   display: inline-flex;         /* 라벨과 아이콘을 한 줄에 */
   align-items: center;          /* 수직 가운데 정렬 */
   gap: 8px;                     /* 아이콘-텍스트 간격 */
+}
+
+.timetable-report {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+.report-header {
+    font-size: 12px;
+    color: #6b7280;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.day-schedule {
+    font-size: 13px;
+    color: #374151;
+    padding: 4px 0;
+    border-bottom: 1px solid #f3f4f6;
 }
 
 .label-icon {
@@ -2453,4 +2522,259 @@ html {
   height: 324px;
   object-fit: cover;
   border-radius: 6px;
+}
+.day-schedule:last-child {
+    border-bottom: none;
+}
+
+.action-btn.timetable {
+    background: #8b5cf6;
+    color: white;
+    margin-top: 8px;
+}
+
+.action-btn.timetable:hover {
+    background: #7c3aed;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+/* Enhanced timetable visualization */
+.time-cell.has-timetable {
+    position: relative;
+}
+
+.time-cell.has-timetable::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 6px;
+    height: 6px;
+    background: #8b5cf6;
+    border-radius: 50%;
+    border: 1px solid white;
+}
+
+.time-cell.has-timetable.irregular::before {
+    background: #f59e0b;
+}
+
+.time-cell.has-timetable.regular::before {
+    background: #3b82f6;
+}
+
+/* Timetable UI - Layout, contrast, and interactions */
+.timetable-section {
+    margin-top: 16px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.timetable-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.timetable-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.timetable-date {
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.timetable-select {
+    font-size: 13px;
+    color: #374151;
+    font-weight: 600;
+}
+
+/* Weekday select & repeat */
+#timetableDaySelect {
+    padding: 6px 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #fff;
+}
+
+#timetableRepeatWeekly {
+    width: 16px;
+    height: 16px;
+}
+
+.timetable-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #f9fafb;
+}
+
+.time-slots {
+    background: #f3f4f6;
+}
+
+.time-slot-header,
+.time-header {
+    padding: 10px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #6b7280;
+    background: #eef2f7;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.time-slot {
+    padding: 12px;
+    font-size: 13px;
+    color: #374151;
+    border-bottom: 1px solid #eef2f7;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.time-slot:hover {
+    background: #e5e7eb;
+}
+
+.time-column {
+    display: none; /* Hidden since we're using single column layout */
+}
+
+.time-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.time-cell {
+    position: relative;
+    cursor: pointer;
+    background: #ffffff;
+    transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    min-width: 40px;
+    min-height: 32px;
+}
+
+.time-cell:hover {
+    background: #f3f4f6;
+}
+
+.time-cell.selected {
+    outline: 2px solid #c7d2fe;
+    box-shadow: inset 0 0 0 2px #93c5fd;
+}
+
+.time-cell.selected.irregular {
+    background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
+    box-shadow: inset 0 0 0 2px #fdba74;
+}
+
+.time-cell.selected.regular {
+    background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+    box-shadow: inset 0 0 0 2px #93c5fd;
+}
+
+.timetable-controls {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 12px;
+}
+
+.timetable-btn {
+    padding: 10px 14px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    color: #374151;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.timetable-btn:hover {
+    background: #f9fafb;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+#applyTimetableBtn {
+    background: #1a73e8;
+    color: #ffffff;
+    border-color: #1a73e8;
+}
+
+#applyTimetableBtn:hover {
+    background: #1557b0;
+}
+
+/* Improved visibility for timetable dots */
+.time-cell.has-timetable::before {
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .timetable-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .time-column {
+        grid-template-rows: 40px repeat(24, 42px);
+    }
+
+    .time-slot {
+        padding: 10px;
+    }
+    
+    .time-cell {
+        padding: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .timetable-section {
+        padding: 12px;
+    }
+
+    .timetable-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+    
+    .time-slot {
+        padding: 8px;
+    }
+    
+    .time-cell {
+        padding: 8px;
+    }
 }

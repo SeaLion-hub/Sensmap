@@ -4,6 +4,7 @@ import { MapManager } from './mapManager.js';
 import { DataManager } from './dataManager.js';
 import { VisualizationManager } from './visualizationManager.js';
 import { RouteManager } from './routeManager.js';
+import { SensoryAdapter } from './sensoryAdapter.js';
 import { UIHandler } from './uiHandler.js';
 import { AuthManager } from './authManager.js';
 
@@ -13,6 +14,9 @@ class SensmapApp {
         this.isInitialized = false;
         this.currentToast = null;
         this.undoTimeout = null;
+        this.timetableData = new Map(); // per-hour selections for current day
+        this.timetableDay = new Date().getDay();
+        this.timetableRepeat = true; // Always true for regular data
         
         console.log(`🗺️ Sensmap v${this.version} 초기화 시작...`);
         
@@ -51,6 +55,9 @@ class SensmapApp {
             // 3단계: 데이터 관리자 초기화 
             console.log('📊 데이터 관리자 초기화...');
             this.dataManager = new DataManager(this);
+            // 감각 어댑터 연결 → RouteManager가 여기서 감각 포인트를 가져감
+            this.sensoryManager = new SensoryAdapter(this);
+            window.app = this; // 전역 디버깅용(선택
             
             // 4단계: 시각화 관리자 초기화
             console.log('🎨 시각화 관리자 초기화...');
@@ -100,6 +107,7 @@ class SensmapApp {
             
             // 완료 처리
             this.isInitialized = true;
+            this.initializeTimetable();
             this.hideLoadingOverlay();
 
             // 10단계: 초기 시각화 (이제 안전)

@@ -114,13 +114,27 @@ export class UIHandler {
                 this.openContactModal();
             });
 
+            // Sensory help modal
+            // header-level sensoryHelpBtn removed
+            document.querySelectorAll('.sensory-help-btn')?.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const field = e.currentTarget?.dataset?.field;
+                    this.openSensoryHelpModal(field);
+                    e.stopPropagation();
+                });
+            });
+            document.getElementById('closeSensoryHelpBtn')?.addEventListener('click', () => this.closeSensoryHelpModal());
+
+
             // Panel controls - 개선된 닫기 로직
             document.getElementById('closeSettingsBtn')?.addEventListener('click', () => this.closeSettingsPanel());
             document.getElementById('closeContactBtn')?.addEventListener('click', () => this.closeContactModal());
             document.getElementById('closePanelBtn')?.addEventListener('click', () => this.closeCurrentPanel());
             document.getElementById('cancelBtn')?.addEventListener('click', () => this.closeCurrentPanel());
             document.getElementById('closeProfileBtn')?.addEventListener('click', () => this.closeCurrentPanel());
-            document.getElementById('cancelProfileBtn')?.addEventListener('click', () => this.closeCurrentPanel());
+            ['cancelProfileBtn', 'cancelMyDataBtn'].forEach(id => {
+                document.getElementById(id)?.addEventListener('click', () => this.closeCurrentPanel());
+            });
             document.getElementById('cancelRouteBtn')?.addEventListener('click', () => this.app.routeManager.cancelRouteMode());
 
             // Route controls
@@ -184,6 +198,9 @@ export class UIHandler {
                 if (!e.target.closest('.modal-overlay') && !e.target.closest('#contactBtn')) {
                     this.closeContactModal();
                 }
+                if (!e.target.closest('.modal-overlay') && !e.target.closest('#sensoryHelpBtn') && !e.target.closest('.sensory-help-btn')) {
+                    this.closeSensoryHelpModal();
+                }
             });
 
             document.addEventListener('keydown', (e) => {
@@ -210,6 +227,8 @@ export class UIHandler {
             // 매번 확실히 교체 (dataset 비교 없이)
             moodIcon.src = nextSrc;
             }
+
+            
 
             updateMoodUI();
             moodSlider?.addEventListener('input', updateMoodUI);
@@ -347,6 +366,21 @@ export class UIHandler {
             this.app.handleError('이벤트 리스너 설정 중 오류가 발생했습니다', error);
         }
     }
+    toggleUserLocation() {
+        try {
+            const btn = document.getElementById('locateBtn');
+            const isTracking = !!this.app?._geo?.isTracking;
+            if (!isTracking) {
+                if (btn) btn.classList.add('active');
+                this.app.startUserLocation();
+            } else {
+                if (btn) btn.classList.remove('active');
+                this.app.stopUserLocation();
+            }
+        } catch (e) {
+            this.app.handleError('위치 추적 전환 중 오류가 발생했습니다', e);
+        }
+    }
 
     openQuestionModal() {
         const modal = document.getElementById('questionModal');
@@ -447,6 +481,11 @@ export class UIHandler {
         const gridKey = this.app.dataManager.getGridKey(e.latlng);
         const cellData = this.app.dataManager.getGridData().get(gridKey);
 
+        // Clear timetable selections when clicking a new location
+        if (this.app.clearTimetableSelections) {
+            this.app.clearTimetableSelections();
+        }   
+
         this.app.showLocationPopup(e.latlng, gridKey, cellData);
     }
 
@@ -507,6 +546,33 @@ export class UIHandler {
             submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 저장 중...';
             submitButton.disabled = true;
 
+            // attach timetable (byDay + repeat) using live DOM state as source of truth
+            if (selectedType === 'regular') {
+                try {
+                    // day selection
+                    const daySel = document.getElementById('timetableDaySelect');
+                    const dayIdx = daySel ? parseInt(daySel.value) : (Number.isFinite(this.app.timetableDay) ? this.app.timetableDay : new Date().getDay());
+                    // repeat flag - always true for regular data
+                    const repeatFlag = true;
+                    // collect selected time cells
+                    const selectedCells = Array.from(document.querySelectorAll('.time-cell.selected'));
+                    const entries = selectedCells.map(cell => {
+                        const key = cell.getAttribute('data-key');
+                        const time = cell.getAttribute('data-time');
+                        return [key, { time, type: 'regular' }];
+                    });
+
+                    if (entries.length > 0 && Number.isFinite(dayIdx)) {
+                        reportData.timetable = {};
+                        reportData.timetable[dayIdx] = entries;
+                        reportData.timetableRepeat = repeatFlag;
+                    } else {
+                        delete reportData.timetable;
+                        delete reportData.timetableRepeat;
+                    }
+                } catch (_) { /* ignore */ }
+            }
+
             const result = await this.app.dataManager.submitSensoryData(reportData);
             
             if (result.success) {
@@ -552,6 +618,18 @@ export class UIHandler {
             };
 
             localStorage.setItem('sensmap_profile', JSON.stringify(profile));
+            // 로그인 상태라면 서버에도 저장
+            if (this.app.authManager && this.app.authManager.getIsLoggedIn()) {
+                fetch(`${this.app.dataManager.getServerUrl()}/api/users/preferences`, {
+                    method: 'PUT',
+                    headers: this.app.authManager.getAuthHeaders(),
+                    body: JSON.stringify(profile)
+                }).then(r => r.json()).then(data => {
+                    if (!data.success) {
+                        console.warn('감각 프로필 서버 저장 실패:', data.message || data.error);
+                    }
+                }).catch(err => console.warn('감각 프로필 서버 저장 오류:', err));
+            }
             this.closeCurrentPanel();
 
             this.app.showToast('감각 프로필이 저장되었습니다', 'success');
@@ -657,6 +735,14 @@ export class UIHandler {
         selectedOptionElement.setAttribute('aria-pressed', 'true');
 
         this.updateDurationInput(selectedOptionElement.dataset.type);
+
+        // Show timetable only for 'regular', hide for 'irregular'
+        const selectedType = selectedOptionElement.dataset.type;
+        if (selectedType === 'regular') {
+            this.app.showTimetableSection();
+        } else {
+            this.app.hideTimetableSection();
+        }
     }
 
     updateDurationInput(type) {
@@ -754,6 +840,35 @@ export class UIHandler {
         dropdown.setAttribute('aria-hidden', 'true');
     }
 
+    openSensoryHelpModal(section) {
+        const modal = document.getElementById('sensoryHelpModal');
+        if (!modal) return;
+        modal.classList.add('show');
+        modal.setAttribute('aria-hidden', 'false');
+        this.addPanelToStack('sensoryHelpModal');
+
+        // 섹션 표시 제어: 특정 섹션만 강조
+        const sections = modal.querySelectorAll('.help-section');
+        sections.forEach(sec => {
+            const key = sec.getAttribute('data-help');
+            if (!section || key !== section) {
+                sec.style.display = 'none';
+                sec.classList.remove('active');
+            } else {
+                sec.style.display = '';
+                sec.classList.add('active');
+            }
+        });
+    }
+
+    closeSensoryHelpModal() {
+        const modal = document.getElementById('sensoryHelpModal');
+        if (!modal) return;
+        modal.classList.remove('show');
+        modal.setAttribute('aria-hidden', 'true');
+        this.removePanelFromStack('sensoryHelpModal');
+    }
+
     openSettingsPanel() {
         this.closeAllPanels();
         const panel = document.getElementById('settingsPanel');
@@ -790,7 +905,18 @@ export class UIHandler {
         if (firstInput) {
             setTimeout(() => firstInput.focus(), 100);
         }
+        document.querySelectorAll('.type-option').forEach(option => {
+            option.addEventListener('click', () => {
+                if (option.dataset.type === 'regular') {
+                    this.app.showTimetableSection();
+                } else {
+                    this.app.hideTimetableSection();
+                }
+            });
+        });
+
     }
+    
 
     openSensoryPanel() {
         this.closeAllPanels();
@@ -968,6 +1094,32 @@ export class UIHandler {
     loadAccessibilitySettings() {
         try {
             this.loadSavedData();
+
+            // 로그인된 경우 서버에서 감각 프로필을 가져와 동기화
+            if (this.app.authManager && this.app.authManager.getIsLoggedIn()) {
+                fetch(`${this.app.dataManager.getServerUrl()}/api/users/preferences`, {
+                    headers: this.app.authManager.getAuthHeaders()
+                }).then(r => r.json()).then(data => {
+                    if (data && data.success && data.data) {
+                        const serverProfile = {
+                            noiseThreshold: data.data.noise_threshold,
+                            lightThreshold: data.data.light_threshold,
+                            odorThreshold: data.data.odor_threshold,
+                            crowdThreshold: data.data.crowd_threshold
+                        };
+                        localStorage.setItem('sensmap_profile', JSON.stringify(serverProfile));
+                        Object.keys(serverProfile).forEach(key => {
+                            const slider = document.getElementById(key);
+                            const valueDisplay = slider?.parentNode?.querySelector('.range-value');
+                            if (slider) {
+                                slider.value = serverProfile[key];
+                                if (valueDisplay) valueDisplay.textContent = serverProfile[key];
+                            }
+                        });
+                        this.app.refreshVisualization();
+                    }
+                }).catch(err => console.warn('감각 프로필 불러오기 실패:', err));
+            }
 
             const colorBlindMode = localStorage.getItem('colorBlindMode') === 'true';
             const highContrastMode = localStorage.getItem('highContrastMode') === 'true';
