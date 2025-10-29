@@ -30,10 +30,10 @@ class SensmapApp {
         this.uiHandler = null;
 
         this.initializeApp();
-        
+
     }
 
-    
+
 
 
 
@@ -60,6 +60,7 @@ class SensmapApp {
             // 4단계: 시각화 관리자 초기화
             console.log('🎨 시각화 관리자 초기화...');
             this.visualizationManager = new VisualizationManager(this);
+            await this.visualizationManager.init();   // ✅ 반드시 호출 (UI 바인딩/워처 설치)
 
             // 5단계: 라우트 관리자 초기화
             console.log('🛣️ 경로 관리자 초기화...');
@@ -72,11 +73,11 @@ class SensmapApp {
             console.log('🖥️ UI 핸들러 초기화...');
             this.uiHandler = new UIHandler(this);
             this.uiHandler.setupEventListeners();
-            
-            
+
+
             // 내 위치(Geolocation) UI 및 이벤트 바인딩
             this.setupGeolocationUI();
-// 7단계: 초기 데이터 로드
+            // 7단계: 초기 데이터 로드
             console.log('📡 감각 데이터 로드...');
             await this.dataManager.loadSensoryData();
             // 데이터 로드 후 폴리곤 프리뷰 갱신 (중요)
@@ -84,24 +85,21 @@ class SensmapApp {
                 this.routeManager.refreshAvoidPreview();
             }
 
-            // script.js - initializeApp() 안, 데이터 로드 직후에 배치
-            await this.dataManager.loadSensoryData();
-
             // 감각 스케일 자동 보정 (예: 95퍼센타일, 15% 헤드룸, 0~10 스케일)
             this.routeManager.autoCalibrateSensoryScale(0.95, { targetMax: 10, headroom: 1.15 });
             // (선택) 미세차 강조
             this.routeManager.setSensoryNormalization?.({ gamma: 1.15 });
 
 
-            // 8단계: 초기 시각화
-            console.log('🎯 초기 시각화...');
-            this.refreshVisualization();
 
-            // 9단계: 접근성 설정 로드
+
+            // 8단계: 접근성/튜토리얼 먼저
             console.log('♿ 접근성 설정 로드...');
             this.uiHandler.loadAccessibilitySettings();
 
-            // 10단계: 튜토리얼 확인
+
+
+            // 9단계: 튜토리얼 확인
             console.log('🎓 튜토리얼 상태 확인...');
             this.uiHandler.checkTutorialCompletion();
 
@@ -110,6 +108,9 @@ class SensmapApp {
             this.initializeTimetable();
             this.hideLoadingOverlay();
 
+            // 10단계: 초기 시각화 (이제 안전)
+            console.log('🎯 초기 시각화...');
+            this.refreshVisualization();
             console.log('✅ Sensmap 초기화 완료!');
 
             // 초기화 완료 알림
@@ -136,8 +137,8 @@ class SensmapApp {
         if (!this.isInitialized || !this.visualizationManager || !this.mapManager) {
             console.warn('⚠️ 시각화 새로고침 실패: 초기화가 완료되지 않았습니다.');
             return;
-                this._ensureUserLayerOnTop();
-    }
+            this._ensureUserLayerOnTop();
+        }
 
 
         try {
@@ -278,7 +279,7 @@ class SensmapApp {
             .setContent(popupContent)
             .openOn(map);
     }
-    
+
     // Timetable functionality
     initializeTimetable() {
         this.createTimetableGrid();
@@ -331,37 +332,37 @@ class SensmapApp {
             }
         });
 
-    // 시간대 전체 선택 (있을 경우)
-    document.querySelectorAll('.time-slot').forEach(slot => {
-        slot.addEventListener('click', () => {
-            this.selectTimeSlot(slot.dataset.time);
+        // 시간대 전체 선택 (있을 경우)
+        document.querySelectorAll('.time-slot').forEach(slot => {
+            slot.addEventListener('click', () => {
+                this.selectTimeSlot(slot.dataset.time);
+            });
         });
-    });
 
-    // 초기화 버튼
-    document.getElementById('clearTimetableBtn')?.addEventListener('click', () => {
-        this.clearTimetable();
-    });
-
-    // 적용 버튼
-    document.getElementById('applyTimetableBtn')?.addEventListener('click', () => {
-        this.applyTimetable();
-    });
-
-    // 타입 선택 이벤트
-    document.querySelectorAll('.type-option').forEach(option => {
-        option.addEventListener('click', () => {
-            const selectedType = option.dataset.type;
-            this.updateTimetableForType(selectedType);
-
-            if (selectedType === 'regular') {
-                this.showTimetableSection();
-            } else {
-                this.hideTimetableSection();
-            }
+        // 초기화 버튼
+        document.getElementById('clearTimetableBtn')?.addEventListener('click', () => {
+            this.clearTimetable();
         });
-    });
-}
+
+        // 적용 버튼
+        document.getElementById('applyTimetableBtn')?.addEventListener('click', () => {
+            this.applyTimetable();
+        });
+
+        // 타입 선택 이벤트
+        document.querySelectorAll('.type-option').forEach(option => {
+            option.addEventListener('click', () => {
+                const selectedType = option.dataset.type;
+                this.updateTimetableForType(selectedType);
+
+                if (selectedType === 'regular') {
+                    this.showTimetableSection();
+                } else {
+                    this.hideTimetableSection();
+                }
+            });
+        });
+    }
 
 
 
@@ -388,11 +389,11 @@ class SensmapApp {
     selectTimeSlot(time) {
         const cell = document.querySelector(`.time-cell[data-time="${time}"]`);
         if (!cell) return;
-        
+
         const selectedType = document.querySelector('.type-option.selected')?.dataset.type || 'irregular';
         const key = cell.dataset.key;
         const isSelected = cell.classList.contains('selected');
-        
+
         if (isSelected) {
             cell.classList.remove('selected', selectedType);
             this.timetableData.delete(key);
@@ -444,12 +445,12 @@ class SensmapApp {
         } else {
             const irregularCount = Array.from(this.timetableData.values()).filter(data => data.type === 'irregular').length;
             const regularCount = selectedCount - irregularCount;
-            
+
             let info = `${selectedCount}개 선택됨`;
             if (irregularCount > 0) info += ` (일시적: ${irregularCount}개`;
             if (regularCount > 0) info += `${irregularCount > 0 ? ', ' : ' ('}지속적: ${regularCount}개`;
             if (irregularCount > 0 || regularCount > 0) info += ')';
-            
+
             selectInfo.textContent = info;
         }
     }
@@ -489,7 +490,7 @@ class SensmapApp {
         localStorage.setItem('sensmap_timetables', JSON.stringify(savedTimetables));
 
         this.showToast(`${this.timetableData.size}개의 시간대가 적용되었습니다`, 'success');
-        
+
         // Close timetable section
         const timetableSection = document.getElementById('timetableSection');
         if (timetableSection) {
@@ -513,7 +514,7 @@ class SensmapApp {
         if (timetableSection) {
             timetableSection.style.display = 'block';
             this.updateTimetableDisplay();
-            
+
             // Load existing timetable data for this location if available
             if (this.clickedLocation) {
                 this.loadTimetableForLocation();
@@ -578,7 +579,7 @@ class SensmapApp {
         }
 
         // Find reports with timetable data
-        const reportsWithTimetable = cellData.reports.filter(report => 
+        const reportsWithTimetable = cellData.reports.filter(report =>
             report.timetable && report.timetable.length > 0
         );
 
@@ -590,24 +591,24 @@ class SensmapApp {
         // Create timetable summary popup
         let timetableContent = '<div class="timetable-summary">';
         timetableContent += '<h4>📅 시간표 정보</h4>';
-        
+
         reportsWithTimetable.forEach((report, index) => {
             const timeAgo = this.getTimeAgo(report.timestamp);
             timetableContent += `<div class="timetable-report">`;
             timetableContent += `<div class="report-header">${timeAgo}에 등록됨</div>`;
-            
+
             const timeSlots = [];
-            
+
             report.timetable.forEach(([key, data]) => {
                 timeSlots.push(data.time);
             });
 
             const times = timeSlots.sort().join(', ');
             timetableContent += `<div class="day-schedule">${times}시</div>`;
-            
+
             timetableContent += `</div>`;
         });
-        
+
         timetableContent += '</div>';
 
         // Show in a modal or enhanced popup
@@ -935,182 +936,182 @@ class SensmapApp {
 
 
 
-// ===== 내 위치 표시/추적 기능 =====
-setupGeolocationUI() {
-    try {
-        this._geo = {
-            watchId: null,
-            isTracking: false,
-            layer: null,
-            marker: null,
-            accuracy: null,
-            lastCenter: false
-        };
+    // ===== 내 위치 표시/추적 기능 =====
+    setupGeolocationUI() {
+        try {
+            this._geo = {
+                watchId: null,
+                isTracking: false,
+                layer: null,
+                marker: null,
+                accuracy: null,
+                lastCenter: false
+            };
 
-        const btn = document.getElementById('locateBtn');
-        if (!btn) return;
+            const btn = document.getElementById('locateBtn');
+            if (!btn) return;
 
-        if (!('geolocation' in navigator)) {
-            btn.disabled = true;
-            btn.title = '이 브라우저에서는 위치 서비스를 지원하지 않습니다';
-            this.showToast('이 브라우저는 위치 서비스를 지원하지 않습니다.', 'error');
-            return;
+            if (!('geolocation' in navigator)) {
+                btn.disabled = true;
+                btn.title = '이 브라우저에서는 위치 서비스를 지원하지 않습니다';
+                this.showToast('이 브라우저는 위치 서비스를 지원하지 않습니다.', 'error');
+                return;
+            }
+
+            btn.addEventListener('click', () => {
+                if (!this._geo.isTracking) {
+                    btn.classList.add('active');
+                    this.startUserLocation();
+                } else {
+                    btn.classList.remove('active');
+                    this.stopUserLocation();
+                }
+            });
+        } catch (e) {
+            console.error('지오로케이션 UI 설정 실패:', e);
+        }
+    }
+
+    startUserLocation() {
+        if (!this.mapManager) return;
+        const map = this.mapManager.getMap();
+        if (!map) return;
+
+        // 레이어 그룹 준비
+        if (!this._geo.layer) {
+            this._geo.layer = L.layerGroup().addTo(map);
+        } else {
+            this._geo.layer.addTo(map);
         }
 
-        btn.addEventListener('click', () => {
-            if (!this._geo.isTracking) {
-                btn.classList.add('active');
-                this.startUserLocation();
-            } else {
-                btn.classList.remove('active');
-                this.stopUserLocation();
-            }
+        const opts = {
+            enableHighAccuracy: true,
+            maximumAge: 10000,
+            timeout: 10000
+        };
+
+        // 첫 위치 한 번 가져와서 중심 이동
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                this._handlePositionUpdate(pos, { center: true });
+            },
+            (err) => this._handlePositionError(err),
+            opts
+        );
+
+        // 지속 추적 시작
+        this._geo.watchId = navigator.geolocation.watchPosition(
+            (pos) => this._handlePositionUpdate(pos, { center: false }),
+            (err) => this._handlePositionError(err),
+            opts
+        );
+
+        this._geo.isTracking = true;
+        this.showToast('내 위치 추적을 시작합니다.', 'success');
+    }
+
+    stopUserLocation() {
+        if (this._geo?.watchId !== null) {
+            try { navigator.geolocation.clearWatch(this._geo.watchId); } catch (_) { }
+        }
+        this._geo.watchId = null;
+        this._geo.isTracking = false;
+
+        // 마커/레이어 정리
+        if (this._geo.marker) { try { this._geo.layer?.removeLayer(this._geo.marker); } catch (_) { } }
+        if (this._geo.accuracy) { try { this._geo.layer?.removeLayer(this._geo.accuracy); } catch (_) { } }
+        this._geo.marker = null;
+        this._geo.accuracy = null;
+
+        // 레이어 자체는 남겨두되 지도에서 분리
+        try { this._geo.layer?.remove(); } catch (_) { }
+
+        this.showToast('내 위치 추적을 중지했습니다.', 'info');
+    }
+
+    _ensureUserLayerOnTop() {
+        if (!this._geo?.layer || !this.mapManager) return;
+        const map = this.mapManager.getMap();
+        if (!map) return;
+        // 레이어가 제거되어 있다면 다시 부착
+        if (!map.hasLayer(this._geo.layer)) this._geo.layer.addTo(map);
+    }
+
+    _handlePositionUpdate(position, { center }) {
+        if (!this.mapManager) return;
+        const map = this.mapManager.getMap();
+        if (!map) return;
+
+        const { latitude, longitude, accuracy } = position.coords;
+        const latlng = [latitude, longitude];
+
+        // 마커 아이콘 (파란 점)
+        const icon = L.divIcon({
+            className: 'user-location-dot',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
         });
-    } catch (e) {
-        console.error('지오로케이션 UI 설정 실패:', e);
-    }
-}
 
-startUserLocation() {
-    if (!this.mapManager) return;
-    const map = this.mapManager.getMap();
-    if (!map) return;
+        // 레이어 그룹 보장
+        if (!this._geo.layer) this._geo.layer = L.layerGroup().addTo(map);
 
-    // 레이어 그룹 준비
-    if (!this._geo.layer) {
-        this._geo.layer = L.layerGroup().addTo(map);
-    } else {
-        this._geo.layer.addTo(map);
-    }
+        // 마커 업데이트/생성
+        if (!this._geo.marker) {
+            this._geo.marker = L.marker(latlng, { icon, keyboard: false, interactive: false });
+            this._geo.marker.addTo(this._geo.layer);
+        } else {
+            this._geo.marker.setLatLng(latlng);
+        }
 
-    const opts = {
-        enableHighAccuracy: true,
-        maximumAge: 10000,
-        timeout: 10000
-    };
+        // 정확도 원 업데이트/생성
+        const radius = Math.max(accuracy || 0, 5);
+        if (!this._geo.accuracy) {
+            this._geo.accuracy = L.circle(latlng, {
+                radius,
+                weight: 1,
+                fillOpacity: 0.15,
+                opacity: 0.8,
+                color: '#1a73e8'
+            }).addTo(this._geo.layer);
+        } else {
+            this._geo.accuracy.setLatLng(latlng);
+            this._geo.accuracy.setRadius(radius);
+        }
 
-    // 첫 위치 한 번 가져와서 중심 이동
-    navigator.geolocation.getCurrentPosition(
-        (pos) => {
-            this._handlePositionUpdate(pos, { center: true });
-        },
-        (err) => this._handlePositionError(err),
-        opts
-    );
+        // 첫 업데이트 혹은 center 요청 시 지도 중심 이동
+        if (center && !this._geo.lastCenter) {
+            try {
+                const currentZoom = map.getZoom();
+                const targetZoom = Math.max(currentZoom || 13, 15);
+                map.setView(latlng, targetZoom, { animate: true });
+            } catch (_) { }
+            this._geo.lastCenter = true;
+        }
 
-    // 지속 추적 시작
-    this._geo.watchId = navigator.geolocation.watchPosition(
-        (pos) => this._handlePositionUpdate(pos, { center: false }),
-        (err) => this._handlePositionError(err),
-        opts
-    );
-
-    this._geo.isTracking = true;
-    this.showToast('내 위치 추적을 시작합니다.', 'success');
-}
-
-stopUserLocation() {
-    if (this._geo?.watchId !== null) {
-        try { navigator.geolocation.clearWatch(this._geo.watchId); } catch (_) {}
-    }
-    this._geo.watchId = null;
-    this._geo.isTracking = false;
-
-    // 마커/레이어 정리
-    if (this._geo.marker) { try { this._geo.layer?.removeLayer(this._geo.marker); } catch (_) {} }
-    if (this._geo.accuracy) { try { this._geo.layer?.removeLayer(this._geo.accuracy); } catch (_) {} }
-    this._geo.marker = null;
-    this._geo.accuracy = null;
-
-    // 레이어 자체는 남겨두되 지도에서 분리
-    try { this._geo.layer?.remove(); } catch (_) {}
-
-    this.showToast('내 위치 추적을 중지했습니다.', 'info');
-}
-
-_ensureUserLayerOnTop() {
-    if (!this._geo?.layer || !this.mapManager) return;
-    const map = this.mapManager.getMap();
-    if (!map) return;
-    // 레이어가 제거되어 있다면 다시 부착
-    if (!map.hasLayer(this._geo.layer)) this._geo.layer.addTo(map);
-}
-
-_handlePositionUpdate(position, { center }) {
-    if (!this.mapManager) return;
-    const map = this.mapManager.getMap();
-    if (!map) return;
-
-    const { latitude, longitude, accuracy } = position.coords;
-    const latlng = [latitude, longitude];
-
-    // 마커 아이콘 (파란 점)
-    const icon = L.divIcon({
-        className: 'user-location-dot',
-        iconSize: [24, 24],
-        iconAnchor: [12, 12]
-    });
-
-    // 레이어 그룹 보장
-    if (!this._geo.layer) this._geo.layer = L.layerGroup().addTo(map);
-
-    // 마커 업데이트/생성
-    if (!this._geo.marker) {
-        this._geo.marker = L.marker(latlng, { icon, keyboard: false, interactive: false });
-        this._geo.marker.addTo(this._geo.layer);
-    } else {
-        this._geo.marker.setLatLng(latlng);
+        // 시각화 갱신 이후에도 사용자 레이어를 유지
+        this._ensureUserLayerOnTop();
     }
 
-    // 정확도 원 업데이트/생성
-    const radius = Math.max(accuracy || 0, 5);
-    if (!this._geo.accuracy) {
-        this._geo.accuracy = L.circle(latlng, {
-            radius,
-            weight: 1,
-            fillOpacity: 0.15,
-            opacity: 0.8,
-            color: '#1a73e8'
-        }).addTo(this._geo.layer);
-    } else {
-        this._geo.accuracy.setLatLng(latlng);
-        this._geo.accuracy.setRadius(radius);
+    _handlePositionError(error) {
+        console.warn('지오로케이션 오류:', error);
+        let msg = '위치 정보를 가져올 수 없습니다.';
+        switch (error.code) {
+            case error.PERMISSION_DENIED:
+                msg = '위치 권한이 거부되었습니다. 브라우저 설정에서 권한을 허용해주세요.';
+                break;
+            case error.POSITION_UNAVAILABLE:
+                msg = '위치 정보를 사용할 수 없습니다.';
+                break;
+            case error.TIMEOUT:
+                msg = '위치 요청이 시간 초과되었습니다.';
+                break;
+        }
+        this.showToast(msg, 'error');
+        // 버튼 상태 되돌리기
+        const btn = document.getElementById('locateBtn');
+        if (btn) btn.classList.remove('active');
+        this.stopUserLocation();
     }
-
-    // 첫 업데이트 혹은 center 요청 시 지도 중심 이동
-    if (center && !this._geo.lastCenter) {
-        try {
-            const currentZoom = map.getZoom();
-            const targetZoom = Math.max(currentZoom || 13, 15);
-            map.setView(latlng, targetZoom, { animate: true });
-        } catch (_) {}
-        this._geo.lastCenter = true;
-    }
-
-    // 시각화 갱신 이후에도 사용자 레이어를 유지
-    this._ensureUserLayerOnTop();
-}
-
-_handlePositionError(error) {
-    console.warn('지오로케이션 오류:', error);
-    let msg = '위치 정보를 가져올 수 없습니다.';
-    switch (error.code) {
-        case error.PERMISSION_DENIED:
-            msg = '위치 권한이 거부되었습니다. 브라우저 설정에서 권한을 허용해주세요.';
-            break;
-        case error.POSITION_UNAVAILABLE:
-            msg = '위치 정보를 사용할 수 없습니다.';
-            break;
-        case error.TIMEOUT:
-            msg = '위치 요청이 시간 초과되었습니다.';
-            break;
-    }
-    this.showToast(msg, 'error');
-    // 버튼 상태 되돌리기
-    const btn = document.getElementById('locateBtn');
-    if (btn) btn.classList.remove('active');
-    this.stopUserLocation();
-}
 
 
 }
