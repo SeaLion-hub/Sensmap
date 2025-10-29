@@ -24,8 +24,8 @@ export class RouteManager {
         // 주의: percentile은 "낮을수록 더 강하게 회피(핫스팟 더 많이 포함)".
         // time 모드: 회피 완전 비활성(percentile = null)
         this.modeConfig = {
-            sensory: { kSens: 0.1, kTimeMin: 0, percentile: 0.55, baseRadius: 46, maxCount: 32, layers: 3, corridorM: 100 },
-            balanced: { kSens: 0.07, percentile: 0.78, baseRadius: 43, maxCount: 20, layers: 2, corridorM: 70, kTimeSec: 0, kDistM: 0 },
+            sensory: { kSens: 0.1, kTimeMin: 0, percentile: 0.50, baseRadius: 46, maxCount: 32, layers: 3, corridorM: 100 },
+            balanced: { kSens: 0.07, percentile: 1, baseRadius: 43, maxCount: 20, layers: 2, corridorM: 70, kTimeSec: 0, kDistM: 0 },
             time: { kSens: 0.0, percentile: null } // 회피/프리뷰 없음, baseline만
         };
 
@@ -444,7 +444,7 @@ export class RouteManager {
             }
             return out;
         }
-        
+
         // Fallback to original method if dataManager doesn't have sensoryData
         const sm = this.app?.sensoryManager;
         if (sm) {
@@ -467,7 +467,7 @@ export class RouteManager {
                 });
             } catch { }
         }
-        
+
         if (dm?.gridData && typeof dm.gridData.forEach === 'function') {
             const out = [];
             try {
@@ -493,29 +493,29 @@ export class RouteManager {
         const normType = rawType.includes('irreg') ? 'irregular'
             : rawType.includes('reg') ? 'regular'
                 : 'regular';
-        
+
         // Apply timetable filtering for regular data
         if (normType === 'regular') {
             const nowD = new Date(now);
             const day = nowD.getDay();
             const hourKey = String(nowD.getHours()).padStart(2, '0');
             let withinSchedule = false;
-            
+
             if (report.timetable && typeof report.timetable === 'object') {
                 try {
                     const dayArr = report.timetable[String(day)] ?? report.timetable[day] ?? [];
                     if (Array.isArray(dayArr)) {
                         withinSchedule = dayArr.some(([k]) => String(k) === hourKey);
                     }
-                } catch (e) { 
-                    withinSchedule = false; 
+                } catch (e) {
+                    withinSchedule = false;
                 }
             }
             // Regular data without timetable should not be included
             // Regular data with timetable should only be included when current time matches
             return withinSchedule;
         }
-        
+
         // For irregular data, apply time decay
         if (normType === 'irregular') {
             const dm = this.app?.dataManager;
@@ -528,7 +528,7 @@ export class RouteManager {
                 }
             }
         }
-        
+
         // Default: include the report
         return true;
     }
@@ -752,8 +752,11 @@ export class RouteManager {
         }
 
         // 2) sensory/balanced: 회피 세트 구성
-        const avoidOpts = this.lastPreviewOpts ? { ...this._defaultAvoidOpts(), ...this.lastPreviewOpts } : this._defaultAvoidOpts();
-        const levelsAuto = this._buildAvoidPolygonsPercentile(avoidOpts);
+        const avoidOptsFromMode = this._getModeAvoidOpts(type) || this._defaultAvoidOpts();
+        const avoidOpts = this.lastPreviewOpts
+            ? { ...avoidOptsFromMode, ...this.lastPreviewOpts } // 외부 override 허용
+            : avoidOptsFromMode;
+        const levelsAuto = this._buildAvoidPolygonsPercentile(avoidOpts, { mode: type });
 
         // 세트 인덱스를 baseline=0, 레벨 1..N 로 고정(프리뷰 인덱싱용)
         const avoidSets = [[]];
