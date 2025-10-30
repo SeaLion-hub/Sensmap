@@ -607,23 +607,67 @@
     </div>
   </aside>
 
-  <!-- 내 데이터 패널 -->
-  <aside class="side-panel" id="myDataPanel" aria-hidden="true">
-    <div class="panel-header">
-      <div class="panel-title">내 감각 정보</div>
-      <div class="panel-subtitle">내가 등록한 감각 데이터를 관리하세요</div>
-      <button class="close-btn" id="closeMyDataBtn" aria-label="패널 닫기"><i class="fas fa-times"></i></button>
+    <!-- 내 데이터 패널 추가 -->
+    <aside class="side-panel" id="myDataPanel" aria-hidden="true">
+        <div class="panel-header">
+            <div class="panel-title">내 감각 정보</div>
+            <div class="panel-subtitle">내가 등록한 감각 데이터를 관리하세요</div>
+            <button class="close-btn" id="closeMyDataBtn" aria-label="패널 닫기">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="panel-content">
+            <!-- ① 툴바 -->
+            <div class="mydata-toolbar" id="myDataToolbar" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; align-items:flex-start; margin-bottom:16px;">
+                <div style="display:flex; flex-direction:column; gap:4px;">
+                    <label for="mdPeriod" style="font-size:11px; font-weight:600; color:#4b5563;">기간</label>
+                    <select id="mdPeriod" class="form-input" style="font-size:13px;">
+                        <option value="all">전체 기간</option>
+                        <option value="24">최근 24시간</option>
+                        <option value="168">최근 7일</option>
+                        <option value="720">최근 30일</option>
+                    </select>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:4px;">
+                    <label for="mdType" style="font-size:11px; font-weight:600; color:#4b5563;">유형</label>
+                    <select id="mdType" class="form-input" style="font-size:13px;">
+                        <option value="all">모든 유형</option>
+                        <option value="irregular">⚡ 일시적</option>
+                        <option value="regular">🟢 지속적</option>
+                    </select>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:4px;">
+                    <label for="mdSort" style="font-size:11px; font-weight:600; color:#4b5563;">정렬</label>
+                    <select id="mdSort" class="form-input" style="font-size:13px;">
+                        <option value="newest">최신순</option>
+                        <option value="oldest">오래된순</option>
+                        <option value="scoreDesc">개인화 점수↓</option>
+                        <option value="scoreAsc">개인화 점수↑</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- ② 통계 카드 -->
+            <div id="myDataStatsBar" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:16px;">
+                <div class="stat-card" style="background:#f9fafb; border-radius:12px; padding:16px; text-align:center; box-shadow:0 8px 18px rgba(15, 23, 42, 0.06);">
+                    <div class="stat-number" id="mdTotal" style="font-size:22px; font-weight:700; color:#111827;">-</div>
+                    <div class="stat-label" style="font-size:11px; color:#6b7280; margin-top:6px;">총 등록</div>
+                </div>
+                <div class="stat-card" style="background:#f9fafb; border-radius:12px; padding:16px; text-align:center; box-shadow:0 8px 18px rgba(15, 23, 42, 0.06);">
+                    <div class="stat-number" id="mdLast" style="font-size:14px; font-weight:600; color:#111827;">-</div>
+                    <div class="stat-label" style="font-size:11px; color:#6b7280; margin-top:6px;">최근 등록</div>
+                </div>
+            </div>
+
+    <!-- ③ 리스트 컨테이너 -->
+    <div id="myDataList" class="mydata-list" style="display:flex; flex-direction:column; gap:10px;">
+        <div class="loading-placeholder" style="text-align:center; padding:40px; color:#9ca3af;">
+            <i class="fas fa-spinner fa-spin" style="font-size:24px; margin-bottom:8px;"></i>
+            <div style="font-size:13px;">데이터를 불러오는 중...</div>
+        </div>
     </div>
-    <div class="panel-content">
-      <div class="data-stats" id="myDataStats">
-        <div class="stat-item"><span class="stat-number" id="totalMyReports">-</span><span class="stat-label">총 등록 수</span></div>
-        <div class="stat-item"><span class="stat-number" id="recentMyReports">-</span><span class="stat-label">최근 7일</span></div>
-      </div>
-      <div class="data-list" id="myDataList">
-        <div class="loading-placeholder"><i class="fas fa-spinner fa-spin"></i><span>데이터를 불러오는 중...</span></div>
-      </div>
-    </div>
-  </aside>
+</div>
 
   <!-- 프로필 패널 -->
   <aside class="side-panel" id="profilePanel" aria-hidden="true">
