@@ -42,23 +42,89 @@ export class UIHandler {
             const qSubmit = document.getElementById('submitAnswerBtn');
 
             qClose?.addEventListener('click', () => this.closeQuestionModal());
-            qSubmit?.addEventListener('click', () => {
-            const mood = document.getElementById('answerMood')?.value?.trim();
-            // TODO: 필요한 후속 처리 (저장/전송) 여기서
-            console.log('답변(기분):', mood);
-            this.closeQuestionModal();
+            qSubmit?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.handleSurveySubmit();   // ✅ 제출 로직 직접 실행
             });
 
-
             // setupEventListeners() 어딘가
-            document.getElementById('questionForm')?.addEventListener('submit', (e) => {
+            document.getElementById('questionForm')?.addEventListener('submit', async (e) => {
             e.preventDefault();
             const fd = new FormData(e.target);
             const answers = Object.fromEntries(fd.entries());
-            // TODO: 저장/서버 전송/프로필 반영
-            console.log('질문 답변:', answers);
+
+            // 문자열 → 숫자 변환(0~10 범위만 유효)
+            const num = (v) => {
+                const n = Number(v);
+                return Number.isFinite(n) ? Math.min(10, Math.max(0, n)) : null;
+            };
+
+            // 평균 유틸
+            const avg = (arr) => {
+                const xs = arr.map(num).filter(v => v !== null);
+                return xs.length ? Math.round((xs.reduce((s, x) => s + x, 0) / xs.length) * 10) / 10 : null;
+            };
+
+            // === 그룹 매핑 ===
+            // 혼잡도: 질문 13,14,15,16,20
+            const crowdAvg = avg([answers.q13, answers.q14, answers.q15, answers.q16, answers.q20]);
+            // 소음: 질문 1,2,3,4,17
+            const noiseAvg = avg([answers.q1, answers.q2, answers.q3, answers.q4, answers.q17]);
+            // 빛: 질문 5,6,7,8,18
+            const lightAvg = avg([answers.q5, answers.q6, answers.q7, answers.q8, answers.q18]);
+            // 냄새: 질문 9,10,11,12,19
+            const odorAvg  = avg([answers.q9, answers.q10, answers.q11, answers.q12, answers.q19]);
+
+            // 평균 하나라도 없으면 경고
+            if ([crowdAvg, noiseAvg, lightAvg, odorAvg].some(v => v === null)) {
+                this.app.showToast('모든 그룹(소음/빛/냄새/혼잡)에서 일부 답변이 비었습니다.', 'warning');
+                return;
+            }
+
+            // === 시각화/필터에서 쓰는 프로필 키에 맞춰 저장 ===
+            const profile = {
+                noiseThreshold: noiseAvg,
+                lightThreshold: lightAvg,
+                odorThreshold:  odorAvg,
+                crowdThreshold: crowdAvg
+            };
+
+            // 1) 로컬 저장
+            localStorage.setItem('sensmap_profile', JSON.stringify(profile));
+
+            // 2) 프로필 패널 슬라이더 UI 동기화
+            const applyToSlider = (id, val) => {
+                const slider = document.getElementById(id);
+                if (slider) {
+                slider.value = String(val);
+                const valueDisplay = slider.parentNode?.querySelector('.range-value');
+                if (valueDisplay) valueDisplay.textContent = String(val);
+                }
+            };
+            applyToSlider('noiseThreshold', noiseAvg);
+            applyToSlider('lightThreshold', lightAvg);
+            applyToSlider('odorThreshold',  odorAvg);
+            applyToSlider('crowdThreshold', crowdAvg);
+
+            // 3) 로그인 상태면 서버에도 반영(옵션)
+            try {
+                if (this.app.authManager && this.app.authManager.getIsLoggedIn()) {
+                await fetch(`${this.app.dataManager.getServerUrl()}/api/users/preferences`, {
+                    method: 'PUT',
+                    headers: this.app.authManager.getAuthHeaders(),
+                    body: JSON.stringify(profile)
+                }).then(r => r.json()).catch(() => null);
+                }
+            } catch (_) {}
+
+            // 4) 시각화 새로고침
+            this.app.refreshVisualization();
+
+            // UX
+            this.app.showToast('설문 결과로 감각 프로필이 반영되었습니다', 'success');
             this.closeQuestionModal();
             });
+
 
             const moodSlider = document.getElementById('moodSens');
             const moodValue = document.getElementById('moodValue');
@@ -1455,6 +1521,7 @@ export class UIHandler {
             // 마지막 단계에서 "완료" 버튼을 눌렀을 때
             this.completeTutorial();
         }
+        this.updateSubmitVisibility();
     }
 
     nextTutorialStep() {
@@ -1469,6 +1536,8 @@ export class UIHandler {
             this.currentTutorialStep--;
             this.updateTutorialStep();
         }
+        this.updateSubmitVisibility();
+
     }
 
     updateTutorialStep() {
@@ -1491,6 +1560,8 @@ export class UIHandler {
                 '<i class="fas fa-arrow-right"></i> 다음';
             nextBtn.setAttribute('data-action', isLastStep ? 'complete' : 'next');
         }
+        this.updateSubmitVisibility();
+
     }
 
     showTutorial() {
@@ -2152,5 +2223,135 @@ export class UIHandler {
         if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
         return `${Math.floor(diff / 86400)}일 전`;
     }
+    // 2-1) 튜토리얼 질문 input에 1~20번 번호를 자동 부여(폼 없어도 동작)
+ensureQuestionNumbering() {
+  // 튜토리얼 스텝 순서대로 모든 질문 input을 수집
+  const container = document.getElementById('questionModal');
+  if (!container) return;
+
+  // slider/number/radio/checkbox 중 value가 숫자인 애들만 대상으로
+  const inputSelector = 'input[type="range"], input[type="number"], input[type="radio"]:checked, input[type="checkbox"]:checked';
+  const steps = [...container.querySelectorAll('.tutorial-step')];
+
+  let q = 1;
+  for (const step of steps) {
+    const inputs = [...step.querySelectorAll(inputSelector)];
+    for (const el of inputs) {
+      if (!el.dataset.q) el.dataset.q = String(q++);
+    }
+  }
+}
+
+// 2-2) data-q 기준으로 1~20 값 수집
+collectSurveyAnswers() {
+  const container = document.getElementById('questionModal');
+  const inputSelector = 'input[type="range"], input[type="number"], input[type="radio"]:checked, input[type="checkbox"]:checked';
+  const els = [...container.querySelectorAll(inputSelector)].filter(el => el.dataset.q);
+
+  const clamp01_10 = (n) => {
+    const v = Number(n);
+    if (!Number.isFinite(v)) return null;
+    return Math.min(10, Math.max(0, v));
+  };
+
+  const answers = {}; // { q1: 7, q2: 5, ... }
+  for (const el of els) {
+    const key = 'q' + el.dataset.q;
+    // 체크박스 여러 개 같은 q에 모일 경우: 평균으로 합침
+    if (!(key in answers)) answers[key] = [];
+    answers[key].push(clamp01_10(el.value));
+  }
+
+  // 배열 → 평균 숫자
+  for (const k of Object.keys(answers)) {
+    const xs = answers[k].filter(v => v !== null);
+    answers[k] = xs.length ? Math.round((xs.reduce((s,x)=>s+x,0) / xs.length) * 10) / 10 : null;
+  }
+
+  return answers;
+}
+
+// 2-3) 평균 → 프로필 계산
+computeProfileFromAnswers(answers) {
+  const pick = (...qs) => {
+    const xs = qs.map(q => answers['q' + q]).filter(v => v !== null && v !== undefined);
+    if (!xs.length) return null;
+    return Math.round((xs.reduce((s,x)=>s+x,0) / xs.length) * 10) / 10;
+  };
+
+  return {
+    // 혼잡도: 13,14,15,16,20
+    crowdThreshold: pick(13,14,15,16,20),
+    // 소음: 1,2,3,4,17
+    noiseThreshold: pick(1,2,3,4,17),
+    // 빛: 5,6,7,8,18
+    lightThreshold: pick(5,6,7,8,18),
+    // 냄새: 9,10,11,12,19
+    odorThreshold:  pick(9,10,11,12,19)
+  };
+}
+
+// 2-4) 제출 핸들러 본체
+async handleSurveySubmit() {
+  // 1) 번호 없으면 자동 부여(튜토리얼 순서대로 1~20)
+  this.ensureQuestionNumbering();
+
+  // 2) 값 수집
+  const answers = this.collectSurveyAnswers();
+
+  // 3) 프로필 계산
+  const profile = this.computeProfileFromAnswers(answers);
+  const vals = [profile.noiseThreshold, profile.lightThreshold, profile.odorThreshold, profile.crowdThreshold];
+
+  // 한 그룹이라도 비면 경고
+  if (vals.some(v => v === null)) {
+    this.app?.showToast?.('일부 질문의 값이 비어 있어 프로필을 계산할 수 없어요.', 'warning');
+    return;
+  }
+
+  // 4) 저장
+  localStorage.setItem('sensmap_profile', JSON.stringify(profile));
+
+  // 5) 패널 슬라이더 동기화(있다면)
+  const sync = (id, v) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.value = String(v);
+      const valueNode = el.parentNode?.querySelector('.range-value');
+      if (valueNode) valueNode.textContent = String(v);
+    }
+  };
+  sync('noiseThreshold', profile.noiseThreshold);
+  sync('lightThreshold', profile.lightThreshold);
+  sync('odorThreshold',  profile.odorThreshold);
+  sync('crowdThreshold', profile.crowdThreshold);
+
+  // 6) 서버도(로그인 시) 반영
+  try {
+    if (this.app?.authManager?.getIsLoggedIn?.()) {
+      await fetch(`${this.app.dataManager.getServerUrl()}/api/users/preferences`, {
+        method: 'PUT',
+        headers: this.app.authManager.getAuthHeaders(),
+        body: JSON.stringify(profile)
+      }).then(r => r.json()).catch(() => null);
+    }
+  } catch (_) {}
+
+  // 7) 시각화 갱신 + UX
+  this.app?.refreshVisualization?.();
+  this.app?.showToast?.('설문 결과로 감각 프로필이 반영되었습니다', 'success');
+  this.closeQuestionModal();
+}
+
+
+updateSubmitVisibility() {
+  const submitBtn = document.getElementById('submitAnswerBtn');
+  const nextBtn   = document.getElementById('surveyNext');
+  if (!submitBtn) return;
+  const isLast = this.currentTutorialStep >= this.totalTutorialSteps;
+  submitBtn.style.display = isLast ? 'block' : 'none';
+  if (nextBtn) nextBtn.style.display = isLast ? 'none' : 'inline-flex';
+}
+
 
 }
