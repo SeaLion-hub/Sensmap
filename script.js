@@ -269,7 +269,7 @@ class SensmapApp {
 
         // 팝업 표시
         L.popup({
-            className: 'custom-popup',
+            className: 'custom-popup popup-mapclick',
             maxWidth: 300,
             closeOnClick: false
         })
