@@ -69,7 +69,7 @@ SELECT
     crowd, 
     type, 
     duration, 
-    wheelchair, 
+     
     created_at 
 FROM sensory_reports 
 ORDER BY created_at DESC 

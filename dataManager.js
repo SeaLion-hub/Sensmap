@@ -238,8 +238,8 @@ export class DataManager {
                 reports: [],
                 aggregated: { noise: [], light: [], odor: [], crowd: [] },
                 averages: { noise: 0, light: 0, odor: 0, crowd: 0 },
-                count: 0,
-                wheelchairIssues: 0
+                count: 0
+                
             });
         }
 
@@ -252,7 +252,7 @@ export class DataManager {
     recalculateGridCell(gridKey, gridCell) {
         // 집계 데이터 초기화
         gridCell.aggregated = { noise: [], light: [], odor: [], crowd: [] };
-        gridCell.wheelchairIssues = 0;
+        
         gridCell.count = gridCell.reports.length;
 
         // 데이터 집계
@@ -263,9 +263,6 @@ export class DataManager {
                 }
             });
             
-            if (report.wheelchair) {
-                gridCell.wheelchairIssues++;
-            }
         });
 
         // 평균 계산
@@ -544,7 +541,7 @@ export class DataManager {
                 report.crowd ?? '',
                 report.type,
                 report.duration ?? '',
-                report.wheelchair ? '예' : '아니오',
+                
                 report.user_name ?? '익명',
                 new Date(report.created_at).toLocaleString('ko-KR')
             ];

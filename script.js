@@ -1142,11 +1142,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // 답변 제출
-        document.getElementById('submitAnswerBtn').addEventListener('click', () => {
-        const mood = document.getElementById('answerMood').value;
-        console.log('답변:', mood);
-        questionModal.style.display = 'none';
-    });
+        document.getElementById('submitAnswerBtn')?.addEventListener('click', (e) => {
+        e.preventDefault(); // 혹시 type="button"이어도 안전
+        document.getElementById('questionForm')?.requestSubmit(); // ✅ 폼 submit 트리거
+        });
 
         // 재사용 가능한 바인딩 유틸
         function bindRangeWithImage({ slider, output, img, srcForValue, preload = true }) {
@@ -1288,5 +1287,4 @@ localStorage.setItem('sensoryProfile', JSON.stringify(window.sensoryProfile));
 function getSensoryProfile() {
 return { ...window.sensoryProfile };
 }
-
 

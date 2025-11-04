@@ -118,7 +118,7 @@ class Utils {
                                 ${report.light !== null ? `<span class="data-badge">빛 ${report.light}</span>` : ''}
                                 ${report.odor !== null ? `<span class="data-badge">냄새 ${report.odor}</span>` : ''}
                                 ${report.crowd !== null ? `<span class="data-badge">혼잡 ${report.crowd}</span>` : ''}
-                                ${report.wheelchair ? `<span class="data-badge">♿</span>` : ''}
+                                
                             </div>
                         </div>
                         ${!this.app.dataManager.isOffline() ? `<button class="delete-btn" onclick="window.sensmapApp.dataManager.deleteReport('${gridKey}', ${report.id})">삭제</button>` : ''}
