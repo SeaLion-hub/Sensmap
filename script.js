@@ -69,7 +69,7 @@ class SensmapApp {
             this.routeManager = new RouteManager(this);
             window.app = this;                  // 앱을 전역에 노출
             window.routeManager = this.routeManager; // routeManager 전역 노출
-            this.routeManager.setAvoidPreviewMode(false);
+            this.routeManager.setAvoidPreviewMode(true, { source: 'lastSent' });
 
             // 6단계: UI 핸들러 초기화 (마지막)
             console.log('🖥️ UI 핸들러 초기화...');
@@ -227,10 +227,6 @@ class SensmapApp {
                 }
             }
 
-            // 휠체어 접근성 정보
-            if (cellData.wheelchairIssues > 0) {
-                popupContent += `<div class="data-item">♿ 휠체어 접근 제약: ${cellData.wheelchairIssues}건</div>`;
-            }
 
             // 사용자별 데이터 표시
             const userDataCounts = {};
@@ -1291,5 +1287,4 @@ localStorage.setItem('sensoryProfile', JSON.stringify(window.sensoryProfile));
 function getSensoryProfile() {
 return { ...window.sensoryProfile };
 }
-
 

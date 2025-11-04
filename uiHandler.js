@@ -191,10 +191,7 @@ export class UIHandler {
                 this.closeHamburgerMenu();
                 this.showTutorial();
             });
-            document.getElementById('contactBtn')?.addEventListener('click', () => {
-                this.closeHamburgerMenu();
-                this.openContactModal();
-            });
+            
 
             // Sensory help modal - use event delegation for dynamically shown buttons
             document.addEventListener('click', (e) => {
@@ -211,7 +208,7 @@ export class UIHandler {
 
             // Panel controls - 개선된 닫기 로직
             document.getElementById('closeSettingsBtn')?.addEventListener('click', () => this.closeSettingsPanel());
-            document.getElementById('closeContactBtn')?.addEventListener('click', () => this.closeContactModal());
+            //document.getElementById('closeContactBtn')?.addEventListener('click', () => this.closeContactModal());
             document.getElementById('closePanelBtn')?.addEventListener('click', () => this.closeCurrentPanel());
             document.getElementById('cancelBtn')?.addEventListener('click', () => this.closeCurrentPanel());
             document.getElementById('closeProfileBtn')?.addEventListener('click', () => this.closeCurrentPanel());
@@ -326,10 +323,7 @@ export class UIHandler {
                     this.closeSensoryDropdown();
                 }
                 
-                // 연락처 모달
-                if (!e.target.closest('.modal-overlay') && !e.target.closest('#contactBtn')) {
-                    this.closeContactModal();
-                }
+        
                 
                 // 센서리 도움말 모달
                 if (!e.target.closest('.modal-overlay') && !e.target.closest('#sensoryHelpBtn') && !e.target.closest('.sensory-help-btn')) {
@@ -684,11 +678,11 @@ export class UIHandler {
         }
 
         // 2. Contact 모달이 열려있으면 모달만 닫기
-        const contactModal = document.getElementById('contactModal');
-        if (contactModal && contactModal.classList.contains('show')) {
-            this.closeContactModal();
-            return;
-        }
+        //const contactModal = document.getElementById('contactModal');
+        //if (contactModal && contactModal.classList.contains('show')) {
+            //this.closeContactModal();
+            //return;
+        //}
 
         // 3. 센서리 드롭다운이 열려있으면 드롭다운만 닫기
         const sensoryDropdown = document.getElementById('sensoryDropdown');
@@ -780,8 +774,8 @@ export class UIHandler {
                 lat: this.clickedLocation.lat,
                 lng: this.clickedLocation.lng,
                 type: selectedType,
-                duration: duration,
-                wheelchair: formData.get('wheelchair') === 'on'
+                duration: duration
+                
             };
 
             sensoryFields.forEach(field => {
@@ -1187,19 +1181,7 @@ export class UIHandler {
         this.showHeaderControls();
     }
 
-    openContactModal() {
-        const modal = document.getElementById('contactModal');
-        modal.classList.add('show');
-        this.addPanelToStack('contactModal');
-        this.hideHeaderControls();
-    }
-
-    closeContactModal() {
-        const modal = document.getElementById('contactModal');
-        modal.classList.remove('show');
-        this.removePanelFromStack('contactModal');
-        this.showHeaderControls();
-    }
+    
 
     openProfilePanel() {
         // 모든 포커스된 요소 먼저 blur 처리
@@ -2032,10 +2014,7 @@ export class UIHandler {
                         ${r.type === 'regular' ? '🟢 지속적' : '⚡ 일시적'} · 
                         <span style="font-size:12px; color:#6b7280;">${this._fmtDate(r.created_at)}</span>
                     </div>
-                    <div style="font-size:12px; color:#6b7280; margin-bottom:6px;">
-                        📍 (${r.lat?.toFixed?.(5) || r.lat}, ${r.lng?.toFixed?.(5) || r.lng})
-                        ${r.wheelchair ? ' · ♿ 휠체어 제약' : ''}
-                    </div>
+                    
                     <div style="display:flex; gap:10px; font-size:13px; flex-wrap:wrap;">
                         <span>🔊 ${r.noise ?? '-'}</span>
                         <span>💡 ${r.light ?? '-'}</span>
@@ -2113,7 +2092,7 @@ export class UIHandler {
                 lng: parseFloat(r.lng),
                 type: r.type,
                 duration: r.duration ?? null,
-                wheelchair: !!r.wheelchair,
+                
                 noise,
                 light,
                 odor,

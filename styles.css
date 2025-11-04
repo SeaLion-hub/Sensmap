@@ -1214,22 +1214,7 @@ html, body {
     padding: 24px;
 }
 
-.contact-methods {
-    margin-top: 24px;
-}
 
-.contact-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 20px;
-    background: #1a73e8;
-    color: white;
-    text-decoration: none;
-    border-radius: 8px;
-    font-weight: 500;
-    transition: all 0.3s;
-}
 
 .contact-btn:hover {
     background: #1557b0;
@@ -2111,12 +2096,6 @@ html, body {
     font-weight: 500;
 }
 
-.data-wheelchair {
-    font-size: 12px;
-    color: #7c3aed;
-    margin-bottom: 12px;
-    font-weight: 600;
-}
 
 .data-actions {
     display: flex;
