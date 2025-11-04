@@ -504,14 +504,16 @@ export class UIHandler {
 
             if (!steps.length || !prevBtn || !nextBtn || !submitBtn) return;
 
-            // 점(도트) 자동 생성
-            dotsWrap.innerHTML = '';
-            steps.forEach((_, i) => {
-                const dot = document.createElement('span');
-                dot.className = 'dot' + (i === 0 ? ' active' : '');
-                dot.dataset.step = (i + 1);
-                dotsWrap.appendChild(dot);
-            });
+            // 점(도트) 자동 생성 (dotsWrap이 있는 경우에만)
+            if (dotsWrap) {
+                dotsWrap.innerHTML = '';
+                steps.forEach((_, i) => {
+                    const dot = document.createElement('span');
+                    dot.className = 'dot' + (i === 0 ? ' active' : '');
+                    dot.dataset.step = (i + 1);
+                    dotsWrap.appendChild(dot);
+                });
+            }
 
             let idx = Math.max(0, steps.findIndex(s => s.classList.contains('active')));
             if (idx === -1) idx = 0;
@@ -525,13 +527,15 @@ export class UIHandler {
                 if (idx < steps.length - 1) show(++idx);
             });
 
-            // 도트 클릭 이동
-            dotsWrap.addEventListener('click', (e) => {
-                const dot = e.target.closest('.dot');
-                if (!dot) return;
-                const target = Number(dot.dataset.step) - 1;
-                if (!Number.isNaN(target)) show(target);
-            });
+            // 도트 클릭 이동 (dotsWrap이 있는 경우에만)
+            if (dotsWrap) {
+                dotsWrap.addEventListener('click', (e) => {
+                    const dot = e.target.closest('.dot');
+                    if (!dot) return;
+                    const target = Number(dot.dataset.step) - 1;
+                    if (!Number.isNaN(target)) show(target);
+                });
+            }
 
             // 모달이 열릴 때 항상 첫 스텝으로 리셋(선택)
             modal.addEventListener('open', () => show(0)); // 모달 열기 코드에서 이 이벤트를 dispatch하면 됨
@@ -540,9 +544,11 @@ export class UIHandler {
                 steps.forEach((s,k) => s.classList.toggle('active', k === i));
                 idx = i;
 
-                // 도트 상태
-                const dots = dotsWrap.querySelectorAll('.dot');
-                dots.forEach((d, k) => d.classList.toggle('active', k === i));
+                // 도트 상태 (dotsWrap이 있는 경우에만)
+                if (dotsWrap) {
+                    const dots = dotsWrap.querySelectorAll('.dot');
+                    dots.forEach((d, k) => d.classList.toggle('active', k === i));
+                }
 
                 // Prev/Next/Submit 표시 제어
                 prevBtn.disabled = (i === 0);
@@ -706,9 +712,11 @@ export class UIHandler {
             // 2) data-step="1"을 활성화(없으면 첫 스텝)
             (wizard.querySelector('.tutorial-step[data-step="1"]') || steps[0])?.classList.add('active');
 
-            // 3) 도트/버튼 상태 초기화
+            // 3) 도트/버튼 상태 초기화 (dots가 있는 경우에만)
             const dots = wizard.querySelectorAll('.tutorial-dots .dot');
-            dots.forEach((d, i) => d.classList.toggle('active', i === 0));
+            if (dots.length > 0) {
+                dots.forEach((d, i) => d.classList.toggle('active', i === 0));
+            }
 
             const prevBtn = wizard.querySelector('#surveyPrev');
             const nextBtn = wizard.querySelector('#surveyNext');

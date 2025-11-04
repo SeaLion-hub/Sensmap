@@ -3060,6 +3060,10 @@ html {
   gap: 16px;
 }
 
+#questionModal .tutorial-dots {
+  display: none !important;
+}
+
 #questionModal .tutorial-btn {
   padding: 14px 28px;
   border-radius: 12px;
