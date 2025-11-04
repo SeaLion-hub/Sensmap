@@ -421,19 +421,48 @@
   <aside class="settings-panel" id="settingsPanel">
     <div class="panel-header">
       <div class="panel-title">설정</div>
-      <button class="close-btn" id="closeSettingsBtn" aria-label="설정 패널 닫기"><i class="fas fa-times"></i></button>
+      <button type="button" class="close-btn" id="closeSettingsBtn" aria-label="설정 패널 닫기" onclick="if(window.app && window.app.uiHandler) { window.app.uiHandler.closeSettingsPanel(); return false; } else { console.error('App or uiHandler not found'); }"><i class="fas fa-times"></i></button>
     </div>
     <div class="panel-content">
-      <section class="settings-section">
-        <h3>접근성 옵션</h3>
-        <div class="setting-option"><label><input type="checkbox" id="colorBlindMode"><span>색맹 친화 모드</span></label></div>
-        <div class="setting-option"><label><input type="checkbox" id="highContrastMode"><span>고대비 모드</span></label></div>
-        <div class="setting-option"><label><input type="checkbox" id="reducedMotionMode"><span>사용자 위치 표시</span></label></div>
+      <div class="settings-list">
         <div class="setting-option">
-          <label for="textSizeSlider">텍스트 크기</label>
-          <input type="range" class="range-slider" id="textSizeSlider" min="0.8" max="1.5" step="0.1" value="1">
+          <label>
+            <input type="checkbox" id="colorBlindMode">
+            <span class="setting-label">
+              <i class="fas fa-palette"></i>
+              <span>색맹 친화 모드</span>
+            </span>
+          </label>
         </div>
-      </section>
+        <div class="setting-option">
+          <label>
+            <input type="checkbox" id="highContrastMode">
+            <span class="setting-label">
+              <i class="fas fa-adjust"></i>
+              <span>고대비 모드</span>
+            </span>
+          </label>
+        </div>
+        <div class="setting-option">
+          <label>
+            <input type="checkbox" id="reducedMotionMode">
+            <span class="setting-label">
+              <i class="fas fa-map-marker-alt"></i>
+              <span>사용자 위치 표시</span>
+            </span>
+          </label>
+        </div>
+        <div class="setting-option slider-option">
+          <label for="textSizeSlider" class="setting-label">
+            <i class="fas fa-text-height"></i>
+            <span>텍스트 크기</span>
+          </label>
+          <div class="slider-wrapper">
+            <input type="range" class="range-slider" id="textSizeSlider" min="0.8" max="1.5" step="0.1" value="1">
+            <span class="slider-value" id="textSizeValue">1.0</span>
+          </div>
+        </div>
+      </div>
     </div>
   </aside>
 

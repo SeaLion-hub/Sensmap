@@ -207,7 +207,71 @@ export class UIHandler {
 
 
             // Panel controls - 개선된 닫기 로직
-            document.getElementById('closeSettingsBtn')?.addEventListener('click', () => this.closeSettingsPanel());
+            // Settings panel close button - use direct event listener with multiple approaches
+            const closeSettingsHandler = (e) => {
+                console.log('Close button clicked', e);
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                this.closeSettingsPanel();
+                return false;
+            };
+            
+            // Attach listener function
+            const attachCloseSettingsListener = () => {
+                const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+                if (closeSettingsBtn) {
+                    console.log('Attaching close button listener');
+                    // Remove old listeners by cloning
+                    const newBtn = closeSettingsBtn.cloneNode(true);
+                    closeSettingsBtn.parentNode.replaceChild(newBtn, closeSettingsBtn);
+                    
+                    // Attach multiple event types
+                    newBtn.addEventListener('click', closeSettingsHandler, true);
+                    newBtn.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        closeSettingsHandler(e);
+                    }, true);
+                    newBtn.addEventListener('touchstart', closeSettingsHandler, true);
+                    newBtn.addEventListener('pointerdown', closeSettingsHandler, true);
+                    
+                    // Also add onclick as direct property
+                    newBtn.onclick = closeSettingsHandler;
+                    
+                    console.log('Close button listener attached');
+                } else {
+                    console.warn('Close settings button not found');
+                }
+            };
+            
+            // Try immediately
+            attachCloseSettingsListener();
+            
+            // Also try after DOM is fully loaded
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', attachCloseSettingsListener);
+            }
+            
+            // Also try after delays
+            setTimeout(attachCloseSettingsListener, 100);
+            setTimeout(attachCloseSettingsListener, 500);
+            setTimeout(attachCloseSettingsListener, 1000);
+            
+            // Also attach when settings panel opens
+            const settingsPanel = document.getElementById('settingsPanel');
+            if (settingsPanel) {
+                const observer = new MutationObserver((mutations) => {
+                    mutations.forEach((mutation) => {
+                        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                            if (settingsPanel.classList.contains('open')) {
+                                setTimeout(attachCloseSettingsListener, 50);
+                            }
+                        }
+                    });
+                });
+                observer.observe(settingsPanel, { attributes: true });
+            }
             //document.getElementById('closeContactBtn')?.addEventListener('click', () => this.closeContactModal());
             document.getElementById('closePanelBtn')?.addEventListener('click', () => this.closeCurrentPanel());
             document.getElementById('cancelBtn')?.addEventListener('click', () => this.closeCurrentPanel());
@@ -1175,10 +1239,38 @@ export class UIHandler {
     }
 
     closeSettingsPanel() {
+        console.log('closeSettingsPanel called');
         const panel = document.getElementById('settingsPanel');
+        if (!panel) {
+            console.error('Settings panel not found');
+            return;
+        }
+        
+        // Remove open class
         panel.classList.remove('open');
+        
+        // Remove inline styles that were set by openPanel
+        panel.style.removeProperty('position');
+        panel.style.removeProperty('top');
+        panel.style.removeProperty('right');
+        panel.style.removeProperty('width');
+        panel.style.removeProperty('height');
+        panel.style.removeProperty('display');
+        panel.style.removeProperty('visibility');
+        panel.style.removeProperty('opacity');
+        panel.style.removeProperty('z-index');
+        panel.style.removeProperty('transform');
+        
+        // Set aria-hidden
+        panel.setAttribute('aria-hidden', 'true');
+        
+        // Remove from panel stack
         this.removePanelFromStack('settingsPanel');
+        
+        // Show header controls
         this.showHeaderControls();
+        
+        console.log('Settings panel closed', panel.classList.contains('open'), panel.style.right);
     }
 
     
@@ -1618,6 +1710,10 @@ export class UIHandler {
     adjustTextSize(size) {
         document.documentElement.style.setProperty('--text-size', `${size}rem`);
         localStorage.setItem('textSize', size);
+        const textSizeValue = document.getElementById('textSizeValue');
+        if (textSizeValue) {
+            textSizeValue.textContent = parseFloat(size).toFixed(1);
+        }
     }
 
     loadAccessibilitySettings() {
@@ -1663,7 +1759,13 @@ export class UIHandler {
             if (colorBlindCheckbox) colorBlindCheckbox.checked = colorBlindMode;
             if (highContrastCheckbox) highContrastCheckbox.checked = highContrastMode;
             if (reducedMotionCheckbox) reducedMotionCheckbox.checked = reducedMotionMode;
-            if (textSizeSlider) textSizeSlider.value = textSize;
+            if (textSizeSlider) {
+                textSizeSlider.value = textSize;
+                const textSizeValue = document.getElementById('textSizeValue');
+                if (textSizeValue) {
+                    textSizeValue.textContent = parseFloat(textSize).toFixed(1);
+                }
+            }
 
             this.applyAccessibilitySettings();
 
