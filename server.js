@@ -691,6 +691,38 @@ app.get('/api/stats', optionalAuth, async (req, res) => {
     }
 });
 
+// [GET] /api/geocode - 주소 검색 (Nominatim 프록시, CORS 문제 해결)
+app.get('/api/geocode', async (req, res) => {
+    try {
+        const { q } = req.query;
+        
+        if (!q || !q.trim()) {
+            return res.status(400).json(createResponse(false, null, '', '검색어를 입력해주세요.'));
+        }
+
+        const encodedQuery = encodeURIComponent(q.trim());
+        const nominatimUrl = `https://nominatim.openstreetmap.org/search?q=${encodedQuery}&format=json&limit=5&addressdetails=1`;
+        
+        const response = await fetch(nominatimUrl, {
+            headers: {
+                'User-Agent': 'SensmapApp/1.0 (dev@sensmap.app)',
+                'Accept': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Nominatim API error: ${response.status}`);
+        }
+
+        const results = await response.json();
+        
+        res.status(200).json(createResponse(true, results, `${results.length}개의 결과를 찾았습니다.`));
+    } catch (err) {
+        console.error('지오코딩 오류:', err);
+        res.status(500).json(createResponse(false, null, '', '주소 검색 중 오류가 발생했습니다.'));
+    }
+});
+
 // 3단계: API 404 처리 (JSON 응답)
 app.use('/api/*', (req, res) => {
     res.status(404).json(createResponse(false, null, '', '요청하신 API 엔드포인트를 찾을 수 없습니다.'));
