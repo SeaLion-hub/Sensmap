@@ -781,9 +781,8 @@ export class AuthManager {
                         📍 위도: ${report.lat.toFixed(6)}, 경도: ${report.lng.toFixed(6)}
                     </div>
                     <div class="data-sensory">
-                        ${sensoryData.join(', ')}
-                    </div>
-                    ${report.wheelchair ? '<div class="data-wheelchair">♿ 휠체어 접근 제약</div>' : ''}
+                        ${sensoryData.join(', ')
+                          
                     <div class="data-actions">
                         <button class="edit-btn" onclick="authManager.editMyData(${report.id})">
                             <i class="fas fa-edit"></i> 수정
@@ -1040,3 +1039,4 @@ export class AuthManager {
     }
 
 }
+
