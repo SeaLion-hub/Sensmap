@@ -69,7 +69,7 @@ class SensmapApp {
             this.routeManager = new RouteManager(this);
             window.app = this;                  // 앱을 전역에 노출
             window.routeManager = this.routeManager; // routeManager 전역 노출
-            this.routeManager.setAvoidPreviewMode(false);
+            this.routeManager.setAvoidPreviewMode(true, { source: 'lastSent' });
 
             // 6단계: UI 핸들러 초기화 (마지막)
             console.log('🖥️ UI 핸들러 초기화...');
@@ -1146,11 +1146,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // 답변 제출
-        document.getElementById('submitAnswerBtn').addEventListener('click', () => {
-        const mood = document.getElementById('answerMood').value;
-        console.log('답변:', mood);
-        questionModal.style.display = 'none';
-    });
+        document.getElementById('submitAnswerBtn')?.addEventListener('click', (e) => {
+        e.preventDefault(); // 혹시 type="button"이어도 안전
+        document.getElementById('questionForm')?.requestSubmit(); // ✅ 폼 submit 트리거
+        });
 
         // 재사용 가능한 바인딩 유틸
         function bindRangeWithImage({ slider, output, img, srcForValue, preload = true }) {
@@ -1292,5 +1291,4 @@ localStorage.setItem('sensoryProfile', JSON.stringify(window.sensoryProfile));
 function getSensoryProfile() {
 return { ...window.sensoryProfile };
 }
-
 
