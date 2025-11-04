@@ -227,10 +227,6 @@ class SensmapApp {
                 }
             }
 
-            // 휠체어 접근성 정보
-            if (cellData.wheelchairIssues > 0) {
-                popupContent += `<div class="data-item">♿ 휠체어 접근 제약: ${cellData.wheelchairIssues}건</div>`;
-            }
 
             // 사용자별 데이터 표시
             const userDataCounts = {};
@@ -1292,4 +1288,5 @@ localStorage.setItem('sensoryProfile', JSON.stringify(window.sensoryProfile));
 function getSensoryProfile() {
 return { ...window.sensoryProfile };
 }
+
 
