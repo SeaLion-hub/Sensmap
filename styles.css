@@ -3052,102 +3052,79 @@ html {
     transform: scale(0.95);
 }
 
-/* ====== 지도 클릭 팝업 박스 전용 폴리시 ====== */
+.custom-popup.popup-mapclick .leaflet-popup-content { margin: 0; width: 320px !important; }
 .custom-popup.popup-mapclick .leaflet-popup-content-wrapper{
   border-radius: 16px;
   border: 1px solid rgba(15,23,42,.06);
-  background: #ffffffee;            /* 살짝 투명한 화이트 */
+  background: #ffffffee;
   backdrop-filter: blur(8px);
-  box-shadow:
-    0 12px 28px rgba(2,6,23,.12),
-    0 6px 14px rgba(2,6,23,.08);
-  overflow: hidden;                  /* 헤더 라운드 유지 */
+  box-shadow: 0 12px 28px rgba(2,6,23,.12), 0 6px 14px rgba(2,6,23,.08);
+  overflow: hidden;
   animation: mapclickPop .16s ease-out;
 }
 .custom-popup.popup-mapclick .leaflet-popup-tip{
   background:#ffffffee;
   box-shadow: 0 4px 8px rgba(2,6,23,.08);
 }
-.custom-popup.popup-mapclick .leaflet-popup-content{
-  margin: 0;                         /* 헤더/컨텐츠 여백을 직접 제어 */
-  width: 320px !important;
-}
 
-/* 헤더(파란 그Radient, 타이틀/서브타이틀 정돈) */
+/* 헤더 */
 .custom-popup.popup-mapclick .popup-header{
-  background: linear-gradient(135deg,#1a73e8 0%, #1557b0 100%);
-  color:#fff;
-  padding: 14px 16px;
-  display:flex; flex-direction:column; gap:4px;
+  background: linear-gradient(135deg,#1a73e8, #1557b0);
+  color:#fff; padding: 14px 16px; display:flex; flex-direction:column; gap:4px;
 }
-.custom-popup.popup-mapclick .popup-title{
-  font-size: 16px; font-weight: 800; letter-spacing:-.01em;
-  display:flex; align-items:center; gap:8px;
-}
-.custom-popup.popup-mapclick .popup-subtitle{
-  font-size: 12px; opacity:.95;
-}
-.custom-popup.popup-mapclick .popup-close{
-  position:absolute; right:10px; top:8px; width:28px; height:28px;
-  border-radius:9999px; display:grid; place-items:center;
-  color:#e2e8f0; cursor:pointer;
-}
-.custom-popup.popup-mapclick .popup-close:hover{ background:rgba(255,255,255,.12); }
+.custom-popup.popup-mapclick .popup-title{ font-size:16px; font-weight:800; letter-spacing:-.01em; }
+.custom-popup.popup-mapclick .popup-subtitle{ font-size:12px; opacity:.95; }
 
-/* 본문 래퍼 */
-.custom-popup.popup-mapclick .popup-body{
-  padding: 12px 14px 14px;
-}
+/* 본문 */
+.custom-popup.popup-mapclick .popup-body{ padding: 12px 14px 14px; }
 
-/* 버튼 그룹 */
+/* [행동] – 상단 고정 */
+.custom-popup.popup-mapclick .actions{ display:block; }
 .custom-popup.popup-mapclick .action-grid{
-  display:grid; grid-template-columns:1fr 1fr; gap:10px;
-  margin: 10px 0 8px;
+  display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin: 10px 0 8px;
 }
 .custom-popup.popup-mapclick .action-btn{
-  display:inline-flex; align-items:center; justify-content:center;
-  gap:8px; width:100%;
-  border: none; border-radius: 12px;
-  padding: 12px 10px;
-  font-size: 13px; font-weight: 800;
-  letter-spacing:.01em;
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  width:100%; border:none; border-radius:12px; padding:12px 10px;
+  font-size:13px; font-weight:800; letter-spacing:.01em; color:#fff;
   transition: transform .12s ease, filter .12s ease, box-shadow .12s ease;
-  color:#fff;
 }
-.custom-popup.popup-mapclick .action-btn:hover{ transform: translateY(-1px); filter:brightness(1.02); }
+.custom-popup.popup-mapclick .action-btn:hover{ transform: translateY(-1px); filter: brightness(1.02); }
 .custom-popup.popup-mapclick .action-btn:active{ transform: translateY(0); }
 
-/* 각각의 색감(가독성/대비 개선) */
-.custom-popup.popup-mapclick .action-btn.start{
-  background: linear-gradient(180deg,#10b981, #059669);
-  box-shadow: 0 3px 10px rgba(16,185,129,.25);
-}
-.custom-popup.popup-mapclick .action-btn.end{
-  background: linear-gradient(180deg,#ef4444, #dc2626);
-  box-shadow: 0 3px 10px rgba(239,68,68,.25);
-}
+/* 경로 설정(보조 행동) */
+.custom-popup.popup-mapclick .action-btn.start{ background: linear-gradient(180deg,#10b981, #059669); box-shadow:0 3px 10px rgba(16,185,129,.25); }
+.custom-popup.popup-mapclick .action-btn.end  { background: linear-gradient(180deg,#ef4444, #dc2626); box-shadow:0 3px 10px rgba(239,68,68,.25); }
 
-/* 큰 + 추가 버튼은 한 줄 꽉 차게 */
+/* 감각 추가(핵심 행동: 전체 너비, 파란 버튼) */
 .custom-popup.popup-mapclick .action-btn.add{
   width:100%; margin-top: 8px;
   background: linear-gradient(180deg,#1d4ed8,#1e40af);
   box-shadow: 0 4px 12px rgba(29,78,216,.28);
 }
 .custom-popup.popup-mapclick .action-btn.add .plus{
-  display:inline-block; width:18px; height:18px; border-radius:4px;
-  background: linear-gradient(135deg,#a78bfa,#f472b6);
+  width:18px; height:18px; border-radius:4px; background: linear-gradient(135deg,#a78bfa,#f472b6);
+  display:inline-block;
 }
 
-/* 섹션/디바이더(필요 시) */
-.custom-popup.popup-mapclick .section{ margin-top:10px; }
-.custom-popup.popup-mapclick .section-divider{
-  height:1px; background: rgba(2,6,23,.06);
-  margin: 10px 0; border-radius:999px;
+/* [정보] – 아래로 내려 분리 */
+.custom-popup.popup-mapclick .data-summary{
+  background:#f8fafc; border:1px solid #e5e7eb; border-radius:10px; padding:12px; margin-top:10px;
 }
+.custom-popup.popup-mapclick .chip-row{ display:flex; flex-wrap:wrap; gap:6px; }
+.custom-popup.popup-mapclick .chip{
+  display:inline-flex; align-items:center; gap:4px; padding:6px 8px; border-radius:9999px;
+  font-size:11.5px; font-weight:600; background:#eef2ff; color:#1e40af; border:1px solid #e0e7ff;
+}
+.custom-popup.popup-mapclick .chip-noise{ background:#fff7ed; color:#9a3412; border-color:#fed7aa; }
+.custom-popup.popup-mapclick .chip-light{ background:#f0fdf4; color:#14532d; border-color:#bbf7d0; }
+.custom-popup.popup-mapclick .chip-odor { background:#fef2f2; color:#7f1d1d; border-color:#fecaca; }
+.custom-popup.popup-mapclick .chip-crowd{ background:#ecfeff; color:#164e63; border-color:#a5f3fc; }
+.custom-popup.popup-mapclick .muted{ color:#6b7280; font-size:12px; }
 
-/* 모바일 살짝 넓게 */
+/* 모바일 */
 @media (max-width:480px){
-  .custom-popup.popup-mapclick .leaflet-popup-content{ width: 92vw !important; }
+  .custom-popup.popup-mapclick .leaflet-popup-content{ width:92vw !important; }
 }
 
 /* 다크 모드 */
@@ -3157,12 +3134,11 @@ html {
     box-shadow: 0 12px 28px rgba(2,6,23,.45), 0 6px 14px rgba(2,6,23,.35);
   }
   .custom-popup.popup-mapclick .leaflet-popup-tip{ background: rgba(17,24,39,.9); }
-  .custom-popup.popup-mapclick .action-btn.add{
-    box-shadow: 0 4px 12px rgba(59,130,246,.35);
-  }
+  .custom-popup.popup-mapclick .data-summary{ background:#0f172a; border-color:#1f2937; }
+  .custom-popup.popup-mapclick .chip{ background:#111827; border-color:#1f2937; color:#dbeafe; }
 }
 
-/* 부드러운 등장 */
+/* 등장 애니메이션 */
 @keyframes mapclickPop{
   from{ transform: translateY(4px) scale(.98); opacity:0; }
   to  { transform: translateY(0)  scale(1);   opacity:1; }

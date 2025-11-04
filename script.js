@@ -157,126 +157,120 @@ class SensmapApp {
         }
     }
 
-    // 위치 팝업 표시
-    showLocationPopup(latlng, gridKey, cellData) {
+    //
+    // 
+    // ===== [시작] showLocationPopup이 여기로 교체됩니다 =====
+    //
+    //
+
+    // 위치 팝업 표시 (개선된 레이아웃 적용)
+    showLocationPopup(latlng, gridKey, cellData = {}) {
         if (!this.mapManager) return;
-
         const map = this.mapManager.getMap();
-        const reports = cellData ? cellData.reports : [];
-        const hasData = reports.length > 0;
-        
-        // 현재 사용자의 데이터인지 확인
-        const currentUser = this.authManager ? this.authManager.getCurrentUser() : null;
-        const userReports = currentUser ? 
-            reports.filter(r => r.user_id === currentUser.id) : [];
+        if (!map) return;
 
-        let popupContent = `
+        const reports = cellData.reports || [];
+        const avg = cellData.averages || {};
+
+        // 평균 칩 (정보 박스에만 표시) - from user's new code
+        const avgChips = [
+            typeof avg.noise === 'number' ? `<span class="chip chip-noise">소음 ${avg.noise.toFixed(1)}</span>` : '',
+            typeof avg.light === 'number' ? `<span class="chip chip-light">빛 ${avg.light.toFixed(1)}</span>` : '',
+            typeof avg.odor  === 'number' ? `<span class="chip chip-odor">냄새 ${avg.odor.toFixed(1)}</span>` : '',
+            typeof avg.crowd === 'number' ? `<span class="chip chip-crowd">혼잡 ${avg.crowd.toFixed(1)}</span>` : '',
+        ].filter(Boolean).join('');
+
+        // 정보 요약 (from user's new code)
+        const infoBox = `
+            <div class="data-summary">
+            ${avgChips ? `<div class="chip-row">${avgChips}</div>` : `<div class="muted">요약 정보가 없습니다</div>`}
+            ${reports.length ? `<div class="muted" style="margin-top:6px">리포트 ${reports.length}개</div>` : ''}
+            </div>
+        `;
+
+        // [핵심] 버튼은 상단에 모으고, 경로 설정 2개는 한 줄(action-grid)로 - from user's new code
+        let html = `
             <div class="popup-header">
-                <div class="popup-title">📍 위치 정보</div>
-                <div class="popup-subtitle">위도: ${latlng.lat.toFixed(6)}, 경도: ${latlng.lng.toFixed(6)}</div>
+            <div class="popup-title">📍 위치 정보</div>
+            <div class="popup-subtitle">위도: ${latlng.lat.toFixed(6)}, 경도: ${latlng.lng.toFixed(6)}</div>
             </div>
-        `;
 
-        // 경로 설정 버튼들 (항상 표시)
-        popupContent += `
-            <div class="action-grid">
-                <button class="action-btn start" onclick="app.routeManager.setRoutePointFromPopup(${latlng.lat}, ${latlng.lng}, 'start')">
-                    출발지 설정
-                </button>
-                <button class="action-btn end" onclick="app.routeManager.setRoutePointFromPopup(${latlng.lat}, ${latlng.lng}, 'end')">
-                    도착지 설정
-                </button>
-            </div>
+            <div class="popup-body">
+            <div class="actions">
+                <div class="action-grid">
+                <button class="action-btn start" data-act="start">출발지 설정</button>
+                <button class="action-btn end"   data-act="end">도착지 설정</button>
+                </div>
         `;
-
-        // 감각 정보 추가 버튼 (로그인 또는 게스트 모드에서만)
+        
+        // --- [중요] 기존 authManager 로직과 결합 ---
+        // (Merging auth logic from old function)
         const isLoggedIn = this.authManager && this.authManager.getIsLoggedIn();
         const guestMode = localStorage.getItem('sensmap_guest_mode');
         
         if (isLoggedIn || guestMode) {
-            popupContent += `
-                <button class="action-btn add" onclick="app.openSensoryPanel(${latlng.lat}, ${latlng.lng})">
-                    ➕ 감각 정보 추가
+             html += `
+                <button class="action-btn add" data-act="add">
+                  <span class="plus" aria-hidden="true"></span> 감각 정보 추가
                 </button>
             `;
         } else {
-            popupContent += `
-                <button class="action-btn add" onclick="app.authManager.showLoginModal()">
-                    🔐 로그인 후 정보 추가
+             html += `
+                <button class="action-btn add" data-act="login">
+                  🔐 로그인 후 정보 추가
                 </button>
             `;
         }
+        // --- [중요] 결합 완료 ---
 
-        // 기존 데이터 표시
-        if (hasData) {
-            popupContent += `
-                <div class="data-summary">
-                    <div class="summary-title">📊 현재 위치 정보 (${reports.length}건)</div>
-            `;
+        html += `
+            </div> ${infoBox}
+            </div> `;
 
-            // 평균값 표시
-            if (cellData.averages) {
-                const avgData = [];
-                if (cellData.averages.noise > 0) avgData.push(`소음: ${cellData.averages.noise.toFixed(1)}`);
-                if (cellData.averages.light > 0) avgData.push(`빛: ${cellData.averages.light.toFixed(1)}`);
-                if (cellData.averages.odor > 0) avgData.push(`냄새: ${cellData.averages.odor.toFixed(1)}`);
-                if (cellData.averages.crowd > 0) avgData.push(`혼잡: ${cellData.averages.crowd.toFixed(1)}`);
-                
-                if (avgData.length > 0) {
-                    popupContent += `<div class="data-item">평균: ${avgData.join(', ')}</div>`;
-                }
-            }
-
-
-            // 사용자별 데이터 표시
-            const userDataCounts = {};
-            reports.forEach(report => {
-                const userName = report.user_name || '익명';
-                userDataCounts[userName] = (userDataCounts[userName] || 0) + 1;
-            });
-
-            popupContent += `<div class="data-item">`;
-            const userCounts = Object.entries(userDataCounts)
-                .map(([name, count]) => `${name}: ${count}건`)
-                .join(', ');
-            popupContent += `작성자: ${userCounts}</div>`;
-
-            // 내 데이터가 있으면 관리 옵션 표시
-            if (userReports.length > 0) {
-                popupContent += `
-                    <div class="data-item" style="border-top: 1px solid #e5e7eb; padding-top: 8px; margin-top: 8px;">
-                        <strong>내 데이터: ${userReports.length}건</strong>
-                        <div class="data-values">
-                `;
-                
-                userReports.forEach(report => {
-                    const date = new Date(report.created_at).toLocaleDateString();
-                    popupContent += `
-                        <div class="data-badge" onclick="app.authManager.locateOnMap(${report.lat}, ${report.lng})">
-                            ${report.type === 'irregular' ? '⚡' : '🟢'} ${date}
-                            <button class="delete-btn" onclick="app.deleteReport(${report.id})" title="삭제">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                    `;
-                });
-                
-                popupContent += `</div></div>`;
-            }
-
-            popupContent += '</div>';
-        } 
-
-        // 팝업 표시
-        L.popup({
-            className: 'custom-popup popup-mapclick',
-            maxWidth: 300,
-            closeOnClick: false
+        const popup = L.popup({
+            className: 'custom-popup popup-mapclick', // 지도 클릭 팝업만 스타일 분리
+            maxWidth: 320,
+            closeOnClick: false,
         })
-        .setLatLng(latlng)
-        .setContent(popupContent)
-        .openOn(map);
+            .setLatLng(latlng)
+            .setContent(html)
+            .openOn(map);
+
+        // 버튼 동작(기존 로직 그대로 연결하면 됨) - ADAPTED TO USE 'this'
+        const el = popup.getElement();
+        el.addEventListener('click', (e) => {
+            const t = e.target.closest('[data-act]');
+            if (!t) return;
+            const act = t.dataset.act;
+            
+            if (act === 'start') {
+                // (Adapted from window.routeManager to this.routeManager)
+                this.routeManager?.setRoutePointFromPopup(latlng.lat, latlng.lng, 'start');
+            } else if (act === 'end') {
+                // (Adapted from window.routeManager to this.routeManager)
+                this.routeManager?.setRoutePointFromPopup(latlng.lat, latlng.lng, 'end');
+            } else if (act === 'add') {
+                // (Adapted from window.openSensoryPanel to this.openSensoryPanel)
+                // this.openSensoryPanel(latlng.lat, latlng.lng);
+                
+                // (Using logic from old function as this.openSensoryPanel isn't defined yet)
+                if (this.uiHandler) {
+                    this.uiHandler.setClickedLocation({ lat: latlng.lat, lng: latlng.lng });
+                    this.uiHandler.openSensoryPanel();
+                }
+
+            } else if (act === 'login') {
+                // (Adapted from old logic)
+                this.authManager.showLoginModal();
+            }
+        });
     }
+
+    //
+    //
+    // ===== [끝] showLocationPopup 교체 완료 =====
+    //
+    //
 
     // Timetable functionality
     initializeTimetable() {
@@ -703,6 +697,7 @@ class SensmapApp {
         }, 5000);
     }
 
+// ... (이후 코드는 동일하게 유지) ...
     // 실행취소 액션 숨김
     hideUndoAction() {
         const undoAction = document.getElementById('undoAction');
@@ -1016,8 +1011,8 @@ class SensmapApp {
         this._geo.isTracking = false;
 
         // 마커/레이어 정리
-        if (this._geo.marker) { try { this._geo.layer?.removeLayer(this._geo.marker); } catch (_) { } }
-        if (this._geo.accuracy) { try { this._geo.layer?.removeLayer(this._geo.accuracy); } catch (_) { } }
+        if (this._geo.marker) { try { this._geo.layer?.removeLayer(this.marker); } catch (_) { } }
+        if (this._geo.accuracy) { try { this._geo.layer?.removeLayer(this.accuracy); } catch (_) { } }
         this._geo.marker = null;
         this._geo.accuracy = null;
 
@@ -1287,4 +1282,3 @@ localStorage.setItem('sensoryProfile', JSON.stringify(window.sensoryProfile));
 function getSensoryProfile() {
 return { ...window.sensoryProfile };
 }
-
