@@ -130,14 +130,15 @@ export class UIHandler {
                 this.openContactModal();
             });
 
-            // Sensory help modal
-            // header-level sensoryHelpBtn removed
-            document.querySelectorAll('.sensory-help-btn')?.forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const field = e.currentTarget?.dataset?.field;
+            // Sensory help modal - use event delegation for dynamically shown buttons
+            document.addEventListener('click', (e) => {
+                const helpBtn = e.target.closest('.sensory-help-btn');
+                if (helpBtn) {
+                    const field = helpBtn.dataset?.field;
                     this.openSensoryHelpModal(field);
                     e.stopPropagation();
-                });
+                    e.preventDefault();
+                }
             });
             document.getElementById('closeSensoryHelpBtn')?.addEventListener('click', () => this.closeSensoryHelpModal());
 
@@ -153,10 +154,28 @@ export class UIHandler {
             });
             document.getElementById('cancelRouteBtn')?.addEventListener('click', () => this.app.routeManager.cancelRouteMode());
 
-            // Route controls
-            document.getElementById('sensoryRouteBtn')?.addEventListener('click', () => this.app.routeManager.selectRouteType('sensory'));
-            document.getElementById('balancedRouteBtn')?.addEventListener('click', () => this.app.routeManager.selectRouteType('balanced'));
-            document.getElementById('timeRouteBtn')?.addEventListener('click', () => this.app.routeManager.selectRouteType('time'));
+            // Route controls - prevent event bubbling
+            document.getElementById('sensoryRouteBtn')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                if (this.app.routeManager) {
+                    this.app.routeManager.selectRouteType('sensory');
+                }
+            });
+            document.getElementById('balancedRouteBtn')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                if (this.app.routeManager) {
+                    this.app.routeManager.selectRouteType('balanced');
+                }
+            });
+            document.getElementById('timeRouteBtn')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                if (this.app.routeManager) {
+                    this.app.routeManager.selectRouteType('time');
+                }
+            });
 
             // Undo action
             document.getElementById('undoBtn')?.addEventListener('click', () => this.app.dataManager.undoLastAction());
@@ -216,15 +235,37 @@ export class UIHandler {
 
             // Global event listeners - 개선된 조건부 처리
             document.addEventListener('click', (e) => {
+                // 메뉴 버튼 클릭은 무시 (이미 각각의 이벤트 리스너가 처리)
+                if (e.target.closest('#profileMenuBtn') || e.target.closest('#myDataBtn') || 
+                    e.target.closest('#settingsBtn') || e.target.closest('#helpBtn') ||
+                    e.target.closest('#contactBtn') || e.target.closest('#loginMenuBtn') ||
+                    e.target.closest('#logoutBtn') || e.target.closest('.menu-btn')) {
+                    return; // 메뉴 버튼은 각각의 이벤트 리스너가 처리하므로 여기서는 무시
+                }
+                
+                // 패널, 모달, 라우트 컨트롤 내부 클릭은 무시
+                if (e.target.closest('.side-panel') || e.target.closest('.modal-overlay') || 
+                    e.target.closest('.settings-panel') || e.target.closest('.route-controls') ||
+                    e.target.closest('.route-option-btn') || e.target.closest('#routeControls')) {
+                    return;
+                }
+                
+                // 햄버거 메뉴 관련
                 if (!e.target.closest('.hamburger-menu')) {
                     this.closeHamburgerMenu();
                 }
+                
+                // 센서리 드롭다운
                 if (!e.target.closest('.sensory-filter') && !e.target.closest('#sensoryDropdown')) {
                     this.closeSensoryDropdown();
                 }
+                
+                // 연락처 모달
                 if (!e.target.closest('.modal-overlay') && !e.target.closest('#contactBtn')) {
                     this.closeContactModal();
                 }
+                
+                // 센서리 도움말 모달
                 if (!e.target.closest('.modal-overlay') && !e.target.closest('#sensoryHelpBtn') && !e.target.closest('.sensory-help-btn')) {
                     this.closeSensoryHelpModal();
                 }
@@ -1012,39 +1053,65 @@ export class UIHandler {
 
     openSensoryHelpModal(section) {
         const modal = document.getElementById('sensoryHelpModal');
-        if (!modal) return;
+        if (!modal) {
+            console.error('Sensory help modal not found');
+            return;
+        }
+        
+        // 모달을 body 최상단으로 이동 (지도/헤더 컨테이너 밖으로)
+        if (modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
+        }
+        
+        // 모달은 다른 패널 위에 열릴 수 있으므로 closeAllPanels()를 호출하지 않음
+        // aria-hidden 먼저 제거
+        modal.removeAttribute('aria-hidden');
+        
+        // 모달 표시 (important로 강제)
         modal.classList.add('show');
+        modal.style.setProperty('display', 'flex', 'important');
+        modal.style.setProperty('visibility', 'visible', 'important');
+        modal.style.setProperty('opacity', '1', 'important');
+        modal.style.setProperty('z-index', '5000', 'important'); // 패널보다 높은 z-index 보장
         modal.setAttribute('aria-hidden', 'false');
         this.addPanelToStack('sensoryHelpModal');
 
         // 섹션 표시 제어: 특정 섹션만 강조
         const sections = modal.querySelectorAll('.help-section');
-        sections.forEach(sec => {
-            const key = sec.getAttribute('data-help');
-            if (!section || key !== section) {
-                sec.style.display = 'none';
-                sec.classList.remove('active');
-            } else {
+        if (sections.length === 0) {
+            // 섹션이 없으면 모든 섹션 표시
+            sections.forEach(sec => {
                 sec.style.display = '';
                 sec.classList.add('active');
-            }
-        });
+            });
+        } else {
+            sections.forEach(sec => {
+                const key = sec.getAttribute('data-help');
+                if (!section || key !== section) {
+                    sec.style.display = 'none';
+                    sec.classList.remove('active');
+                } else {
+                    sec.style.display = '';
+                    sec.classList.add('active');
+                }
+            });
+        }
     }
 
     closeSensoryHelpModal() {
         const modal = document.getElementById('sensoryHelpModal');
         if (!modal) return;
         modal.classList.remove('show');
+        modal.style.visibility = 'hidden';
+        modal.style.opacity = '0';
+        modal.style.zIndex = '';
         modal.setAttribute('aria-hidden', 'true');
         this.removePanelFromStack('sensoryHelpModal');
     }
 
     openSettingsPanel() {
-        this.closeAllPanels();
-        const panel = document.getElementById('settingsPanel');
-        panel.classList.add('open');
-        this.addPanelToStack('settingsPanel');
-        this.hideHeaderControls();
+        // openPanel 메서드 사용
+        this.openPanel('settingsPanel');
     }
 
     closeSettingsPanel() {
@@ -1069,41 +1136,141 @@ export class UIHandler {
     }
 
     openProfilePanel() {
-        this.closeAllPanels();
+        // 모든 포커스된 요소 먼저 blur 처리
+        const activeElement = document.activeElement;
+        if (activeElement && activeElement.blur) {
+            activeElement.blur();
+        }
+        
+        // 다른 패널들만 닫기 (profilePanel은 제외)
+        document.querySelectorAll('.side-panel').forEach(panel => {
+            if (panel.id !== 'profilePanel') {
+                panel.classList.remove('open');
+                panel.style.right = '';
+                panel.setAttribute('aria-hidden', 'true');
+            }
+        });
+        
+        document.querySelectorAll('.modal-overlay').forEach(modal => {
+            modal.classList.remove('show');
+            modal.style.visibility = 'hidden';
+            modal.style.opacity = '0';
+            modal.style.zIndex = '';
+            modal.setAttribute('aria-hidden', 'true');
+        });
+        
+        // 패널 스택에서 profilePanel 제외하고 초기화
+        this.panelStack = this.panelStack.filter(id => id !== 'profilePanel');
+        this.openPanels.delete('profilePanel');
+        
+        // 이제 profilePanel 열기 (동기적으로 즉시)
         const panel = document.getElementById('profilePanel');
+        if (!panel) {
+            console.error('Profile panel not found');
+            return;
+        }
+        
+        // 패널을 body 최상단으로 이동 (지도/헤더 컨테이너 밖으로)
+        if (panel.parentElement !== document.body) {
+            document.body.appendChild(panel);
+        }
+        
+        // 모든 스타일과 속성 설정
+        panel.removeAttribute('aria-hidden');
         panel.classList.add('open');
+        panel.style.setProperty('position', 'fixed', 'important');
+        panel.style.setProperty('top', '0', 'important');
+        panel.style.setProperty('right', '0', 'important');
+        panel.style.setProperty('width', '380px', 'important');
+        panel.style.setProperty('height', '100vh', 'important');
+        panel.style.setProperty('display', 'flex', 'important');
+        panel.style.setProperty('visibility', 'visible', 'important');
+        panel.style.setProperty('opacity', '1', 'important');
+        panel.style.setProperty('z-index', '4000', 'important');
+        panel.style.setProperty('transform', 'none', 'important');
         panel.setAttribute('aria-hidden', 'false');
+        
+        // 패널 스택에 추가
         this.addPanelToStack('profilePanel');
         this.hideHeaderControls();
 
+        // 포커스 설정
         const firstInput = panel.querySelector('input, button');
         if (firstInput) {
-            setTimeout(() => firstInput.focus(), 100);
+            setTimeout(() => {
+                panel.setAttribute('aria-hidden', 'false');
+                firstInput.focus();
+            }, 50);
         }
-        document.querySelectorAll('.type-option').forEach(option => {
-            option.addEventListener('click', () => {
-                if (option.dataset.type === 'regular') {
-                    this.app.showTimetableSection();
-                } else {
-                    this.app.hideTimetableSection();
-                }
-            });
-        });
-
     }
     
 
     openSensoryPanel() {
-        this.closeAllPanels();
+        // 모든 포커스된 요소 먼저 blur 처리
+        const activeElement = document.activeElement;
+        if (activeElement && activeElement.blur) {
+            activeElement.blur();
+        }
+        
+        // 다른 패널들만 닫기 (sidePanel은 제외)
+        document.querySelectorAll('.side-panel').forEach(panel => {
+            if (panel.id !== 'sidePanel') {
+                panel.classList.remove('open');
+                panel.style.right = '';
+                panel.setAttribute('aria-hidden', 'true');
+            }
+        });
+        
+        document.querySelectorAll('.modal-overlay').forEach(modal => {
+            modal.classList.remove('show');
+            modal.style.visibility = 'hidden';
+            modal.style.opacity = '0';
+            modal.style.zIndex = '';
+            modal.setAttribute('aria-hidden', 'true');
+        });
+        
+        // 패널 스택에서 sidePanel 제외하고 초기화
+        this.panelStack = this.panelStack.filter(id => id !== 'sidePanel');
+        this.openPanels.delete('sidePanel');
+        
+        // 이제 sidePanel 열기 (동기적으로 즉시)
         const panel = document.getElementById('sidePanel');
+        if (!panel) {
+            console.error('Side panel not found');
+            return;
+        }
+        
+        // 패널을 body 최상단으로 이동 (지도/헤더 컨테이너 밖으로)
+        if (panel.parentElement !== document.body) {
+            document.body.appendChild(panel);
+        }
+        
+        // 모든 스타일과 속성 설정
+        panel.removeAttribute('aria-hidden');
         panel.classList.add('open');
+        panel.style.setProperty('position', 'fixed', 'important');
+        panel.style.setProperty('top', '0', 'important');
+        panel.style.setProperty('right', '0', 'important');
+        panel.style.setProperty('width', '380px', 'important');
+        panel.style.setProperty('height', '100vh', 'important');
+        panel.style.setProperty('display', 'flex', 'important');
+        panel.style.setProperty('visibility', 'visible', 'important');
+        panel.style.setProperty('opacity', '1', 'important');
+        panel.style.setProperty('z-index', '4000', 'important');
+        panel.style.setProperty('transform', 'none', 'important');
         panel.setAttribute('aria-hidden', 'false');
+        
+        // 패널 스택에 추가
         this.addPanelToStack('sidePanel');
         this.hideHeaderControls();
 
+        // 포커스 설정
         const firstInput = panel.querySelector('input, button');
         if (firstInput) {
-            setTimeout(() => firstInput.focus(), 100);
+            setTimeout(() => {
+                panel.setAttribute('aria-hidden', 'false');
+                firstInput.focus();
+            }, 50);
         }
 
         if (this.app.mapManager && this.app.mapManager.getMap()) {
@@ -1121,21 +1288,42 @@ export class UIHandler {
         const panel = document.getElementById(currentPanelId);
         
         if (panel) {
-            panel.classList.remove('open');
-            panel.classList.remove('show');
-            panel.setAttribute('aria-hidden', 'true');
+            // 포커스된 요소가 있으면 먼저 blur 처리
+            const activeElement = document.activeElement;
+            if (activeElement && panel.contains(activeElement) && activeElement.blur) {
+                activeElement.blur();
+            }
+            
+            // 작은 지연 후 패널 닫기
+            setTimeout(() => {
+                panel.classList.remove('open');
+                panel.classList.remove('show');
+                
+                // 패널인 경우 right 스타일 리셋
+                if (panel.classList.contains('side-panel')) {
+                    panel.style.right = '';
+                }
+                
+                // 모달인 경우 visibility와 opacity 리셋
+                if (panel.classList.contains('modal-overlay')) {
+                    panel.style.visibility = 'hidden';
+                    panel.style.opacity = '0';
+                    panel.style.zIndex = '';
+                }
+                
+                panel.setAttribute('aria-hidden', 'true');
+            }, 10);
         }
 
         this.removePanelFromStack(currentPanelId);
         
-        // 모든 패널이 닫혔으면 헤더 컨트롤 표시 (약간의 지연을 두어 hideHeaderControls가 먼저 실행되도록)
+        // 모든 패널이 닫혔으면 헤더 컨트롤 표시
         if (this.panelStack.length === 0) {
             setTimeout(() => {
-                // 패널 스택이 여전히 비어있으면 헤더 컨트롤 표시
                 if (this.panelStack.length === 0) {
                     this.showHeaderControls();
                 }
-            }, 10);
+            }, 30);
         }
     }
 
@@ -1143,18 +1331,33 @@ export class UIHandler {
      * 모든 사이드 패널 닫기 (기존 closePanels 대체)
      */
     closeAllPanels() {
-        document.querySelectorAll('.side-panel').forEach(panel => {
-            panel.classList.remove('open');
-            panel.setAttribute('aria-hidden', 'true');
-        });
+        // 모든 포커스된 요소 먼저 blur 처리
+        const activeElement = document.activeElement;
+        if (activeElement && activeElement.blur) {
+            activeElement.blur();
+        }
         
-        // 패널 스택 초기화
-        this.panelStack = [];
-        this.openPanels.clear();
-        
-        // 헤더 컨트롤 표시 - 하지만 바로 다음에 새로운 패널이 열릴 수 있으므로 조건부로만 호출
-        // 새로운 패널이 열리면 hideHeaderControls()가 호출되므로 여기서는 호출하지 않음
-        // 대신 closeCurrentPanel()에서만 호출
+        // 작은 지연 후 패널 닫기 (blur 완료 보장)
+        setTimeout(() => {
+            document.querySelectorAll('.side-panel').forEach(panel => {
+                panel.classList.remove('open');
+                panel.style.right = '';
+                panel.setAttribute('aria-hidden', 'true');
+            });
+            
+            // 모달도 닫기
+            document.querySelectorAll('.modal-overlay').forEach(modal => {
+                modal.classList.remove('show');
+                modal.style.visibility = 'hidden';
+                modal.style.opacity = '0';
+                modal.style.zIndex = '';
+                modal.setAttribute('aria-hidden', 'true');
+            });
+            
+            // 패널 스택 초기화
+            this.panelStack = [];
+            this.openPanels.clear();
+        }, 10);
     }
     
     /**
@@ -1163,10 +1366,8 @@ export class UIHandler {
     hideHeaderControls() {
         // 모바일에서만 숨기기
         const isMobile = window.matchMedia('(max-width: 420px) and (max-height: 900px)').matches;
-        console.log('hideHeaderControls called, isMobile:', isMobile, 'window width:', window.innerWidth, 'height:', window.innerHeight);
         
         if (!isMobile) {
-            console.log('Not mobile, returning early');
             return; // 데스크톱에서는 아무것도 하지 않음
         }
         
@@ -1178,38 +1379,14 @@ export class UIHandler {
                                     document.querySelector('header .mobile-address-input') ||
                                     document.querySelector('.header-controls .mobile-address-input');
         
-        console.log('hideHeaderControls - elements found:', { 
-            headerCenter: !!headerCenter, 
-            mobileAddressInput: !!mobileAddressInput,
-            headerCenterClasses: headerCenter?.className || 'not found',
-            mobileAddressInputClasses: mobileAddressInput?.className || 'not found'
-        });
-        
         if (headerCenter) {
             headerCenter.classList.add('header-controls-hidden');
-            // 강제로 클래스 추가 확인
-            const hasClass = headerCenter.classList.contains('header-controls-hidden');
-            console.log('header-controls-hidden class added to headerCenter:', hasClass, 'all classes:', headerCenter.className);
-            
-            // 스타일 직접 설정도 시도
             headerCenter.style.setProperty('display', 'none', 'important');
-        } else {
-            console.error('header-center element not found! Tried selectors: .header-center, header .header-center, .header-controls .header-center');
-            // 모든 header-center 요소 찾기
-            const allHeaderCenters = document.querySelectorAll('.header-center');
-            console.error('All .header-center elements found:', allHeaderCenters);
         }
         
         if (mobileAddressInput) {
             mobileAddressInput.classList.add('header-controls-hidden');
-            const hasClass = mobileAddressInput.classList.contains('header-controls-hidden');
-            console.log('header-controls-hidden class added to mobileAddressInput:', hasClass, 'all classes:', mobileAddressInput.className);
-            
             mobileAddressInput.style.setProperty('display', 'none', 'important');
-        } else {
-            console.error('mobile-address-input element not found!');
-            const allMobileInputs = document.querySelectorAll('.mobile-address-input');
-            console.error('All .mobile-address-input elements found:', allMobileInputs);
         }
     }
     
@@ -1219,16 +1396,13 @@ export class UIHandler {
     showHeaderControls() {
         // 모바일에서만 표시
         const isMobile = window.matchMedia('(max-width: 420px) and (max-height: 900px)').matches;
-        console.log('showHeaderControls called, isMobile:', isMobile, 'panelStack length:', this.panelStack.length);
         
         if (!isMobile) {
-            console.log('Not mobile, returning early');
             return; // 데스크톱에서는 아무것도 하지 않음
         }
         
         // 패널이 열려있으면 헤더 컨트롤을 표시하지 않음
         if (this.panelStack.length > 0) {
-            console.log('Panel is open, not showing header controls. panelStack:', this.panelStack);
             return;
         }
         
@@ -1238,15 +1412,12 @@ export class UIHandler {
         const loginModal = document.getElementById('loginModal');
         
         if (contactModal && contactModal.classList.contains('show')) {
-            console.log('Contact modal is open, not showing header controls');
             return;
         }
         if (tutorialOverlay && (tutorialOverlay.classList.contains('show') || tutorialOverlay.style.display === 'flex')) {
-            console.log('Tutorial is open, not showing header controls');
             return;
         }
         if (loginModal && loginModal.classList.contains('show')) {
-            console.log('Login modal is open, not showing header controls');
             return;
         }
         
@@ -1258,31 +1429,14 @@ export class UIHandler {
                                     document.querySelector('header .mobile-address-input') ||
                                     document.querySelector('.header-controls .mobile-address-input');
         
-        console.log('showHeaderControls - elements found:', { 
-            headerCenter: !!headerCenter, 
-            mobileAddressInput: !!mobileAddressInput,
-            headerCenterClasses: headerCenter?.className || 'not found',
-            mobileAddressInputClasses: mobileAddressInput?.className || 'not found'
-        });
-        
         if (headerCenter) {
             headerCenter.classList.remove('header-controls-hidden');
-            // 인라인 스타일도 제거
             headerCenter.style.removeProperty('display');
-            const hasClass = headerCenter.classList.contains('header-controls-hidden');
-            console.log('header-controls-hidden class removed from headerCenter:', !hasClass, 'all classes:', headerCenter.className);
-        } else {
-            console.error('header-center element not found in showHeaderControls!');
         }
         
         if (mobileAddressInput) {
             mobileAddressInput.classList.remove('header-controls-hidden');
-            // 인라인 스타일도 제거
             mobileAddressInput.style.removeProperty('display');
-            const hasClass = mobileAddressInput.classList.contains('header-controls-hidden');
-            console.log('header-controls-hidden class removed from mobileAddressInput:', !hasClass, 'all classes:', mobileAddressInput.className);
-        } else {
-            console.error('mobile-address-input element not found in showHeaderControls!');
         }
     }
 
@@ -1604,14 +1758,63 @@ export class UIHandler {
      * 패널 열기 헬퍼 (재사용 가능)
      */
     openPanel(panelId) {
-        this.closeAllPanels();
-        const panel = document.getElementById(panelId);
-        if (panel) {
-            panel.classList.add('open');
-            panel.setAttribute('aria-hidden', 'false');
-            this.addPanelToStack(panelId);
-            this.hideHeaderControls();
+        // 모든 포커스된 요소 먼저 blur 처리
+        const activeElement = document.activeElement;
+        if (activeElement && activeElement.blur) {
+            activeElement.blur();
         }
+        
+        // 다른 패널들만 닫기 (target panel은 제외)
+        document.querySelectorAll('.side-panel').forEach(panel => {
+            if (panel.id !== panelId) {
+                panel.classList.remove('open');
+                panel.style.right = '';
+                panel.setAttribute('aria-hidden', 'true');
+            }
+        });
+        
+        document.querySelectorAll('.modal-overlay').forEach(modal => {
+            modal.classList.remove('show');
+            modal.style.visibility = 'hidden';
+            modal.style.opacity = '0';
+            modal.style.zIndex = '';
+            modal.setAttribute('aria-hidden', 'true');
+        });
+        
+        // 패널 스택에서 target panel 제외하고 초기화
+        this.panelStack = this.panelStack.filter(id => id !== panelId);
+        this.openPanels.delete(panelId);
+        
+        // 이제 target panel 열기
+        const panel = document.getElementById(panelId);
+        if (!panel) {
+            console.error(`Panel ${panelId} not found`);
+            return;
+        }
+        
+        // 패널을 body 최상단으로 이동 (지도/헤더 컨테이너 밖으로)
+        if (panel.parentElement !== document.body) {
+            document.body.appendChild(panel);
+        }
+        
+        // 모든 스타일과 속성 설정
+        panel.removeAttribute('aria-hidden');
+        panel.classList.add('open');
+        panel.style.setProperty('position', 'fixed', 'important');
+        panel.style.setProperty('top', '0', 'important');
+        panel.style.setProperty('right', '0', 'important');
+        panel.style.setProperty('width', '380px', 'important');
+        panel.style.setProperty('height', '100vh', 'important');
+        panel.style.setProperty('display', 'flex', 'important');
+        panel.style.setProperty('visibility', 'visible', 'important');
+        panel.style.setProperty('opacity', '1', 'important');
+        panel.style.setProperty('z-index', '4000', 'important');
+        panel.style.setProperty('transform', 'none', 'important');
+        panel.setAttribute('aria-hidden', 'false');
+        
+        // 패널 스택에 추가
+        this.addPanelToStack(panelId);
+        this.hideHeaderControls();
     }
 
     /**

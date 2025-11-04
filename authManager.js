@@ -20,9 +20,8 @@ export class AuthManager {
         // 로그아웃 버튼
         document.getElementById('logoutBtn')?.addEventListener('click', () => this.logout());
         
-        // 내 데이터 버튼
-        document.getElementById('myDataBtn')?.addEventListener('click', () => this.showMyData());
-        document.getElementById('closeMyDataBtn')?.addEventListener('click', () => this.closeMyData());
+        // 내 데이터 버튼은 uiHandler에서 이미 설정되므로 여기서는 제거
+        // (중복 방지 - uiHandler.js line 227에서 이미 설정됨)
 
         // 로그인 폼 처리 - 핵심 추가 부분
         this.setupLoginForm();
@@ -961,23 +960,12 @@ export class AuthManager {
         }
 
         try {
-            // 패널 열기 (기존 openPanel 메서드 사용)
-            if (this.app.uiHandler.openPanel) {
+            // 패널 열기 (openPanel 메서드 사용)
+            if (this.app.uiHandler && this.app.uiHandler.openPanel) {
                 this.app.uiHandler.openPanel('myDataPanel');
             } else {
-                // 폴백
-                const panel = document.getElementById('myDataPanel');
-                if (panel) {
-                    this.app.uiHandler.closeAllPanels();
-                    panel.classList.add('open');
-                    panel.setAttribute('aria-hidden', 'false');
-                    this.app.uiHandler.addPanelToStack('myDataPanel');
-                }
-            }
-            
-            // 헤더 컨트롤 숨기기
-            if (this.app.uiHandler.hideHeaderControls) {
-                this.app.uiHandler.hideHeaderControls();
+                console.error('UIHandler or openPanel method not found');
+                return;
             }
 
             // 1년치 데이터 한 번에 가져오기 (클라이언트 필터링 방식)

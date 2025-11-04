@@ -265,7 +265,20 @@ export class RouteManager {
             if (routeBtn) routeBtn.classList.add('active');
             if (mobileRouteBtn) mobileRouteBtn.classList.add('active');
             if (routeControls) {
-                routeControls.style.display = 'block';
+                // 패널을 body 최상단으로 이동 (지도/헤더 컨테이너 밖으로)
+                if (routeControls.parentElement !== document.body) {
+                    document.body.appendChild(routeControls);
+                }
+                
+                // 모든 스타일과 속성 설정
+                routeControls.removeAttribute('aria-hidden');
+                routeControls.style.setProperty('position', 'fixed', 'important');
+                routeControls.style.setProperty('bottom', '20px', 'important');
+                routeControls.style.setProperty('right', '20px', 'important');
+                routeControls.style.setProperty('display', 'block', 'important');
+                routeControls.style.setProperty('visibility', 'visible', 'important');
+                routeControls.style.setProperty('opacity', '1', 'important');
+                routeControls.style.setProperty('z-index', '4000', 'important');
                 routeControls.setAttribute('aria-hidden', 'false');
             }
             this.updateRouteStatus('출발지 선택');
@@ -279,6 +292,15 @@ export class RouteManager {
         if (mapContainer) mapContainer.style.cursor = 'crosshair';
         this.routePoints = [];
         this.clearRoute();
+        
+        // 새 경로 시작 시 route options 패널 다시 표시
+        const routeOptions = document.getElementById('routeOptions');
+        if (routeOptions) {
+            routeOptions.style.removeProperty('display');
+            routeOptions.style.removeProperty('visibility');
+            routeOptions.style.display = 'none'; // 초기에는 숨김, 도착지 선택 후 표시
+        }
+        
         this.app?.showToast?.('지도에서 출발지를 클릭하세요', 'info');
     }
     cancelRouteMode() {
@@ -289,7 +311,13 @@ export class RouteManager {
         const routeOptions = document.getElementById('routeOptions');
         if (routeBtn) routeBtn.classList.remove('active');
         if (mobileRouteBtn) mobileRouteBtn.classList.remove('active');
-        if (routeControls) { routeControls.style.display = 'none'; routeControls.setAttribute('aria-hidden', 'true'); }
+        if (routeControls) {
+            routeControls.style.display = 'none';
+            routeControls.style.visibility = 'hidden';
+            routeControls.style.opacity = '0';
+            routeControls.style.zIndex = '';
+            routeControls.setAttribute('aria-hidden', 'true');
+        }
         if (routeOptions) routeOptions.style.display = 'none';
         const mapContainer = document.getElementById('map');
         if (mapContainer) mapContainer.style.cursor = '';
@@ -301,6 +329,15 @@ export class RouteManager {
         if (this.routePoints.length === 0) {
             this.routePoints.push(latlng);
             this.addRouteMarker(latlng, 'start');
+            
+            // 새 출발지 설정 시 route options 패널 다시 표시 준비
+            const routeOptions = document.getElementById('routeOptions');
+            if (routeOptions) {
+                routeOptions.style.removeProperty('display');
+                routeOptions.style.removeProperty('visibility');
+                routeOptions.style.display = 'none'; // 도착지 선택 후 표시
+            }
+            
             this.updateRouteStatus('도착지 선택');
             this.app?.showToast?.('도착지를 클릭하세요', 'info');
         } else if (this.routePoints.length === 1) {
@@ -324,7 +361,13 @@ export class RouteManager {
     }
     showRouteOptions() {
         const routeOptions = document.getElementById('routeOptions');
-        if (routeOptions) routeOptions.style.display = 'flex';
+        if (routeOptions) {
+            // 모바일에서도 route options 패널 표시
+            routeOptions.style.removeProperty('display');
+            routeOptions.style.removeProperty('visibility');
+            routeOptions.style.setProperty('display', 'flex', 'important');
+            routeOptions.style.setProperty('visibility', 'visible', 'important');
+        }
     }
     selectRouteType(type) {
         if (this.routePoints.length < 2) return this.app?.showToast?.('출발지와 도착지를 먼저 선택하세요', 'warning');
@@ -840,7 +883,6 @@ export class RouteManager {
             }
 
             this.displayRoute(best, type);
-            this.updateRouteStatus(`${this.getRouteTypeLabel(type)} 경로`);
         } catch (error) {
             this.app?.handleError?.('경로 계산 중 오류가 발생했습니다', error);
             this.updateRouteStatus('경로 계산 실패');
@@ -856,7 +898,47 @@ export class RouteManager {
         if (!this.routeLayer) this.routeLayer = L.layerGroup().addTo(map);
         this.routeLayer.addLayer(this.currentRoute);
 
+        // 경로 패널을 body 최상단으로 이동 (지도/헤더 컨테이너 밖으로)
+        const routeControls = document.getElementById('routeControls');
+        const routeOptions = document.getElementById('routeOptions');
+        const isMobile = window.matchMedia('(max-width: 420px) and (max-height: 900px)').matches;
+        
+        if (routeControls) {
+            if (routeControls.parentElement !== document.body) {
+                document.body.appendChild(routeControls);
+            }
+            
+            // 모든 스타일과 속성 설정
+            routeControls.removeAttribute('aria-hidden');
+            routeControls.style.setProperty('position', 'fixed', 'important');
+            routeControls.style.setProperty('bottom', '20px', 'important');
+            routeControls.style.setProperty('right', '20px', 'important');
+            routeControls.style.setProperty('display', 'block', 'important');
+            routeControls.style.setProperty('visibility', 'visible', 'important');
+            routeControls.style.setProperty('opacity', '1', 'important');
+            routeControls.style.setProperty('z-index', '4000', 'important');
+            routeControls.setAttribute('aria-hidden', 'false');
+        }
+        
+        // 모바일에서만 경로 옵션 패널 숨기기
+        if (isMobile && routeOptions) {
+            routeOptions.style.setProperty('display', 'none', 'important');
+            routeOptions.style.setProperty('visibility', 'hidden', 'important');
+        }
+
         const sensEval = this._evaluateSensoryCostForDisplay(route); // sensory 기준 평가
+        
+        // 시간과 거리 계산
+        const km = (route.distance / 1000);
+        const distance = isFinite(km) ? km.toFixed(1) : '-';
+        const minutes = (route.duration / 60);
+        const duration = isFinite(minutes) ? Math.round(minutes) : '-';
+        
+        // 경로 상태에 시간과 거리 표시
+        const routeTypeLabel = this.getRouteTypeLabel(type);
+        const statusText = `${routeTypeLabel} 경로 | ${distance}km · ${duration}분`;
+        this.updateRouteStatus(statusText);
+        
         this.showRouteInfo(route, sensEval);
         map.fitBounds(this.currentRoute.getBounds(), { padding: [50, 50] });
     }
@@ -896,6 +978,15 @@ export class RouteManager {
             this.clearRoute();
             this.routePoints = [latlng];
             this.addRouteMarker(latlng, 'start');
+            
+            // 새 출발지 설정 시 route options 패널 다시 표시 준비
+            const routeOptions = document.getElementById('routeOptions');
+            if (routeOptions) {
+                routeOptions.style.removeProperty('display');
+                routeOptions.style.removeProperty('visibility');
+                routeOptions.style.display = 'none'; // 도착지 선택 후 표시
+            }
+            
             this.updateRouteStatus('도착지 선택');
             this.app?.mapManager?.getMap?.().closePopup?.();
             this.app?.showToast?.('출발지가 설정되었습니다. 도착지를 선택하세요.', 'success');
