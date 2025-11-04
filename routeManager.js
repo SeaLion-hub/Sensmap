@@ -258,10 +258,12 @@ export class RouteManager {
     toggleRouteMode() {
         this.isRouteMode = !this.isRouteMode;
         const routeBtn = document.getElementById('routeBtn');
+        const mobileRouteBtn = document.getElementById('mobileRouteBtn');
         const routeControls = document.getElementById('routeControls');
         if (this.isRouteMode) {
             this.startRouteMode();
-            routeBtn?.classList.add('active');
+            if (routeBtn) routeBtn.classList.add('active');
+            if (mobileRouteBtn) mobileRouteBtn.classList.add('active');
             if (routeControls) {
                 routeControls.style.display = 'block';
                 routeControls.setAttribute('aria-hidden', 'false');
@@ -282,9 +284,11 @@ export class RouteManager {
     cancelRouteMode() {
         this.isRouteMode = false; this.routePoints = [];
         const routeBtn = document.getElementById('routeBtn');
+        const mobileRouteBtn = document.getElementById('mobileRouteBtn');
         const routeControls = document.getElementById('routeControls');
         const routeOptions = document.getElementById('routeOptions');
-        routeBtn?.classList.remove('active');
+        if (routeBtn) routeBtn.classList.remove('active');
+        if (mobileRouteBtn) mobileRouteBtn.classList.remove('active');
         if (routeControls) { routeControls.style.display = 'none'; routeControls.setAttribute('aria-hidden', 'true'); }
         if (routeOptions) routeOptions.style.display = 'none';
         const mapContainer = document.getElementById('map');

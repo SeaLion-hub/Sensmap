@@ -974,6 +974,11 @@ export class AuthManager {
                     this.app.uiHandler.addPanelToStack('myDataPanel');
                 }
             }
+            
+            // 헤더 컨트롤 숨기기
+            if (this.app.uiHandler.hideHeaderControls) {
+                this.app.uiHandler.hideHeaderControls();
+            }
 
             // 1년치 데이터 한 번에 가져오기 (클라이언트 필터링 방식)
             const url = `${this.getServerUrl()}/api/reports/my?recent_hours=8760`;
@@ -1022,6 +1027,13 @@ export class AuthManager {
     closeMyData() {
         if (this.app.uiHandler.closeCurrentPanel) {
             this.app.uiHandler.closeCurrentPanel();
+            
+            // 모든 패널이 닫혔으면 헤더 컨트롤 표시
+            if (this.app.uiHandler.panelStack && this.app.uiHandler.panelStack.length === 0) {
+                if (this.app.uiHandler.showHeaderControls) {
+                    this.app.uiHandler.showHeaderControls();
+                }
+            }
         } else {
             // 폴백
             const panel = document.getElementById('myDataPanel');

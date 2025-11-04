@@ -2250,7 +2250,254 @@ html, body {
     margin-top: 0;
 }
 
+/* 모바일용 주소 입력 필드 (기본 숨김) */
+.mobile-address-input {
+    display: none;
+}
+
+.mobile-bottom-buttons {
+    display: none;
+}
+
 /* 반응형 디자인 */
+/* 5.8인치 화면 (2436x1125) - 포트레이트 모드 */
+@media (max-width: 420px) and (max-height: 900px) {
+    /* 헤더 재구성 */
+    .header-controls {
+        padding: 8px 12px;
+        height: auto;
+        min-height: 60px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    /* 로고 숨김 */
+    .logo {
+        display: none !important;
+    }
+    
+    /* 헤더 왼쪽: 메뉴 버튼과 주소 입력을 같은 행에 */
+    .header-left {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        order: 1;
+    }
+    
+    .header-left .hamburger-menu {
+        order: 1;
+        flex-shrink: 0;
+    }
+    
+    /* 모바일 주소 입력 필드 표시 (메뉴 버튼 옆, 같은 행) */
+    .mobile-address-input {
+        display: block;
+        flex: 1;
+        order: 2;
+        margin-left: 0;
+    }
+    
+    .address-input-field {
+        width: 100%;
+        padding: 10px 16px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 14px;
+        background: white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .address-input-field:focus {
+        outline: none;
+        border-color: #1a73e8;
+        box-shadow: 0 0 0 3px rgba(26,115,232,0.1);
+    }
+    
+    /* 헤더 중앙: 히트맵, 감각별, 표시강도 표시 */
+    .header-center {
+        display: flex !important;
+        width: 100%;
+        order: 3;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 4px;
+    }
+    
+    /* 패널이 열렸을 때 헤더 컨트롤 숨기기 - 최고 우선순위로 설정 */
+    .header-controls .header-center.header-controls-hidden {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0 !important;
+        overflow: hidden !important;
+    }
+    
+    .header-controls .mobile-address-input.header-controls-hidden {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0 !important;
+        overflow: hidden !important;
+    }
+    
+    .display-controls {
+        width: 100%;
+        display: flex;
+        gap: 4px;
+    }
+    
+    /* 히트맵 버튼과 감각별 버튼을 동일한 크기로 */
+    .display-controls > .display-btn {
+        flex: 1;
+        font-size: 12px;
+        padding: 8px 8px;
+        min-width: 0; /* 텍스트 오버플로우 방지 */
+        justify-content: center; /* flex 아이템 중앙 정렬 (아이콘과 텍스트) */
+    }
+    
+    /* sensory-filter도 동일한 크기로 */
+    .display-controls > .sensory-filter {
+        flex: 1;
+        display: flex;
+        min-width: 0;
+    }
+    
+    .display-controls > .sensory-filter > .display-btn {
+        flex: 1;
+        font-size: 12px;
+        padding: 8px 8px;
+        width: 100%;
+        min-width: 0;
+        justify-content: center; /* flex 아이템 중앙 정렬 (아이콘과 텍스트) */
+    }
+    
+    .intensity-control {
+        width: 100%;
+        justify-content: space-between;
+        padding: 8px 12px;
+    }
+    
+    .intensity-slider {
+        flex: 1;
+        margin: 0 8px;
+    }
+    
+    /* 헤더 오른쪽 버튼 숨김 (모바일 하단으로 이동) */
+    .header-right {
+        display: none !important;
+    }
+    
+    /* 모바일 하단 버튼 표시 */
+    .mobile-bottom-buttons {
+        display: flex !important;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: white;
+        border-top: 1px solid #e5e7eb;
+        padding: 12px;
+        justify-content: space-around;
+        align-items: center;
+        z-index: 1000;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .mobile-icon-btn {
+        width: 56px;
+        height: 56px;
+        border: none;
+        background: white;
+        border-radius: 12px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border: 1px solid #e5e7eb;
+        transition: all 0.3s ease;
+        color: #6b7280;
+        font-size: 20px;
+    }
+    
+    .mobile-icon-btn:hover {
+        background: #f9fafb;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    }
+    
+    .mobile-icon-btn.active {
+        background: #1a73e8;
+        color: white;
+        border-color: #1a73e8;
+        transform: scale(1.05);
+    }
+    
+    /* 지도 위치 조정 */
+    #map {
+        top: 0;
+        height: 100vh;
+        padding-bottom: 80px; /* 하단 버튼 공간 확보 */
+    }
+    
+    /* 사이드 패널 조정 */
+    .side-panel, .settings-panel {
+        top: 0;
+        width: 100vw;
+        right: -100vw;
+        height: 100vh;
+        padding-bottom: 80px;
+    }
+    
+    /* Leaflet 줌 컨트롤 숨김 */
+    .leaflet-control-zoom {
+        display: none !important;
+    }
+    
+    /* Geosearch 컨트롤 숨김 (모바일 입력 필드 사용) */
+    .leaflet-control-geosearch {
+        display: none !important;
+    }
+    
+    /* 햄버거 메뉴 위치 조정 */
+    .hamburger-dropdown {
+        position: fixed;
+        top: auto;
+        left: 0;
+        right: 0;
+        margin-top: 0;
+        border-radius: 0;
+        min-width: auto;
+        max-height: calc(100vh - 80px);
+        overflow-y: auto;
+    }
+    
+    /* 알림 배너 위치 조정 */
+    .alert-banner {
+        top: 0;
+        padding-bottom: 80px;
+    }
+    
+    /* 토스트 메시지 위치 조정 */
+    .toast {
+        bottom: 100px !important;
+    }
+    
+    /* 실행취소 액션 위치 조정 */
+    .undo-action.show {
+        bottom: 100px !important;
+    }
+    
+    /* 경로 컨트롤 위치 조정 */
+    .route-controls {
+        bottom: 100px !important;
+        left: 15px;
+        right: 15px;
+    }
+}
+
 @media (max-width: 768px) {
     .header-controls {
         padding: 0 12px;

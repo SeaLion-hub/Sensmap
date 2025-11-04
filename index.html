@@ -376,6 +376,10 @@
           <div class="menu-item auth-required" style="display:none;" id="logoutMenuItem"><button class="menu-btn" id="logoutBtn"><i class="fas fa-sign-out-alt"></i><span>로그아웃</span></button></div>
         </div>
       </nav>
+      <!-- 모바일용 주소 입력 필드 (메뉴 버튼 옆) -->
+      <div class="mobile-address-input">
+        <input type="text" id="mobileAddressInput" placeholder="주소 입력" class="address-input-field">
+      </div>
     </div>
 
     <div class="header-center">
@@ -406,6 +410,13 @@
       <button class="icon-btn locate-btn" id="locateBtn" title="내 위치 표시/추적"><i class="fas fa-location-crosshairs"></i></button>
     </div>
   </header>
+  
+  <!-- 모바일용 하단 버튼 컨테이너 -->
+  <div class="mobile-bottom-buttons">
+    <button class="mobile-icon-btn active" id="mobileShowDataBtn" title="데이터 표시/숨김" aria-label="데이터 표시 토글" aria-pressed="true"><i class="fas fa-eye"></i></button>
+    <button class="mobile-icon-btn" id="mobileRouteBtn" title="경로 찾기" aria-label="경로 찾기 모드"><i class="fas fa-route"></i></button>
+    <button class="mobile-icon-btn locate-btn" id="mobileLocateBtn" title="내 위치 표시/추적"><i class="fas fa-location-crosshairs"></i></button>
+  </div>
 
   <!-- 설정 패널 -->
   <aside class="settings-panel" id="settingsPanel">

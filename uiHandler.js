@@ -94,6 +94,19 @@ export class UIHandler {
 
             document.getElementById('showDataBtn')?.addEventListener('click', () => this.toggleDataDisplay());
             document.getElementById('routeBtn')?.addEventListener('click', () => this.app.routeManager.toggleRouteMode());
+            
+            // 모바일 버튼 이벤트 리스너 - 함수들이 이미 모바일 버튼도 업데이트하므로 직접 호출만 하면 됨
+            document.getElementById('mobileShowDataBtn')?.addEventListener('click', () => {
+                this.toggleDataDisplay();
+            });
+            
+            document.getElementById('mobileRouteBtn')?.addEventListener('click', () => {
+                this.app.routeManager.toggleRouteMode();
+            });
+            
+            document.getElementById('mobileLocateBtn')?.addEventListener('click', () => {
+                this.toggleUserLocation();
+            });
 
             // Hamburger menu controls
             document.getElementById('hamburgerBtn')?.addEventListener('click', () => this.toggleHamburgerMenu());
@@ -380,12 +393,15 @@ export class UIHandler {
     toggleUserLocation() {
         try {
             const btn = document.getElementById('locateBtn');
+            const mobileBtn = document.getElementById('mobileLocateBtn');
             const isTracking = !!this.app?._geo?.isTracking;
             if (!isTracking) {
                 if (btn) btn.classList.add('active');
+                if (mobileBtn) mobileBtn.classList.add('active');
                 this.app.startUserLocation();
             } else {
                 if (btn) btn.classList.remove('active');
+                if (mobileBtn) mobileBtn.classList.remove('active');
                 this.app.stopUserLocation();
             }
         } catch (e) {
@@ -700,16 +716,35 @@ export class UIHandler {
     toggleDataDisplay() {
         const showData = this.app.visualizationManager.toggleDataDisplay();
         const btn = document.getElementById('showDataBtn');
+        const mobileBtn = document.getElementById('mobileShowDataBtn');
 
         if (showData) {
-            btn.classList.add('active');
-            btn.setAttribute('aria-pressed', 'true');
-            btn.querySelector('i').className = 'fas fa-eye';
+            if (btn) {
+                btn.classList.add('active');
+                btn.setAttribute('aria-pressed', 'true');
+                const icon = btn.querySelector('i');
+                if (icon) icon.className = 'fas fa-eye';
+            }
+            if (mobileBtn) {
+                mobileBtn.classList.add('active');
+                mobileBtn.setAttribute('aria-pressed', 'true');
+                const icon = mobileBtn.querySelector('i');
+                if (icon) icon.className = 'fas fa-eye';
+            }
             this.app.refreshVisualization();
         } else {
-            btn.classList.remove('active');
-            btn.setAttribute('aria-pressed', 'false');
-            btn.querySelector('i').className = 'fas fa-eye-slash';
+            if (btn) {
+                btn.classList.remove('active');
+                btn.setAttribute('aria-pressed', 'false');
+                const icon = btn.querySelector('i');
+                if (icon) icon.className = 'fas fa-eye-slash';
+            }
+            if (mobileBtn) {
+                mobileBtn.classList.remove('active');
+                mobileBtn.setAttribute('aria-pressed', 'false');
+                const icon = mobileBtn.querySelector('i');
+                if (icon) icon.className = 'fas fa-eye-slash';
+            }
             this.app.mapManager.clearLayers();
         }
     }
@@ -847,8 +882,14 @@ export class UIHandler {
         const btn = document.getElementById('hamburgerBtn');
         const dropdown = document.getElementById('hamburgerDropdown');
 
-        btn.setAttribute('aria-expanded', 'false');
-        dropdown.setAttribute('aria-hidden', 'true');
+        // 포커스된 요소가 있으면 포커스 제거 (aria-hidden 에러 방지)
+        const focusedElement = document.activeElement;
+        if (focusedElement && dropdown.contains(focusedElement)) {
+            focusedElement.blur();
+        }
+
+        if (btn) btn.setAttribute('aria-expanded', 'false');
+        if (dropdown) dropdown.setAttribute('aria-hidden', 'true');
     }
 
     openSensoryHelpModal(section) {
@@ -885,24 +926,28 @@ export class UIHandler {
         const panel = document.getElementById('settingsPanel');
         panel.classList.add('open');
         this.addPanelToStack('settingsPanel');
+        this.hideHeaderControls();
     }
 
     closeSettingsPanel() {
         const panel = document.getElementById('settingsPanel');
         panel.classList.remove('open');
         this.removePanelFromStack('settingsPanel');
+        this.showHeaderControls();
     }
 
     openContactModal() {
         const modal = document.getElementById('contactModal');
         modal.classList.add('show');
         this.addPanelToStack('contactModal');
+        this.hideHeaderControls();
     }
 
     closeContactModal() {
         const modal = document.getElementById('contactModal');
         modal.classList.remove('show');
         this.removePanelFromStack('contactModal');
+        this.showHeaderControls();
     }
 
     openProfilePanel() {
@@ -911,6 +956,7 @@ export class UIHandler {
         panel.classList.add('open');
         panel.setAttribute('aria-hidden', 'false');
         this.addPanelToStack('profilePanel');
+        this.hideHeaderControls();
 
         const firstInput = panel.querySelector('input, button');
         if (firstInput) {
@@ -935,6 +981,7 @@ export class UIHandler {
         panel.classList.add('open');
         panel.setAttribute('aria-hidden', 'false');
         this.addPanelToStack('sidePanel');
+        this.hideHeaderControls();
 
         const firstInput = panel.querySelector('input, button');
         if (firstInput) {
@@ -962,6 +1009,16 @@ export class UIHandler {
         }
 
         this.removePanelFromStack(currentPanelId);
+        
+        // 모든 패널이 닫혔으면 헤더 컨트롤 표시 (약간의 지연을 두어 hideHeaderControls가 먼저 실행되도록)
+        if (this.panelStack.length === 0) {
+            setTimeout(() => {
+                // 패널 스택이 여전히 비어있으면 헤더 컨트롤 표시
+                if (this.panelStack.length === 0) {
+                    this.showHeaderControls();
+                }
+            }, 10);
+        }
     }
 
     /**
@@ -976,6 +1033,139 @@ export class UIHandler {
         // 패널 스택 초기화
         this.panelStack = [];
         this.openPanels.clear();
+        
+        // 헤더 컨트롤 표시 - 하지만 바로 다음에 새로운 패널이 열릴 수 있으므로 조건부로만 호출
+        // 새로운 패널이 열리면 hideHeaderControls()가 호출되므로 여기서는 호출하지 않음
+        // 대신 closeCurrentPanel()에서만 호출
+    }
+    
+    /**
+     * 헤더 컨트롤 숨기기 (히트맵, 감각별, 표시강도, 주소 입력) - 모바일에서만
+     */
+    hideHeaderControls() {
+        // 모바일에서만 숨기기
+        const isMobile = window.matchMedia('(max-width: 420px) and (max-height: 900px)').matches;
+        console.log('hideHeaderControls called, isMobile:', isMobile, 'window width:', window.innerWidth, 'height:', window.innerHeight);
+        
+        if (!isMobile) {
+            console.log('Not mobile, returning early');
+            return; // 데스크톱에서는 아무것도 하지 않음
+        }
+        
+        // 여러 방법으로 요소 찾기 시도
+        const headerCenter = document.querySelector('.header-center') || 
+                              document.querySelector('header .header-center') ||
+                              document.querySelector('.header-controls .header-center');
+        const mobileAddressInput = document.querySelector('.mobile-address-input') ||
+                                    document.querySelector('header .mobile-address-input') ||
+                                    document.querySelector('.header-controls .mobile-address-input');
+        
+        console.log('hideHeaderControls - elements found:', { 
+            headerCenter: !!headerCenter, 
+            mobileAddressInput: !!mobileAddressInput,
+            headerCenterClasses: headerCenter?.className || 'not found',
+            mobileAddressInputClasses: mobileAddressInput?.className || 'not found'
+        });
+        
+        if (headerCenter) {
+            headerCenter.classList.add('header-controls-hidden');
+            // 강제로 클래스 추가 확인
+            const hasClass = headerCenter.classList.contains('header-controls-hidden');
+            console.log('header-controls-hidden class added to headerCenter:', hasClass, 'all classes:', headerCenter.className);
+            
+            // 스타일 직접 설정도 시도
+            headerCenter.style.setProperty('display', 'none', 'important');
+        } else {
+            console.error('header-center element not found! Tried selectors: .header-center, header .header-center, .header-controls .header-center');
+            // 모든 header-center 요소 찾기
+            const allHeaderCenters = document.querySelectorAll('.header-center');
+            console.error('All .header-center elements found:', allHeaderCenters);
+        }
+        
+        if (mobileAddressInput) {
+            mobileAddressInput.classList.add('header-controls-hidden');
+            const hasClass = mobileAddressInput.classList.contains('header-controls-hidden');
+            console.log('header-controls-hidden class added to mobileAddressInput:', hasClass, 'all classes:', mobileAddressInput.className);
+            
+            mobileAddressInput.style.setProperty('display', 'none', 'important');
+        } else {
+            console.error('mobile-address-input element not found!');
+            const allMobileInputs = document.querySelectorAll('.mobile-address-input');
+            console.error('All .mobile-address-input elements found:', allMobileInputs);
+        }
+    }
+    
+    /**
+     * 헤더 컨트롤 표시하기 (히트맵, 감각별, 표시강도, 주소 입력) - 모바일에서만
+     */
+    showHeaderControls() {
+        // 모바일에서만 표시
+        const isMobile = window.matchMedia('(max-width: 420px) and (max-height: 900px)').matches;
+        console.log('showHeaderControls called, isMobile:', isMobile, 'panelStack length:', this.panelStack.length);
+        
+        if (!isMobile) {
+            console.log('Not mobile, returning early');
+            return; // 데스크톱에서는 아무것도 하지 않음
+        }
+        
+        // 패널이 열려있으면 헤더 컨트롤을 표시하지 않음
+        if (this.panelStack.length > 0) {
+            console.log('Panel is open, not showing header controls. panelStack:', this.panelStack);
+            return;
+        }
+        
+        // 모달이나 튜토리얼이 열려있는지 확인
+        const contactModal = document.getElementById('contactModal');
+        const tutorialOverlay = document.getElementById('tutorialOverlay');
+        const loginModal = document.getElementById('loginModal');
+        
+        if (contactModal && contactModal.classList.contains('show')) {
+            console.log('Contact modal is open, not showing header controls');
+            return;
+        }
+        if (tutorialOverlay && (tutorialOverlay.classList.contains('show') || tutorialOverlay.style.display === 'flex')) {
+            console.log('Tutorial is open, not showing header controls');
+            return;
+        }
+        if (loginModal && loginModal.classList.contains('show')) {
+            console.log('Login modal is open, not showing header controls');
+            return;
+        }
+        
+        // 여러 방법으로 요소 찾기 시도
+        const headerCenter = document.querySelector('.header-center') || 
+                              document.querySelector('header .header-center') ||
+                              document.querySelector('.header-controls .header-center');
+        const mobileAddressInput = document.querySelector('.mobile-address-input') ||
+                                    document.querySelector('header .mobile-address-input') ||
+                                    document.querySelector('.header-controls .mobile-address-input');
+        
+        console.log('showHeaderControls - elements found:', { 
+            headerCenter: !!headerCenter, 
+            mobileAddressInput: !!mobileAddressInput,
+            headerCenterClasses: headerCenter?.className || 'not found',
+            mobileAddressInputClasses: mobileAddressInput?.className || 'not found'
+        });
+        
+        if (headerCenter) {
+            headerCenter.classList.remove('header-controls-hidden');
+            // 인라인 스타일도 제거
+            headerCenter.style.removeProperty('display');
+            const hasClass = headerCenter.classList.contains('header-controls-hidden');
+            console.log('header-controls-hidden class removed from headerCenter:', !hasClass, 'all classes:', headerCenter.className);
+        } else {
+            console.error('header-center element not found in showHeaderControls!');
+        }
+        
+        if (mobileAddressInput) {
+            mobileAddressInput.classList.remove('header-controls-hidden');
+            // 인라인 스타일도 제거
+            mobileAddressInput.style.removeProperty('display');
+            const hasClass = mobileAddressInput.classList.contains('header-controls-hidden');
+            console.log('header-controls-hidden class removed from mobileAddressInput:', !hasClass, 'all classes:', mobileAddressInput.className);
+        } else {
+            console.error('mobile-address-input element not found in showHeaderControls!');
+        }
     }
 
     hideAlertBanner() {
@@ -1042,6 +1232,8 @@ export class UIHandler {
             
             this.currentTutorialStep = 1;
             this.updateTutorialStep();
+            
+            this.hideHeaderControls();
         }
     }
 
@@ -1051,6 +1243,7 @@ export class UIHandler {
             overlay.classList.remove('show');
             overlay.style.display = 'none';
         }
+        this.showHeaderControls();
         localStorage.setItem('tutorialCompleted', 'true');
         
         // 튜토리얼 완료 후 사용자에게 피드백 제공
@@ -1299,6 +1492,7 @@ export class UIHandler {
             panel.classList.add('open');
             panel.setAttribute('aria-hidden', 'false');
             this.addPanelToStack(panelId);
+            this.hideHeaderControls();
         }
     }
 
