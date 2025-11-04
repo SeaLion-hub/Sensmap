@@ -26,6 +26,9 @@ export class MapManager {
                 keepResult: false
             });
             this.map.addControl(searchControl);
+            // 검색 컨트롤을 전역에서 접근 가능하도록 저장
+            this.searchControl = searchControl;
+            this.searchProvider = provider;
         }
 
         return this.map;

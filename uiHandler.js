@@ -108,6 +108,9 @@ export class UIHandler {
                 this.toggleUserLocation();
             });
 
+            // 모바일 주소 입력 기능
+            this.setupMobileAddressSearch();
+
             // Hamburger menu controls
             document.getElementById('hamburgerBtn')?.addEventListener('click', () => this.toggleHamburgerMenu());
             document.getElementById('profileMenuBtn')?.addEventListener('click', () => {
@@ -407,6 +410,121 @@ export class UIHandler {
         } catch (e) {
             this.app.handleError('위치 추적 전환 중 오류가 발생했습니다', e);
         }
+    }
+
+    setupMobileAddressSearch() {
+        const mobileAddressInput = document.getElementById('mobileAddressInput');
+        if (!mobileAddressInput) return;
+
+        const map = this.app.mapManager?.getMap();
+        if (!map) {
+            console.warn('지도가 초기화되지 않았습니다');
+            return;
+        }
+
+        // GeoSearch provider 가져오기 (mapManager에서 초기화된 것 사용)
+        const mapManager = this.app.mapManager;
+        const provider = mapManager?.searchProvider || null;
+
+        // Enter 키 입력 시 검색
+        mobileAddressInput.addEventListener('keydown', async (e) => {
+            if (e.key !== 'Enter') return;
+            
+            e.preventDefault();
+            const query = mobileAddressInput.value.trim();
+            if (!query) {
+                this.app.showToast('주소를 입력해주세요', 'warning');
+                return;
+            }
+
+            try {
+                // 입력 필드 비활성화
+                mobileAddressInput.disabled = true;
+                mobileAddressInput.placeholder = '검색 중...';
+
+                let results = null;
+                
+                // 방법 1: GeoSearch provider 사용 (데스크톱과 동일한 방법)
+                if (provider) {
+                    try {
+                        // GeoSearch provider의 search 메서드는 CORS를 우회하는 방법을 사용할 수 있음
+                        results = await provider.search({ query });
+                        if (results && results.length > 0) {
+                            // GeoSearch 결과 형식: { y: lat, x: lng, label: address }
+                            const result = results[0];
+                            const lat = result.y;
+                            const lng = result.x;
+
+                            // 지도 이동
+                            map.setView([lat, lng], 15);
+                            
+                            // 입력 필드에 결과 주소 표시
+                            mobileAddressInput.value = result.label || query;
+                            
+                            this.app.showToast('주소를 찾았습니다', 'success');
+                            
+                            // 입력 필드 다시 활성화
+                            mobileAddressInput.disabled = false;
+                            mobileAddressInput.placeholder = '주소 입력';
+                            return; // 성공하면 종료
+                        }
+                    } catch (providerError) {
+                        console.warn('GeoSearch provider 실패, 서버 프록시 시도:', providerError);
+                    }
+                }
+
+                // 방법 2: 서버 프록시 사용
+                const serverUrl = window.SENSMAP_SERVER_URL || '';
+                const geocodeUrl = serverUrl ? `${serverUrl}/api/geocode?q=${encodeURIComponent(query)}` : null;
+                
+                if (geocodeUrl) {
+                    try {
+                        const response = await fetch(geocodeUrl, {
+                            method: 'GET',
+                            headers: {
+                                'Accept': 'application/json'
+                            }
+                        });
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.success && data.data && data.data.length > 0) {
+                                results = data.data;
+                                const result = results[0];
+                                const lat = parseFloat(result.lat);
+                                const lng = parseFloat(result.lon);
+
+                                // 지도 이동
+                                map.setView([lat, lng], 15);
+                                
+                                // 입력 필드에 결과 주소 표시
+                                mobileAddressInput.value = result.display_name || query;
+                                
+                                this.app.showToast('주소를 찾았습니다', 'success');
+                                
+                                // 입력 필드 다시 활성화
+                                mobileAddressInput.disabled = false;
+                                mobileAddressInput.placeholder = '주소 입력';
+                                return; // 성공하면 종료
+                            }
+                        }
+                    } catch (error) {
+                        console.warn('서버 프록시 실패:', error);
+                    }
+                }
+
+                // 모든 방법이 실패한 경우
+                throw new Error('주소 검색에 실패했습니다. 서버가 업데이트되지 않았거나 네트워크 연결을 확인해주세요.');
+                
+            } catch (error) {
+                console.error('주소 검색 오류:', error);
+                this.app.showToast(error.message || '주소 검색 중 오류가 발생했습니다', 'error');
+            } finally {
+                // 입력 필드 다시 활성화
+                mobileAddressInput.disabled = false;
+                mobileAddressInput.placeholder = '주소 입력';
+            }
+        });
     }
 
     openQuestionModal() {
