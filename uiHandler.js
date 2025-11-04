@@ -1961,10 +1961,7 @@ export class UIHandler {
                         ${r.type === 'regular' ? '🟢 지속적' : '⚡ 일시적'} · 
                         <span style="font-size:12px; color:#6b7280;">${this._fmtDate(r.created_at)}</span>
                     </div>
-                    <div style="font-size:12px; color:#6b7280; margin-bottom:6px;">
-                        📍 (${r.lat?.toFixed?.(5) || r.lat}, ${r.lng?.toFixed?.(5) || r.lng})
-                        ${r.wheelchair ? ' · ♿ 휠체어 제약' : ''}
-                    </div>
+                   
                     <div style="display:flex; gap:10px; font-size:13px; flex-wrap:wrap;">
                         <span>🔊 ${r.noise ?? '-'}</span>
                         <span>💡 ${r.light ?? '-'}</span>
@@ -2154,3 +2151,4 @@ export class UIHandler {
     }
 
 }
+
