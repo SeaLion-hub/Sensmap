@@ -713,6 +713,9 @@ export class UIHandler {
             const prevBtn = wizard.querySelector('#surveyPrev');
             const nextBtn = wizard.querySelector('#surveyNext');
             const submitBtn = wizard.querySelector('#submitAnswerBtn');
+            
+            // 설문 슬라이더 값 업데이트 이벤트 리스너 설정
+            this.setupSurveyRangeListeners();
             if (prevBtn) prevBtn.disabled = true;          // 첫 스텝이니 Prev 비활성
             if (nextBtn) nextBtn.style.display = '';       // Next 보이기
             if (submitBtn) submitBtn.style.display = 'none'; // 제출 숨기기(마지막 스텝에서만)
@@ -726,6 +729,33 @@ export class UIHandler {
         modal.style.display = 'none';
         
         }
+    
+    setupSurveyRangeListeners() {
+        // 모든 설문 슬라이더에 이벤트 리스너 추가
+        const surveyRanges = document.querySelectorAll('#questionModal .survey-range');
+        surveyRanges.forEach(range => {
+            // 기존 리스너 제거 (중복 방지)
+            const newRange = range.cloneNode(true);
+            range.parentNode.replaceChild(newRange, range);
+            
+            // 값 업데이트 함수
+            const updateValue = () => {
+                const value = newRange.value;
+                const valueDisplayId = newRange.id + 'Value';
+                const valueDisplay = document.getElementById(valueDisplayId);
+                if (valueDisplay) {
+                    valueDisplay.textContent = value;
+                }
+            };
+            
+            // 초기값 설정
+            updateValue();
+            
+            // input 이벤트 리스너 추가
+            newRange.addEventListener('input', updateValue);
+            newRange.addEventListener('change', updateValue);
+        });
+    }
 
         
 

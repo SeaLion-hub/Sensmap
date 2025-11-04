@@ -142,178 +142,428 @@
 
   <!-- 설문 위저드 모달 -->
   <div class="modal-overlay" id="questionModal" style="display:none;">
-    <div class="modal-content">
-      <div class="modal-header">
+    <div class="modal-content survey-modal">
+      <div class="modal-header survey-header">
+        <div class="survey-header-content">
+          <h3><i class="fas fa-clipboard-list"></i> 감각 프로필 설문</h3>
+          <p class="survey-subtitle">개인 맞춤형 경로를 위해 감각 민감도를 알려주세요</p>
+        </div>
         <button class="close-btn" id="closeQuestionBtn" aria-label="질문 닫기"><i class="fas fa-times"></i></button>
       </div>
-      <div class="modal-body">
-        <p>아래 질문에 답해주세요:</p>
-
+      <div class="modal-body survey-body">
         <div id="surveyWizard" class="survey-wizard">
           <div class="wizard-content">
             <!-- 1~20 단계 (이미지 포함 항목은 필요 시 표시됨) -->
             <section class="tutorial-step active" data-step="1">
-              <div class="question-block">
+              <div class="question-block survey-question">
+                <div class="question-header">
+                  <div class="question-number">1/20</div>
+                  <div class="question-category"><i class="fas fa-volume-up"></i> 소음</div>
+                </div>
                 <label for="soundFoodcourt">점심시간에 붐비고 시끄러운 푸드코트에서 얼마나 편안함을 느끼시나요?</label>
-                <input type="range" id="soundFoodcourt" name="q1" min="1" max="10" step="1" value="5">
-                <img src="./assets/FoodCourt.png" alt="푸드코트" class="range-thumb-img" loading="lazy">
+                <div class="question-content">
+                  <div class="range-container">
+                    <input type="range" id="soundFoodcourt" name="q1" min="1" max="10" step="1" value="5" class="survey-range">
+                    <div class="range-labels">
+                      <span class="range-label">매우 편안</span>
+                      <span class="range-value-display" id="soundFoodcourtValue">5</span>
+                      <span class="range-label">매우 불편</span>
+                    </div>
+                  </div>
+                  <img src="./assets/FoodCourt.png" alt="푸드코트" class="question-image" loading="lazy">
+                </div>
               </div>
             </section>
 
             <section class="tutorial-step" data-step="2">
-              <div class="question-block">
+              <div class="question-block survey-question">
+                <div class="question-header">
+                  <div class="question-number">2/20</div>
+                  <div class="question-category"><i class="fas fa-volume-up"></i> 소음</div>
+                </div>
                 <label for="soundTraffic">자동차 경적 소리와 사이렌이 울리는 복잡한 거리를 상상해 보세요. 이 소리가 얼마나 당신을 괴롭히나요?</label>
-                <input type="range" id="soundTraffic" name="q2" min="1" max="10" step="1" value="5">
-                <img src="./assets/CarSiren.png" alt="자동차 사이렌" class="range-thumb-img" loading="lazy">
+                <div class="question-content">
+                  <div class="range-container">
+                    <input type="range" id="soundTraffic" name="q2" min="1" max="10" step="1" value="5" class="survey-range">
+                    <div class="range-labels">
+                      <span class="range-label">편안</span>
+                      <span class="range-value-display" id="soundTrafficValue">5</span>
+                      <span class="range-label">불편</span>
+                    </div>
+                  </div>
+                  <img src="./assets/CarSiren.png" alt="자동차 사이렌" class="question-image" loading="lazy">
+                </div>
               </div>
             </section>
 
             <section class="tutorial-step" data-step="3">
-              <div class="question-block">
+              <div class="question-block survey-question">
+                <div class="question-header">
+                  <div class="question-number">3/20</div>
+                  <div class="question-category"><i class="fas fa-volume-up"></i> 소음</div>
+                </div>
                 <label for="soundMinor">도서관이나 조용한 스터디룸에서 사소한 소리에 얼마나 민감한가요?</label>
-                <input type="range" id="soundMinor" name="q3" min="1" max="10" step="1" value="5">
-                <img src="./assets/Library.png" alt="도서관" class="range-thumb-img" loading="lazy">
+                <div class="question-content">
+                  <div class="range-container">
+                    <input type="range" id="soundMinor" name="q3" min="1" max="10" step="1" value="5" class="survey-range">
+                    <div class="range-labels">
+                      <span class="range-label">편안</span>
+                      <span class="range-value-display" id="soundMinorValue">5</span>
+                      <span class="range-label">민감</span>
+                    </div>
+                  </div>
+                  <img src="./assets/Library.png" alt="도서관" class="question-image" loading="lazy">
+                </div>
               </div>
             </section>
 
             <section class="tutorial-step" data-step="4">
-              <div class="question-block">
+              <div class="question-block survey-question">
+                <div class="question-header">
+                  <div class="question-number">4/20</div>
+                  <div class="question-category"><i class="fas fa-volume-up"></i> 소음</div>
+                </div>
                 <label for="soundBgm">낮은 볼륨의 배경음악이 집중/이완에 방해되나요?</label>
-                <input type="range" id="soundBgm" name="q4" min="1" max="10" step="1" value="5">
-                <img src="./assets/Quiet.png" alt="조용한 장소" class="range-thumb-img" loading="lazy">
+                <div class="question-content">
+                  <div class="range-container">
+                    <input type="range" id="soundBgm" name="q4" min="1" max="10" step="1" value="5" class="survey-range">
+                    <div class="range-labels">
+                      <span class="range-label">편안</span>
+                      <span class="range-value-display" id="soundBgmValue">5</span>
+                      <span class="range-label">방해</span>
+                    </div>
+                  </div>
+                  <img src="./assets/Quiet.png" alt="조용한 장소" class="question-image" loading="lazy">
+                </div>
               </div>
             </section>
 
             <section class="tutorial-step" data-step="5">
-              <div class="question-block">
+              <div class="question-block survey-question">
+                <div class="question-header">
+                  <div class="question-number">5/20</div>
+                  <div class="question-category"><i class="fas fa-lightbulb"></i> 빛</div>
+                </div>
                 <label for="lightMall">밝은 쇼핑몰 환경에 대한 느낌은?</label>
-                <input type="range" id="lightMall" name="q5" min="1" max="10" step="1" value="5">
-                <img src="./assets/brightmall.png" alt="밝은 쇼핑몰" class="range-thumb-img" loading="lazy">
+                <div class="question-content">
+                  <div class="range-container">
+                    <input type="range" id="lightMall" name="q5" min="1" max="10" step="1" value="5" class="survey-range">
+                    <div class="range-labels">
+                      <span class="range-label">편안</span>
+                      <span class="range-value-display" id="lightMallValue">5</span>
+                      <span class="range-label">불편</span>
+                    </div>
+                  </div>
+                  <img src="./assets/brightmall.png" alt="밝은 쇼핑몰" class="question-image" loading="lazy">
+                </div>
               </div>
             </section>
 
             <section class="tutorial-step" data-step="6">
-              <div class="question-block">
+              <div class="question-block survey-question">
+                <div class="question-header">
+                  <div class="question-number">6/20</div>
+                  <div class="question-category"><i class="fas fa-lightbulb"></i> 빛</div>
+                </div>
                 <label for="lightFlicker">형광등 깜빡임/모니터 눈부심을 알아차리나요?</label>
-                <input type="range" id="lightFlicker" name="q6" min="1" max="10" step="1" value="5">
-                <img src="./assets/brightlight.png" alt="밝은 조명" class="range-thumb-img" loading="lazy">
+                <div class="question-content">
+                  <div class="range-container">
+                    <input type="range" id="lightFlicker" name="q6" min="1" max="10" step="1" value="5" class="survey-range">
+                    <div class="range-labels">
+                      <span class="range-label">편안</span>
+                      <span class="range-value-display" id="lightFlickerValue">5</span>
+                      <span class="range-label">민감</span>
+                    </div>
+                  </div>
+                  <img src="./assets/brightlight.png" alt="밝은 조명" class="question-image" loading="lazy">
+                </div>
               </div>
             </section>
 
             <section class="tutorial-step" data-step="7">
-              <div class="question-block">
+              <div class="question-block survey-question">
+                <div class="question-header">
+                  <div class="question-number">7/20</div>
+                  <div class="question-category"><i class="fas fa-lightbulb"></i> 빛</div>
+                </div>
                 <label for="lightGlare">강한 반사광(차 반사 등)이 얼마나 불편한가요?</label>
-                <input type="range" id="lightGlare" name="q7" min="1" max="10" step="1" value="5">
-                <img src="./assets/carbright.png" alt="반사광" class="range-thumb-img" loading="lazy">
+                <div class="question-content">
+                  <div class="range-container">
+                    <input type="range" id="lightGlare" name="q7" min="1" max="10" step="1" value="5" class="survey-range">
+                    <div class="range-labels">
+                      <span class="range-label">편안</span>
+                      <span class="range-value-display" id="lightGlareValue">5</span>
+                      <span class="range-label">불편</span>
+                    </div>
+                  </div>
+                  <img src="./assets/carbright.png" alt="반사광" class="question-image" loading="lazy">
+                </div>
               </div>
             </section>
 
             <section class="tutorial-step" data-step="8">
-              <div class="question-block">
+              <div class="question-block survey-question">
+                <div class="question-header">
+                  <div class="question-number">8/20</div>
+                  <div class="question-category"><i class="fas fa-lightbulb"></i> 빛</div>
+                </div>
                 <label for="lightControl">조명 제어의 중요도는?</label>
-                <input type="range" id="lightControl" name="q8" min="1" max="10" step="1" value="5">
+                <div class="question-content">
+                  <div class="range-container">
+                    <input type="range" id="lightControl" name="q8" min="1" max="10" step="1" value="5" class="survey-range">
+                    <div class="range-labels">
+                      <span class="range-label">낮음</span>
+                      <span class="range-value-display" id="lightControlValue">5</span>
+                      <span class="range-label">높음</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </section>
 
             <section class="tutorial-step" data-step="9">
-              <div class="question-block">
+              <div class="question-block survey-question">
+                <div class="question-header">
+                  <div class="question-number">9/20</div>
+                  <div class="question-category"><i class="fas fa-smog"></i> 냄새</div>
+                </div>
                 <label for="smellStore">강한 향의 매장(베이커리/향수점)에서의 영향은?</label>
-                <input type="range" id="smellStore" name="q9" min="1" max="10" step="1" value="5">
-                <img src="./assets/smellStore.png" alt="향이 강한 가게" class="range-thumb-img" loading="lazy">
+                <div class="question-content">
+                  <div class="range-container">
+                    <input type="range" id="smellStore" name="q9" min="1" max="10" step="1" value="5" class="survey-range">
+                    <div class="range-labels">
+                      <span class="range-label">편안</span>
+                      <span class="range-value-display" id="smellStoreValue">5</span>
+                      <span class="range-label">불편</span>
+                    </div>
+                  </div>
+                  <img src="./assets/smellStore.png" alt="향이 강한 가게" class="question-image" loading="lazy">
+                </div>
               </div>
             </section>
 
             <section class="tutorial-step" data-step="10">
-              <div class="question-block">
+              <div class="question-block survey-question">
+                <div class="question-header">
+                  <div class="question-number">10/20</div>
+                  <div class="question-category"><i class="fas fa-smog"></i> 냄새</div>
+                </div>
                 <label for="smellSubtle">향수/요리 냄새 같은 미묘한 냄새 인지/반응?</label>
-                <input type="range" id="smellSubtle" name="q10" min="1" max="10" step="1" value="5">
+                <div class="question-content">
+                  <div class="range-container">
+                    <input type="range" id="smellSubtle" name="q10" min="1" max="10" step="1" value="5" class="survey-range">
+                    <div class="range-labels">
+                      <span class="range-label">편안</span>
+                      <span class="range-value-display" id="smellSubtleValue">5</span>
+                      <span class="range-label">민감</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </section>
 
             <section class="tutorial-step" data-step="11">
-              <div class="question-block">
+              <div class="question-block survey-question">
+                <div class="question-header">
+                  <div class="question-number">11/20</div>
+                  <div class="question-category"><i class="fas fa-smog"></i> 냄새</div>
+                </div>
                 <label for="smellUnpleasant">불쾌한 냄새(쓰레기차 등)가 편안함에 미치는 영향?</label>
-                <input type="range" id="smellUnpleasant" name="q11" min="1" max="10" step="1" value="5">
-                <img src="./assets/SmellUnpleasant.png" alt="불쾌한 냄새" class="range-thumb-img" loading="lazy">
+                <div class="question-content">
+                  <div class="range-container">
+                    <input type="range" id="smellUnpleasant" name="q11" min="1" max="10" step="1" value="5" class="survey-range">
+                    <div class="range-labels">
+                      <span class="range-label">편안</span>
+                      <span class="range-value-display" id="smellUnpleasantValue">5</span>
+                      <span class="range-label">불편</span>
+                    </div>
+                  </div>
+                  <img src="./assets/SmellUnpleasant.png" alt="불쾌한 냄새" class="question-image" loading="lazy">
+                </div>
               </div>
             </section>
 
             <section class="tutorial-step" data-step="12">
-              <div class="question-block">
+              <div class="question-block survey-question">
+                <div class="question-header">
+                  <div class="question-number">12/20</div>
+                  <div class="question-category"><i class="fas fa-smog"></i> 냄새</div>
+                </div>
                 <label for="smellAvoid">냄새 때문에 특정 장소를 피한 경험?</label>
-                <input type="range" id="smellAvoid" name="q12" min="1" max="10" step="1" value="5">
-                <img src="./assets/smellAvoid.png" alt="회피" class="range-thumb-img" loading="lazy">
+                <div class="question-content">
+                  <div class="range-container">
+                    <input type="range" id="smellAvoid" name="q12" min="1" max="10" step="1" value="5" class="survey-range">
+                    <div class="range-labels">
+                      <span class="range-label">없음</span>
+                      <span class="range-value-display" id="smellAvoidValue">5</span>
+                      <span class="range-label">자주</span>
+                    </div>
+                  </div>
+                  <img src="./assets/smellAvoid.png" alt="회피" class="question-image" loading="lazy">
+                </div>
               </div>
             </section>
 
             <section class="tutorial-step" data-step="13">
-              <div class="question-block">
+              <div class="question-block survey-question">
+                <div class="question-header">
+                  <div class="question-number">13/20</div>
+                  <div class="question-category"><i class="fas fa-users"></i> 혼잡도</div>
+                </div>
                 <label for="crowdSubway">출퇴근 시간 지하철역 통과에 대한 느낌?</label>
-                <input type="range" id="crowdSubway" name="q13" min="1" max="10" step="1" value="5">
-                <img src="./assets/crowdSubway.png" alt="혼잡한 지하철" class="range-thumb-img" loading="lazy">
+                <div class="question-content">
+                  <div class="range-container">
+                    <input type="range" id="crowdSubway" name="q13" min="1" max="10" step="1" value="5" class="survey-range">
+                    <div class="range-labels">
+                      <span class="range-label">편안</span>
+                      <span class="range-value-display" id="crowdSubwayValue">5</span>
+                      <span class="range-label">불편</span>
+                    </div>
+                  </div>
+                  <img src="./assets/crowdSubway.png" alt="혼잡한 지하철" class="question-image" loading="lazy">
+                </div>
               </div>
             </section>
 
             <section class="tutorial-step" data-step="14">
-              <div class="question-block">
+              <div class="question-block survey-question">
+                <div class="question-header">
+                  <div class="question-number">14/20</div>
+                  <div class="question-category"><i class="fas fa-users"></i> 혼잡도</div>
+                </div>
                 <label for="crowdMarket">주말 붐비는 마트에서의 불편함?</label>
-                <input type="range" id="crowdMarket" name="q14" min="1" max="10" step="1" value="5">
+                <div class="question-content">
+                  <div class="range-container">
+                    <input type="range" id="crowdMarket" name="q14" min="1" max="10" step="1" value="5" class="survey-range">
+                    <div class="range-labels">
+                      <span class="range-label">편안</span>
+                      <span class="range-value-display" id="crowdMarketValue">5</span>
+                      <span class="range-label">불편</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </section>
 
             <section class="tutorial-step" data-step="15">
-              <div class="question-block">
+              <div class="question-block survey-question">
+                <div class="question-header">
+                  <div class="question-number">15/20</div>
+                  <div class="question-category"><i class="fas fa-users"></i> 혼잡도</div>
+                </div>
                 <label for="crowdCinema">만원 엘리베이터/영화관이 유발하는 스트레스?</label>
-                <input type="range" id="crowdCinema" name="q15" min="1" max="10" step="1" value="5">
-                <img src="./assets/crowdElevator.png" alt="혼잡 엘리베이터" class="range-thumb-img" loading="lazy">
+                <div class="question-content">
+                  <div class="range-container">
+                    <input type="range" id="crowdCinema" name="q15" min="1" max="10" step="1" value="5" class="survey-range">
+                    <div class="range-labels">
+                      <span class="range-label">편안</span>
+                      <span class="range-value-display" id="crowdCinemaValue">5</span>
+                      <span class="range-label">스트레스</span>
+                    </div>
+                  </div>
+                  <img src="./assets/crowdElevator.png" alt="혼잡 엘리베이터" class="question-image" loading="lazy">
+                </div>
               </div>
             </section>
 
             <section class="tutorial-step" data-step="16">
-              <div class="question-block">
+              <div class="question-block survey-question">
+                <div class="question-header">
+                  <div class="question-number">16/20</div>
+                  <div class="question-category"><i class="fas fa-users"></i> 혼잡도</div>
+                </div>
                 <label for="crowdContact">우발적 신체 접촉에 대한 반응?</label>
-                <input type="range" id="crowdContact" name="q16" min="1" max="10" step="1" value="5">
+                <div class="question-content">
+                  <div class="range-container">
+                    <input type="range" id="crowdContact" name="q16" min="1" max="10" step="1" value="5" class="survey-range">
+                    <div class="range-labels">
+                      <span class="range-label">편안</span>
+                      <span class="range-value-display" id="crowdContactValue">5</span>
+                      <span class="range-label">불편</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </section>
 
             <section class="tutorial-step" data-step="17">
-              <div class="question-block">
-                <div class="label-with-icon">
-                  <img id="noiseShockIcon" src="./assets/mood-5.png" alt="" aria-hidden="true" class="label-icon">
-                  <label for="noiseShock">예상치 못한 큰 소음을 얼마나 견딜 수 있나요? <output id="noiseShockValue" for="noiseShock">5</output></label>
+              <div class="question-block survey-question">
+                <div class="question-header">
+                  <div class="question-number">17/20</div>
+                  <div class="question-category"><i class="fas fa-volume-up"></i> 소음</div>
                 </div>
-                <input type="range" id="noiseShock" name="q17" min="1" max="10" step="1" value="5">
-                <img src="./assets/noiseSh.png" alt="큰 소음" class="range-thumb-img" loading="lazy">
+                <label for="noiseShock">예상치 못한 큰 소음을 얼마나 견딜 수 있나요?</label>
+                <div class="question-content">
+                  <div class="range-container">
+                    <input type="range" id="noiseShock" name="q17" min="1" max="10" step="1" value="5" class="survey-range">
+                    <div class="range-labels">
+                      <span class="range-label">견딜 수 있음</span>
+                      <span class="range-value-display" id="noiseShockValue">5</span>
+                      <span class="range-label">견딜 수 없음</span>
+                    </div>
+                  </div>
+                  <img src="./assets/noiseSh.png" alt="큰 소음" class="question-image" loading="lazy">
+                </div>
               </div>
             </section>
 
             <section class="tutorial-step" data-step="18">
-              <div class="question-block">
-                <div class="label-with-icon">
-                  <img id="lightFlashIcon" src="./assets/mood-5.png" alt="" aria-hidden="true" class="label-icon">
-                  <label for="lightFlash">번쩍이는 불빛이 얼마나 성가시나요? <output id="lightFlashValue" for="lightFlash">5</output></label>
+              <div class="question-block survey-question">
+                <div class="question-header">
+                  <div class="question-number">18/20</div>
+                  <div class="question-category"><i class="fas fa-lightbulb"></i> 빛</div>
                 </div>
-                <input type="range" id="lightFlash" name="q18" min="1" max="10" step="1" value="5">
+                <label for="lightFlash">번쩍이는 불빛이 얼마나 성가시나요?</label>
+                <div class="question-content">
+                  <div class="range-container">
+                    <input type="range" id="lightFlash" name="q18" min="1" max="10" step="1" value="5" class="survey-range">
+                    <div class="range-labels">
+                      <span class="range-label">편안</span>
+                      <span class="range-value-display" id="lightFlashValue">5</span>
+                      <span class="range-label">성가심</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </section>
 
             <section class="tutorial-step" data-step="19">
-              <div class="question-block">
-                <div class="label-with-icon">
-                  <img id="smellIcon" src="./assets/mood-5.png" alt="" aria-hidden="true" class="label-icon">
-                  <label for="smell">강하고 낯선 냄새의 압도감은? <output id="smellValue" for="smell">5</output></label>
+              <div class="question-block survey-question">
+                <div class="question-header">
+                  <div class="question-number">19/20</div>
+                  <div class="question-category"><i class="fas fa-smog"></i> 냄새</div>
                 </div>
-                <input type="range" id="smell" name="q19" min="1" max="10" step="1" value="5">
+                <label for="smell">강하고 낯선 냄새의 압도감은?</label>
+                <div class="question-content">
+                  <div class="range-container">
+                    <input type="range" id="smell" name="q19" min="1" max="10" step="1" value="5" class="survey-range">
+                    <div class="range-labels">
+                      <span class="range-label">편안</span>
+                      <span class="range-value-display" id="smellValue">5</span>
+                      <span class="range-label">압도적</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </section>
 
             <section class="tutorial-step" data-step="20">
-              <div class="question-block">
-                <div class="label-with-icon">
-                  <img id="crowdAvoidIcon" src="./assets/mood-5.png" alt="" aria-hidden="true" class="label-icon">
-                  <label for="crowdAvoid">혼잡을 피하려 우회 경로를 택할 가능성? <output id="crowdAvoidValue" for="crowdAvoid">5</output></label>
+              <div class="question-block survey-question">
+                <div class="question-header">
+                  <div class="question-number">20/20</div>
+                  <div class="question-category"><i class="fas fa-users"></i> 혼잡도</div>
                 </div>
-                <input type="range" id="crowdAvoid" name="q20" min="1" max="10" step="1" value="5">
+                <label for="crowdAvoid">혼잡을 피하려 우회 경로를 택할 가능성?</label>
+                <div class="question-content">
+                  <div class="range-container">
+                    <input type="range" id="crowdAvoid" name="q20" min="1" max="10" step="1" value="5" class="survey-range">
+                    <div class="range-labels">
+                      <span class="range-label">낮음</span>
+                      <span class="range-value-display" id="crowdAvoidValue">5</span>
+                      <span class="range-label">높음</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </section>
           </div>
