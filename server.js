@@ -516,8 +516,10 @@ app.post('/api/reports', optionalAuth, async (req, res) => {
             return res.status(400).json(createResponse(false, null, '', validation.message));
         }
 
+        // 1. req.body에서 wheelchair 제거
         const { lat, lng, noise, light, odor, crowd, type, duration, timetable, timetableRepeat } = req.body;
         
+        // 2. cleanData 객체에서 wheelchair 제거
         const cleanData = {
             lat: parseFloat(lat),
             lng: parseFloat(lng),
@@ -527,15 +529,15 @@ app.post('/api/reports', optionalAuth, async (req, res) => {
             crowd: crowd !== null && crowd !== undefined ? parseInt(crowd) : null,
             type: type,
             duration: duration && duration > 0 ? parseInt(duration) : null,
-            
             user_id: req.user ? req.user.userId : null, // 로그인한 사용자면 ID 저장, 아니면 null
             timetable: (timetable && typeof timetable === 'object' && Object.keys(timetable).length > 0) ? timetable : null,
             timetable_repeat: (timetableRepeat === true || timetableRepeat === 'true') ? true : false
         };
 
+        // 3. INSERT 쿼리문과 변수 배열에서 wheelchair 제거 (총 11개)
         const newReport = await pool.query(
             `INSERT INTO sensory_reports (lat, lng, noise, light, odor, crowd, type, duration, user_id, timetable, timetable_repeat)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
             [cleanData.lat, cleanData.lng, cleanData.noise, cleanData.light, cleanData.odor, 
              cleanData.crowd, cleanData.type, cleanData.duration, cleanData.user_id, cleanData.timetable, cleanData.timetable_repeat]
         );
@@ -602,8 +604,10 @@ app.put('/api/reports/:id', verifyToken, async (req, res) => {
             return res.status(404).json(createResponse(false, null, '', '수정할 수 있는 데이터를 찾을 수 없습니다.'));
         }
 
+        // 1. req.body에서 wheelchair 제거
         const { lat, lng, noise, light, odor, crowd, type, duration, timetable, timetableRepeat } = req.body;
         
+        // 2. cleanData 객체에서 wheelchair 제거
         const cleanData = {
             lat: parseFloat(lat),
             lng: parseFloat(lng),
@@ -613,16 +617,16 @@ app.put('/api/reports/:id', verifyToken, async (req, res) => {
             crowd: crowd !== null && crowd !== undefined ? parseInt(crowd) : null,
             type: type,
             duration: duration && duration > 0 ? parseInt(duration) : null,
-            
             timetable: timetable && typeof timetable === 'object' ? timetable : null,
             timetable_repeat: timetableRepeat ? true : false
         };
 
+        // 3. UPDATE 쿼리문과 변수 배열에서 wheelchair 제거 (SET 10개, WHERE 2개)
         const result = await pool.query(
             `UPDATE sensory_reports 
              SET lat = $1, lng = $2, noise = $3, light = $4, odor = $5, crowd = $6, 
-                 type = $7, duration = $8, timetable = $10, timetable_repeat = $11, updated_at = NOW()
-             WHERE id = $12 AND user_id = $13 RETURNING *`,
+                 type = $7, duration = $8, timetable = $9, timetable_repeat = $10, updated_at = NOW()
+             WHERE id = $11 AND user_id = $12 RETURNING *`,
             [cleanData.lat, cleanData.lng, cleanData.noise, cleanData.light, cleanData.odor, 
              cleanData.crowd, cleanData.type, cleanData.duration, cleanData.timetable, cleanData.timetable_repeat, reportId, req.user.userId]
         );
