@@ -368,6 +368,28 @@ export class VisualizationManager {
         this._installIntensityAndFilterUI();
     }
 
+    async fetchAndRenderHeatmap() {
+        try {
+            const res = await fetch(`${window.SENSMAP_SERVER_URL}/api/heatmap`);
+            const cells = await res.json();
+            this.heatLayer.clearLayers();
+
+            for (const cell of cells) {
+                const { lat, lng, noise, light, odor, crowd } = cell;
+                const avg = (noise + light + odor + crowd) / 4;
+                const color = this.getColor(avg);
+                L.circle([lat, lng], {
+                    radius: 25,
+                    color,
+                    fillColor: color,
+                    fillOpacity: 0.5
+                }).addTo(this.heatLayer);
+            }
+        } catch (e) {
+            console.error('❌ Heatmap render failed:', e);
+        }
+    }
+
     // 외부에서 수동으로도 호출 가능
     updateVisualization() { this.refreshVisualization(); }
     // 부하를 줄이는 디바운스(같은 프레임에서 여러 번 호출되면 1번만 갱신)
@@ -465,15 +487,15 @@ export class VisualizationManager {
                     const day = nowD.getDay();
                     const hourKey = String(nowD.getHours()).padStart(2, '0');
                     let withinSchedule = false;
-                    
+
                     if (report.timetable && typeof report.timetable === 'object') {
                         try {
                             const dayArr = report.timetable[String(day)] ?? report.timetable[day] ?? [];
                             if (Array.isArray(dayArr)) {
                                 withinSchedule = dayArr.some(([k]) => String(k) === hourKey);
                             }
-                        } catch (e) { 
-                            withinSchedule = false; 
+                        } catch (e) {
+                            withinSchedule = false;
                         }
                     }
                     // Regular data without timetable should not be shown (no schedule = never show)
@@ -727,7 +749,7 @@ export class VisualizationManager {
     getDisplayMode() { return this.currentDisplayMode; }
     // 감각 버튼을 눌러도 항상 '히트맵' 모드로 보이게 한다.
     setSensoryFilter(f, forceHeatmap = true) {
-        const allow = new Set(['all','noise','light','odor','crowd']);
+        const allow = new Set(['all', 'noise', 'light', 'odor', 'crowd']);
         this.currentSensoryFilter = allow.has(f) ? f : 'all';  // '전체' 버튼이 없어도 안전
         if (forceHeatmap) {
             // 히트맵 모드 강제

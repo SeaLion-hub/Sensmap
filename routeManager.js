@@ -269,7 +269,7 @@ export class RouteManager {
                 if (routeControls.parentElement !== document.body) {
                     document.body.appendChild(routeControls);
                 }
-                
+
                 // 모든 스타일과 속성 설정
                 routeControls.removeAttribute('aria-hidden');
                 routeControls.style.setProperty('position', 'fixed', 'important');
@@ -292,7 +292,7 @@ export class RouteManager {
         if (mapContainer) mapContainer.style.cursor = 'crosshair';
         this.routePoints = [];
         this.clearRoute();
-        
+
         // 새 경로 시작 시 route options 패널 다시 표시
         const routeOptions = document.getElementById('routeOptions');
         if (routeOptions) {
@@ -300,7 +300,7 @@ export class RouteManager {
             routeOptions.style.removeProperty('visibility');
             routeOptions.style.display = 'none'; // 초기에는 숨김, 도착지 선택 후 표시
         }
-        
+
         this.app?.showToast?.('지도에서 출발지를 클릭하세요', 'info');
     }
     cancelRouteMode() {
@@ -329,7 +329,7 @@ export class RouteManager {
         if (this.routePoints.length === 0) {
             this.routePoints.push(latlng);
             this.addRouteMarker(latlng, 'start');
-            
+
             // 새 출발지 설정 시 route options 패널 다시 표시 준비
             const routeOptions = document.getElementById('routeOptions');
             if (routeOptions) {
@@ -337,7 +337,7 @@ export class RouteManager {
                 routeOptions.style.removeProperty('visibility');
                 routeOptions.style.display = 'none'; // 도착지 선택 후 표시
             }
-            
+
             this.updateRouteStatus('도착지 선택');
             this.app?.showToast?.('도착지를 클릭하세요', 'info');
         } else if (this.routePoints.length === 1) {
@@ -464,35 +464,68 @@ export class RouteManager {
        감각 포인트/퍼센타일 → 회피 폴리곤
     ==========================*/
     _getAllSensoryPoints() {
-        // Get data directly from dataManager to ensure we have timetable information
         const dm = this.app?.dataManager;
-        if (dm?.sensoryData && typeof dm.sensoryData.forEach === 'function') {
+
+        // 1) gridData가 있으면: 셀 중심 + 평균값 → '셀당 1점' 보장
+        if (dm?.gridData && typeof dm.gridData.forEach === 'function') {
             const out = [];
             try {
-                // Get all sensory reports with timetable information
-                dm.sensoryData.forEach((report, reportId) => {
-                    // Apply timetable filtering for regular data
-                    if (this._shouldIncludeReport(report)) {
-                        out.push({
-                            lat: report.lat,
-                            lng: report.lng,
-                            noise: report.noise,
-                            light: report.light,
-                            odor: report.odor,
-                            crowd: report.crowd,
-                            type: report.type,
-                            timetable: report.timetable,
-                            timetable_repeat: report.timetable_repeat
-                        });
-                    }
+                dm.gridData.forEach((cell, gridKey) => {
+                    const a = cell.averages || {};
+                    const center = this._cellCenter(cell, gridKey);
+                    out.push({
+                        lat: center.lat,
+                        lng: center.lng,
+                        noise: a.noise, light: a.light, odor: a.odor, crowd: a.crowd
+                    });
                 });
-            } catch (e) {
-                console.error('Error getting sensory data for routes:', e);
-            }
+            } catch { }
             return out;
         }
 
-        // Fallback to original method if dataManager doesn't have sensoryData
+        // 2) gridData가 아직 없으면: sensoryData를 '셀 중심' 기준으로 버킷 평균(셀당 1점)
+        if (dm?.sensoryData && typeof dm.sensoryData.forEach === 'function') {
+            const size =
+                Number(dm?.gridSize) ||
+                (typeof dm?.getGridSize === 'function' ? Number(dm.getGridSize()) : 0.0005);
+            const snap = (lat, lng) => {
+                if (!Number.isFinite(size)) return { lat, lng };
+                const south = Math.floor(lat / size) * size;
+                const west = Math.floor(lng / size) * size;
+                return { lat: south + size / 2, lng: west + size / 2 };
+            };
+            const bucket = new Map(); // key: "lat,lng"
+            dm.sensoryData.forEach((report) => {
+                if (!this._shouldIncludeReport(report)) return;
+                const c = snap(report.lat, report.lng);
+                const key = `${c.lat.toFixed(8)},${c.lng.toFixed(8)}`;
+                if (!bucket.has(key)) {
+                    bucket.set(key, {
+                        center: c,
+                        sum: { noise: 0, light: 0, odor: 0, crowd: 0 },
+                        cnt: { noise: 0, light: 0, odor: 0, crowd: 0 }
+                    });
+                }
+                const k = bucket.get(key);
+                const add = (ch, v) => { if (Number.isFinite(v)) { k.sum[ch] += v; k.cnt[ch]++; } };
+                add('noise', report.noise);
+                add('light', report.light);
+                add('odor', report.odor);
+                add('crowd', report.crowd);
+            });
+            const out = [];
+            bucket.forEach(({ center, sum, cnt }) => {
+                const avg = (ch) => cnt[ch] ? (sum[ch] / cnt[ch]) : 0;
+                out.push({
+                    lat: center.lat, lng: center.lng,
+                    noise: avg('noise'), light: avg('light'),
+                    odor: avg('odor'), crowd: avg('crowd')
+                });
+            });
+            return out;
+        }
+
+        // 3) 마지막 폴백: sensoryManager raw → 셀 중심으로 스냅만 적용
         const sm = this.app?.sensoryManager;
         if (sm) {
             try {
@@ -513,22 +546,6 @@ export class RouteManager {
                     return { ...p, lat: c.lat, lng: c.lng };
                 });
             } catch { }
-        }
-
-        if (dm?.gridData && typeof dm.gridData.forEach === 'function') {
-            const out = [];
-            try {
-                dm.gridData.forEach((cell, gridKey) => {
-                    const a = cell.averages || {};
-                    const center = this._cellCenter(cell, gridKey);
-                    out.push({
-                        lat: center.lat,
-                        lng: center.lng,
-                        noise: a.noise, light: a.light, odor: a.odor, crowd: a.crowd
-                    });
-                });
-            } catch { }
-            return out;
         }
         return [];
     }
@@ -902,12 +919,12 @@ export class RouteManager {
         const routeControls = document.getElementById('routeControls');
         const routeOptions = document.getElementById('routeOptions');
         const isMobile = window.matchMedia('(max-width: 420px) and (max-height: 900px)').matches;
-        
+
         if (routeControls) {
             if (routeControls.parentElement !== document.body) {
                 document.body.appendChild(routeControls);
             }
-            
+
             // 모든 스타일과 속성 설정
             routeControls.removeAttribute('aria-hidden');
             routeControls.style.setProperty('position', 'fixed', 'important');
@@ -919,7 +936,7 @@ export class RouteManager {
             routeControls.style.setProperty('z-index', '4000', 'important');
             routeControls.setAttribute('aria-hidden', 'false');
         }
-        
+
         // 모바일에서만 경로 옵션 패널 숨기기
         if (isMobile && routeOptions) {
             routeOptions.style.setProperty('display', 'none', 'important');
@@ -927,18 +944,18 @@ export class RouteManager {
         }
 
         const sensEval = this._evaluateSensoryCostForDisplay(route); // sensory 기준 평가
-        
+
         // 시간과 거리 계산
         const km = (route.distance / 1000);
         const distance = isFinite(km) ? km.toFixed(1) : '-';
         const minutes = (route.duration / 60);
         const duration = isFinite(minutes) ? Math.round(minutes) : '-';
-        
+
         // 경로 상태에 시간과 거리 표시
         const routeTypeLabel = this.getRouteTypeLabel(type);
         const statusText = `${routeTypeLabel} 경로 | ${distance}km · ${duration}분`;
         this.updateRouteStatus(statusText);
-        
+
         this.showRouteInfo(route, sensEval);
         map.fitBounds(this.currentRoute.getBounds(), { padding: [50, 50] });
     }
@@ -978,7 +995,7 @@ export class RouteManager {
             this.clearRoute();
             this.routePoints = [latlng];
             this.addRouteMarker(latlng, 'start');
-            
+
             // 새 출발지 설정 시 route options 패널 다시 표시 준비
             const routeOptions = document.getElementById('routeOptions');
             if (routeOptions) {
@@ -986,7 +1003,7 @@ export class RouteManager {
                 routeOptions.style.removeProperty('visibility');
                 routeOptions.style.display = 'none'; // 도착지 선택 후 표시
             }
-            
+
             this.updateRouteStatus('도착지 선택');
             this.app?.mapManager?.getMap?.().closePopup?.();
             this.app?.showToast?.('출발지가 설정되었습니다. 도착지를 선택하세요.', 'success');
