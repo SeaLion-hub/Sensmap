@@ -491,72 +491,179 @@ export class UIHandler {
             }
             
                         // === 질문 모달: 스텝 네비게이션 ===
-            (function initSurveyWizard(){
-            const modal = document.getElementById('questionModal');
-            const wizard = document.getElementById('surveyWizard');
-            if (!modal || !wizard) return;
+/* 1) uiHandler.js — "보이는 스텝" 기준 네비게이션으로 교체 */
+/* 교체: "보이는 스텝" 기준 네비게이션 */
+(function initSurveyWizard(){
+  const wizard   = document.getElementById('surveyWizard');
+  const modal    = document.getElementById('questionModal');
+  if (!wizard || !modal) return;
 
-            const steps = Array.from(wizard.querySelectorAll('.tutorial-step'));
+  const prevBtn   = wizard.querySelector('#surveyPrev');
+  const nextBtn   = wizard.querySelector('#surveyNext');
+  const submitBtn = wizard.querySelector('#submitAnswerBtn');
+  const dotsWrap  = wizard.querySelector('#surveyDots');
+
+  // ❗ dotsWrap이 없어도 Prev/Next는 동작해야 하므로 여기선 막지 않음
+  if (!prevBtn || !nextBtn || !submitBtn) return;
+
+  const allSteps     = () => Array.from(wizard.querySelectorAll('.tutorial-step'));
+  const visibleSteps = () => allSteps().filter(s => s.style.display !== 'none');
+  const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+  let vIndex = 0;
+
+  const rebuildDots = () => {
+    if (!dotsWrap) return; // dots 없으면 스킵
+    dotsWrap.innerHTML = '';
+    const vis = visibleSteps();
+    vis.forEach((_, i) => {
+      const dot = document.createElement('span');
+      dot.className = 'dot' + (i === 0 ? ' active' : '');
+      dot.dataset.vindex = String(i);
+      dotsWrap.appendChild(dot);
+    });
+  };
+
+  const showVisible = (k) => {
+    const vis = visibleSteps();
+    if (!vis.length) return;
+    vIndex = clamp(k, 0, vis.length - 1);
+
+    allSteps().forEach(s => s.classList.remove('active'));
+    vis[vIndex].classList.add('active');
+
+    if (dotsWrap) {
+      const dots = dotsWrap.querySelectorAll('.dot');
+      dots.forEach((d, i) => d.classList.toggle('active', i === vIndex));
+    }
+
+    const isFirst = (vIndex === 0);
+    const isLast  = (vIndex === vis.length - 1);
+    prevBtn.disabled        = isFirst;
+    nextBtn.style.display   = isLast ? 'none' : '';
+    submitBtn.style.display = isLast ? '' : 'none';
+  };
+
+  // 초기화
+  rebuildDots();
+  const initIdx = visibleSteps().findIndex(s => s.classList.contains('active'));
+  showVisible(initIdx >= 0 ? initIdx : 0);
+
+  // Prev/Next (폼 submit으로 먹히지 않게 방지)
+  prevBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); showVisible(vIndex - 1); });
+  nextBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); showVisible(vIndex + 1); });
+
+  // 도트 클릭 (dotsWrap 없으면 건너뜀)
+  if (dotsWrap) {
+    dotsWrap.addEventListener('click', (e) => {
+      const dot = e.target.closest('.dot');
+      if (!dot) return;
+      const target = Number(dot.dataset.vindex);
+      if (!Number.isNaN(target)) showVisible(target);
+    });
+  }
+
+  // 모달 열릴 때 리셋(선택)
+  modal.addEventListener('open', () => {
+    rebuildDots();
+    showVisible(0);
+  });
+
+  // 외부(필터 등)에서 레이아웃 바뀐 후 재빌드
+  wizard.addEventListener('survey:rebuild', () => {
+    rebuildDots();
+    showVisible(0);
+  });
+})();
+
+                        // --- 설문 스텝 필터링: 4문항(17~20만) / 20문항(전체) ---
+            const filterSurveySteps = (mode /* '4' | '20' */) => {
+            const wizard = document.getElementById('surveyWizard');
+            if (!wizard) return;
+            
+            // ✅ 추가: 현재 설문 개수 모드를 dataset으로 저장
+            wizard.dataset.countMode = mode;
+
+            // 모든 스텝 수집
+            const allSteps = Array.from(wizard.querySelectorAll('.tutorial-step'));
+            // 프리-스텝(0)은 항상 표시
+            const preStep = wizard.querySelector('.tutorial-step[data-step="0"]');
+
+            // 표시/비표시 결정
+            allSteps.forEach(step => {
+                const ds = Number(step.getAttribute('data-step'));
+                if (ds === 0) {
+                step.style.display = ''; // 프리-스텝은 일단 보여둠(선택 직후에는 숨김 처리)
+                return;
+                }
+                if (mode === '4') {
+                // 17~20만 표시
+                step.style.display = (ds >= 17 && ds <= 20) ? '' : 'none';
+                } else {
+                // 1~20 전부 표시
+                step.style.display = '';
+                }
+                step.classList.remove('active');
+            });
+
+            // 프리-스텝은 숨기고, 진행 첫 스텝 활성화
+            if (preStep) preStep.style.display = 'none';
+            const firstReal =
+                (mode === '4'
+                ? wizard.querySelector('.tutorial-step[data-step="17"]')
+                : wizard.querySelector('.tutorial-step[data-step="1"]')) ||
+                allSteps.find(s => s.style.display !== 'none');
+            firstReal?.classList.add('active');
+
+            // 도트와 Prev/Next/Submit 상태 다시 계산
+            // (이미 존재하는 위저드 초기화/업데이트 함수를 재사용)
+            // openQuestionModal()가 하는 초기화와 충돌하지 않도록, 여기서도 값 갱신:
             const prevBtn = wizard.querySelector('#surveyPrev');
             const nextBtn = wizard.querySelector('#surveyNext');
             const submitBtn = wizard.querySelector('#submitAnswerBtn');
-            const dotsWrap = wizard.querySelector('#surveyDots');
 
-            if (!steps.length || !prevBtn || !nextBtn || !submitBtn) return;
+            // 남은 스텝들만 카운트해서 마지막 여부 판정
+            const visibleSteps = Array.from(wizard.querySelectorAll('.tutorial-step'))
+                .filter(s => s.style.display !== 'none');
+            // 첫 번째(active) 기준으로 현재 인덱스/총개수 업데이트
+            const currentIndex = Math.max(0, visibleSteps.findIndex(s => s.classList.contains('active')));
+            const isLast = currentIndex === visibleSteps.length - 1;
 
-            // 점(도트) 자동 생성 (dotsWrap이 있는 경우에만)
-            if (dotsWrap) {
-                dotsWrap.innerHTML = '';
-                steps.forEach((_, i) => {
-                    const dot = document.createElement('span');
-                    dot.className = 'dot' + (i === 0 ? ' active' : '');
-                    dot.dataset.step = (i + 1);
-                    dotsWrap.appendChild(dot);
-                });
-            }
+            if (prevBtn) prevBtn.disabled = currentIndex === 0;
+            if (nextBtn) nextBtn.style.display = isLast ? 'none' : '';
+            if (submitBtn) submitBtn.style.display = isLast ? 'block' : 'none';
 
-            let idx = Math.max(0, steps.findIndex(s => s.classList.contains('active')));
-            if (idx === -1) idx = 0;
-            show(idx);
+            // 슬라이더 값 표시 동기화(있으면)
+            this.setupSurveyRangeListeners?.();
+            };
 
-            // 버튼 핸들러
-            prevBtn.addEventListener('click', () => {
-                if (idx > 0) show(--idx);
+            // 버튼 이벤트 바인딩
+            document.getElementById('surveyCount4Btn')
+            ?.addEventListener('click', () => {
+            filterSurveySteps('4');
+            this.closePrepStep(); 
             });
-            nextBtn.addEventListener('click', () => {
-                if (idx < steps.length - 1) show(++idx);
+            
+            document.getElementById('surveyCount20Btn')
+            ?.addEventListener('click', () => {
+                filterSurveySteps('20');     // 1~20 전부 보이도록 재배치
+                this.closePrepStep();        // ← 준비창 닫기!
+            });
+            const wizard = document.getElementById('surveyWizard');
+            // 4문항
+            document.getElementById('surveyCount4Btn')?.addEventListener('click', () => {
+            filterSurveySteps('4');
+            const wizard = document.getElementById('surveyWizard');
+            wizard?.dispatchEvent(new Event('survey:rebuild')); // ← 여기서 바로 재빌드
+            this.closePrepStep();
             });
 
-            // 도트 클릭 이동 (dotsWrap이 있는 경우에만)
-            if (dotsWrap) {
-                dotsWrap.addEventListener('click', (e) => {
-                    const dot = e.target.closest('.dot');
-                    if (!dot) return;
-                    const target = Number(dot.dataset.step) - 1;
-                    if (!Number.isNaN(target)) show(target);
-                });
-            }
-
-            // 모달이 열릴 때 항상 첫 스텝으로 리셋(선택)
-            modal.addEventListener('open', () => show(0)); // 모달 열기 코드에서 이 이벤트를 dispatch하면 됨
-
-            function show(i){
-                steps.forEach((s,k) => s.classList.toggle('active', k === i));
-                idx = i;
-
-                // 도트 상태 (dotsWrap이 있는 경우에만)
-                if (dotsWrap) {
-                    const dots = dotsWrap.querySelectorAll('.dot');
-                    dots.forEach((d, k) => d.classList.toggle('active', k === i));
-                }
-
-                // Prev/Next/Submit 표시 제어
-                prevBtn.disabled = (i === 0);
-                nextBtn.style.display = (i === steps.length - 1) ? 'none' : '';
-                submitBtn.style.display = (i === steps.length - 1) ? '' : 'none';
-            }
-            })();
-
+            // 20문항
+            document.getElementById('surveyCount20Btn')?.addEventListener('click', () => {
+            filterSurveySteps('20');
+            const wizard = document.getElementById('surveyWizard');
+            wizard?.dispatchEvent(new Event('survey:rebuild')); // ← 여기서 바로 재빌드
+            this.closePrepStep();
+            });
 
 
 
@@ -710,7 +817,11 @@ export class UIHandler {
             // 1) 모든 active 제거
             steps.forEach(s => s.classList.remove('active'));
             // 2) data-step="1"을 활성화(없으면 첫 스텝)
-            (wizard.querySelector('.tutorial-step[data-step="1"]') || steps[0])?.classList.add('active');
+            const firstStep =
+                wizard.querySelector('.tutorial-step[data-step="0"]') ||
+                wizard.querySelector('.tutorial-step[data-step="1"]') ||
+                steps[0];
+                firstStep?.classList.add('active');
 
             // 3) 도트/버튼 상태 초기화 (dots가 있는 경우에만)
             const dots = wizard.querySelectorAll('.tutorial-dots .dot');
@@ -1653,7 +1764,7 @@ export class UIHandler {
     }
 
     updateTutorialStep() {
-        document.querySelectorAll('.tutorial-step').forEach((step, index) => {
+        document.querySelectorAll('#tutorialOverlay .tutorial-step').forEach((step, index) => {
             step.classList.toggle('active', index + 1 === this.currentTutorialStep);
         });
 
@@ -1726,7 +1837,17 @@ export class UIHandler {
 }
 
 
-
+    closePrepStep() {
+    const pre = document.getElementById('questionCountStep'); // data-step="0"
+    if (!pre) return;
+    // 부드럽게 숨기고 싶으면 클래스 토글(아래 CSS 참고)
+    pre.classList.add('fade-out'); 
+    // 애니메이션 없이 바로 닫고 싶다면 아래 2줄만 남겨도 됨
+    setTimeout(() => {
+        pre.classList.remove('active');
+        pre.style.display = 'none';
+    }, 180); // CSS 애니메이션 시간과 맞춤(없으면 0으로)
+    }
 
 
     // Accessibility settings methods
@@ -2392,24 +2513,33 @@ collectSurveyAnswers() {
 
 // 2-3) 평균 → 프로필 계산
 computeProfileFromAnswers(answers) {
+
+const mode = document.getElementById('surveyWizard')?.dataset.countMode || '20';
+
   const pick = (...qs) => {
     const xs = qs.map(q => answers['q' + q]).filter(v => v !== null && v !== undefined);
     if (!xs.length) return null;
     return Math.round((xs.reduce((s,x)=>s+x,0) / xs.length) * 10) / 10;
   };
 
+if (mode === '4') {
+    // ✅ 4문항 모드: q17~q20 값을 그대로 사용
+    return {
+      noiseThreshold: answers.q17 ?? null,  // 소음
+      lightThreshold: answers.q18 ?? null,  // 빛
+      odorThreshold:  answers.q19 ?? null,  // 냄새
+      crowdThreshold: answers.q20 ?? null   // 혼잡
+    };
+  }
+
+  // 20문항 모드(기존 평균 로직 유지)
   return {
-    // 혼잡도: 13,14,15,16,20
     crowdThreshold: pick(13,14,15,16,20),
-    // 소음: 1,2,3,4,17
     noiseThreshold: pick(1,2,3,4,17),
-    // 빛: 5,6,7,8,18
     lightThreshold: pick(5,6,7,8,18),
-    // 냄새: 9,10,11,12,19
     odorThreshold:  pick(9,10,11,12,19)
   };
 }
-
 // 2-4) 제출 핸들러 본체
 async handleSurveySubmit() {
   // 1) 번호 없으면 자동 부여(튜토리얼 순서대로 1~20)
