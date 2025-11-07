@@ -20,22 +20,33 @@ export class RouteManager {
         this.lastAvoidSets = [];            // Array<Feature[]> : [[], avoidSet]
         this.lastAvoidPreviewFeatures = []; // 실제 전송 폴리곤
 
-        // ===== 모드별 프로필(한눈에 튜닝) =====
-        // 주의: percentile은 "낮을수록 더 강하게 회피(핫스팟 더 많이 포함)".
-        // time 모드: 회피 완전 비활성(percentile = null)
+        // ===== 모드별 프로필 =====
+        // sensory: 절대 임계치 이상이면 회피 (퍼센타일 X)
+        // balanced: "높은 절대 임계치" ∩ "보수적 퍼센타일" 교집합만 회피
+        // time: 회피 비활성
         this.modeConfig = {
-            sensory: { kSens: 0.1, kTimeMin: 0, percentile: 0.50, baseRadius: 46, maxCount: 32, layers: 3, corridorM: 100 },
-            balanced: { kSens: 0.07, percentile: 1, baseRadius: 43, maxCount: 20, layers: 2, corridorM: 70, kTimeSec: 0, kDistM: 0 },
-            time: { kSens: 0.0, percentile: null } // 회피/프리뷰 없음, baseline만
-        };
-
-        this.sensoryNorm = {
-            // 각 감각 채널 최대치(데이터 단위에 맞게 조정)
-            perSensorMax: { noise: 100, light: 100, odor: 100, crowd: 100 },
-            // 표시 스케일 상한 (0~targetMax)
-            targetMax: 10,
-            // 미세 차이 강조용 (1.0이면 그대로)
-            gamma: 1.0
+            sensory: {
+                // 비용 가중(경로 선택용)
+                kSens: 4.0, kTimeMin: 0.10,
+                // 회피 구성 옵션
+                baseRadius: 46, layers: 3, maxCount: 32, corridorM: 100,
+                // 절대 임계치(기본: 종합점수 기준)
+                absUseComposite: true,       // true면 _pointScore(0~10) 기준, false면 채널별
+                absScore: 7.0,               // 종합점수 임계(0~10)
+                absPerChannelMin: null       // 채널별 임계(예: { noise:7, light:7, odor:7, crowd:7 })
+            },
+            balanced: {
+                // 비용 가중(경로 선택용)
+                kSens: 2.0, kTimeSec: 1.0, kDistM: 0.15,
+                // 회피 구성 옵션
+                baseRadius: 43, layers: 2, maxCount: 20, corridorM: 70,
+                // 교집합 조건: (절대 > absScoreHi) AND (퍼센타일 >= qConservative)
+                absUseComposite: true,
+                absScoreHi: 8.0,
+                absPerChannelMin: null,
+                qConservative: 0.90         // 0.90~0.95 권장
+            },
+            time: { kSens: 0.0, percentile: null } // 회피/프리뷰 없음
         };
     }
 
@@ -628,6 +639,37 @@ export class RouteManager {
         const filtered = scored.filter(s => s._score >= th).sort((a, b) => b._score - a._score);
         return filtered.slice(0, maxCount);
     }
+    // === 절대 임계치 기반 선택(감각 우선 모드용)
+    _selectHotspotsByAbsolute({ maxCount = 32, absUseComposite = true, absScore = 7.0, absPerChannelMin = null } = {}) {
+        const pts = this._getAllSensoryPoints();
+        if (!pts.length) return [];
+        const pass = [];
+        for (const p of pts) {
+            // 채널 값(0~10로 클리핑)
+            const ch = {
+                noise: clip01(p.noise), light: clip01(p.light),
+                odor: clip01(p.odor), crowd: clip01(p.crowd)
+            };
+            // 1) 종합점수 임계
+            let okComposite = true;
+            if (absUseComposite && Number.isFinite(absScore)) {
+                const comp = this._pointScore(p); // vScoreVector 기반 0~10
+                okComposite = (comp >= absScore);
+            }
+            // 2) 채널별 임계
+            let okChannel = true;
+            if (absPerChannelMin && typeof absPerChannelMin === 'object') {
+                for (const k of ['noise', 'light', 'odor', 'crowd']) {
+                    const need = absPerChannelMin[k];
+                    if (Number.isFinite(need) && ch[k] < need) { okChannel = false; break; }
+                }
+            }
+            if (okComposite && okChannel) pass.push({ ...p, _score: this._pointScore(p) });
+        }
+        // 높은 점수부터 제한 개수만
+        pass.sort((a, b) => b._score - a._score);
+        return pass.slice(0, maxCount);
+    }
     _polygonCircleApprox(center, radiusMeters = 40, steps = 18) {
         const dLat = (radiusMeters / 111320);
         const dLng = (radiusMeters / (111320 * Math.cos(center.lat * Math.PI / 180)));
@@ -647,6 +689,44 @@ export class RouteManager {
         for (let k = 0; k < layers; k++) {
             const r = baseRadius * Math.pow(ramp, k);
             const features = hs.map(h => this._polygonCircleApprox({ lat: h.lat, lng: h.lng }, r, 18));
+            levels.push(features);
+        }
+        return levels;
+    }
+
+    // === 절대 임계치 기반 회피(감각 우선)
+    _buildAvoidPolygonsAbsolute({ baseRadius = 46, ramp = 1.45, layers = 3, maxCount = 32, absUseComposite = true, absScore = 7.0, absPerChannelMin = null } = {}) {
+        const hs = this._selectHotspotsByAbsolute({ maxCount, absUseComposite, absScore, absPerChannelMin });
+        const levels = [];
+        for (let k = 0; k < layers; k++) {
+            const r = baseRadius * Math.pow(ramp, k);
+            const features = hs.map(h => this._polygonCircleApprox({ lat: h.lat, lng: h.lng }, r, 18));
+            levels.push(features);
+        }
+        return levels;
+    }
+
+    // === 교집합: (절대 임계) ∩ (퍼센타일) → 균형 모드
+    _buildAvoidPolygonsIntersection({
+        baseRadius = 43, ramp = 1.45, layers = 2, maxCount = 20,
+        absUseComposite = true, absScoreHi = 8.0, absPerChannelMin = null, qConservative = 0.90
+    } = {}) {
+        // 1) 퍼센타일 상위 후보
+        const P = this._selectHotspotsByPercentile(maxCount * 3, qConservative); // 넉넉히 뽑아 교집합에 대비
+        const pKey = new Set(P.map(p => `${p.lat.toFixed(8)},${p.lng.toFixed(8)}`));
+        // 2) 절대 임계 통과 후보(높은 임계치)
+        const A = this._selectHotspotsByAbsolute({ maxCount: maxCount * 3, absUseComposite, absScore: absScoreHi, absPerChannelMin });
+        // 3) 교집합
+        const I = [];
+        for (const h of A) {
+            const key = `${h.lat.toFixed(8)},${h.lng.toFixed(8)}`;
+            if (pKey.has(key)) I.push(h);
+            if (I.length >= maxCount) break;
+        }
+        const levels = [];
+        for (let k = 0; k < Math.max(1, layers); k++) {
+            const r = baseRadius * Math.pow(ramp, k);
+            const features = I.map(h => this._polygonCircleApprox({ lat: h.lat, lng: h.lng }, r, 18));
             levels.push(features);
         }
         return levels;
@@ -752,14 +832,30 @@ export class RouteManager {
     ==========================*/
     _getModeAvoidOpts(type) {
         const m = this.modeConfig[type] || {};
-        if (type === 'time' || m.percentile == null) return null; // time: 회피 비활성
-        return {
+        if (type === 'time') return null; // time: 회피 비활성
+        // 공통 기본값
+        const common = {
             baseRadius: m.baseRadius ?? 40,
             maxCount: m.maxCount ?? 16,
             layers: m.layers ?? 2,
-            percentile: m.percentile ?? 0.85,
             ramp: 1.45,
             corridorM: m.corridorM ?? 80
+        };
+        if (type === 'sensory') {
+            return {
+                ...common,
+                absUseComposite: m.absUseComposite !== false,
+                absScore: Number.isFinite(m.absScore) ? m.absScore : 7.0,
+                absPerChannelMin: m.absPerChannelMin || null
+            };
+        }
+        // balanced
+        return {
+            ...common,
+            absUseComposite: m.absUseComposite !== false,
+            absScoreHi: Number.isFinite(m.absScoreHi) ? m.absScoreHi : 8.0,
+            absPerChannelMin: m.absPerChannelMin || null,
+            qConservative: Number.isFinite(m.qConservative) ? m.qConservative : 0.90
         };
     }
 
@@ -818,17 +914,22 @@ export class RouteManager {
         // 2) sensory/balanced: 회피 세트 구성
         const avoidOptsFromMode = this._getModeAvoidOpts(type) || this._defaultAvoidOpts();
         const avoidOpts = this.lastPreviewOpts
-            ? { ...avoidOptsFromMode, ...this.lastPreviewOpts } // 외부 override 허용
+            ? { ...avoidOptsFromMode, ...this.lastPreviewOpts }
             : avoidOptsFromMode;
-        const levelsAuto = this._buildAvoidPolygonsPercentile(avoidOpts, { mode: type });
-
+        // 모드별 회피 레벨 생성기 선택
+        let levelsAuto = [];
+        if (type === 'sensory') {
+            levelsAuto = this._buildAvoidPolygonsAbsolute(avoidOpts);
+        } else { // balanced
+            levelsAuto = this._buildAvoidPolygonsIntersection(avoidOpts);
+        }
         // 세트 인덱스를 baseline=0, 레벨 1..N 로 고정(프리뷰 인덱싱용)
         const avoidSets = [[]];
         if (type === 'balanced') {
-            // 완화: 첫 레벨만(필요하면 corridor 필터 적용하는 로직이 따로 있을 수 있음)
+            // 균형: 교집합 결과가 과도하면 첫 레벨만 사용(우회 과다 방지)
             avoidSets.push([...(levelsAuto[0] || [])]);
         } else {
-            // sensory: 전 레벨 전달(또는 레벨별로 나눠 전달하는 현재 방식 유지)
+            // 감각 우선: 절대 임계 기반 레벨 전체
             for (let k = 0; k < levelsAuto.length; k++) avoidSets.push([...levelsAuto[k]]);
         }
         this.lastAvoidSets = avoidSets;
