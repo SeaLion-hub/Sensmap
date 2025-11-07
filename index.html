@@ -150,6 +150,34 @@
         </div>
         <button class="close-btn" id="closeQuestionBtn" aria-label="질문 닫기"><i class="fas fa-times"></i></button>
       </div>
+
+      <!-- 프리-스텝: 설문 개수 선택 -->
+    <section class="tutorial-step active" data-step="0" id="questionCountStep">
+      <div class="question-block survey-question">
+        <div class="question-header">
+          <div class="question-number">설문 준비</div>
+          <div class="question-category"><i class="fas fa-clipboard-list"></i> 개수 선택</div>
+        </div>
+        <label>감각 프로필 설문 개수를 선택하세요</label>
+        <div class="question-content">
+          <div class="range-container" style="max-width:520px;">
+            <div class="survey-count-choices" style="display:grid; gap:12px;">
+              <button type="button" id="surveyCount4Btn" class="tutorial-btn secondary">
+                <i class="fas fa-bolt"></i> 빠른 설문 (4문항)
+              </button>
+              <button type="button" id="surveyCount20Btn" class="tutorial-btn primary">
+                <i class="fas fa-list-ol"></i> 정밀 설문 (20문항)
+              </button>
+            </div>
+            <p style="margin-top:8px; font-size:13px; color:#6b7280;">
+              * 4문항: 핵심 문항만 진행 (q17~q20) · 20문항: 전체 진행
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
       <div class="modal-body survey-body">
         <div id="surveyWizard" class="survey-wizard">
           <div class="wizard-content">
@@ -548,7 +576,7 @@
                       <span class="range-label">압도적</span>
                     </div>
                   </div>
-                  <img src="./assets/smellsH.png" alt="큰 소음" class="question-image" loading="lazy">
+                  <img src="./assets/smellsH.png" alt="큰 냄새" class="question-image" loading="lazy">
                 </div>
               </div>
             </section>
@@ -569,7 +597,7 @@
                       <span class="range-label">높음</span>
                     </div>
                   </div>
-                  <img src="./assets/crowdsh.png" alt="큰 소음" class="question-image" loading="lazy">
+                  <img src="./assets/crowdsh.png" alt="큰 혼잡" class="question-image" loading="lazy">
                 </div>
               </div>
             </section>
