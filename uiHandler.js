@@ -847,6 +847,24 @@ export class UIHandler {
         modal.classList.remove('show');
         modal.style.display = 'none';
         
+        // 모달이 닫힌 후에도 이벤트 리스너가 제대로 작동하도록 보장
+        // 모달이 닫힌 후 약간의 지연을 두어 DOM 업데이트가 완료되도록 함
+        setTimeout(() => {
+            // 로그인 버튼이 제대로 작동하는지 확인
+            const loginBtn = document.getElementById('loginMenuBtn');
+            if (loginBtn) {
+                // 이벤트 리스너가 제대로 등록되어 있는지 확인
+                const hasListener = loginBtn.onclick !== null || 
+                    loginBtn.getAttribute('data-listener') === 'true';
+                if (!hasListener && this.app?.authManager) {
+                    // 이벤트 리스너 재등록
+                    loginBtn.addEventListener('click', () => {
+                        this.app.authManager.showLoginModal();
+                    });
+                    loginBtn.setAttribute('data-listener', 'true');
+                }
+            }
+        }, 100);
         }
     
     setupSurveyRangeListeners() {
@@ -2519,7 +2537,7 @@ const mode = document.getElementById('surveyWizard')?.dataset.countMode || '20';
   const pick = (...qs) => {
     const xs = qs.map(q => answers['q' + q]).filter(v => v !== null && v !== undefined);
     if (!xs.length) return null;
-    return Math.round((xs.reduce((s,x)=>s+x,0) / xs.length) * 10) / 10;
+    return Math.round(xs.reduce((s,x)=>s+x,0) / xs.length);
   };
 
 if (mode === '4') {

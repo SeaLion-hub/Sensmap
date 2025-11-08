@@ -943,7 +943,10 @@ class SensmapApp {
                 layer: null,
                 marker: null,
                 accuracy: null,
-                lastCenter: false
+                lastCenter: false,
+                errorCount: 0, // 연속 에러 카운트
+                lastErrorTime: null, // 마지막 에러 발생 시간
+                retryTimeout: null // 재시도 타임아웃
             };
 
             const btn = document.getElementById('locateBtn');
@@ -956,15 +959,16 @@ class SensmapApp {
                 return;
             }
 
-            btn.addEventListener('click', () => {
-                if (!this._geo.isTracking) {
-                    btn.classList.add('active');
-                    this.startUserLocation();
-                } else {
-                    btn.classList.remove('active');
-                    this.stopUserLocation();
-                }
-            });
+            // uiHandler에서 이미 이벤트 리스너를 등록하므로 여기서는 중복 등록 제거
+            // btn.addEventListener('click', () => {
+            //     if (!this._geo.isTracking) {
+            //         btn.classList.add('active');
+            //         this.startUserLocation();
+            //     } else {
+            //         btn.classList.remove('active');
+            //         this.stopUserLocation();
+            //     }
+            // });
         } catch (e) {
             console.error('지오로케이션 UI 설정 실패:', e);
         }
@@ -975,6 +979,25 @@ class SensmapApp {
         const map = this.mapManager.getMap();
         if (!map) return;
 
+        // _geo가 초기화되지 않았으면 초기화
+        if (!this._geo) {
+            this._geo = {
+                watchId: null,
+                isTracking: false,
+                layer: null,
+                marker: null,
+                accuracy: null,
+                lastCenter: false,
+                errorCount: 0,
+                lastErrorTime: null,
+                retryTimeout: null
+            };
+        }
+        
+        // 에러 카운트 리셋 (새로운 추적 시작 시)
+        this._geo.errorCount = 0;
+        this._geo.lastErrorTime = null;
+
         // 레이어 그룹 준비
         if (!this._geo.layer) {
             this._geo.layer = L.layerGroup().addTo(map);
@@ -984,8 +1007,8 @@ class SensmapApp {
 
         const opts = {
             enableHighAccuracy: true,
-            maximumAge: 10000,
-            timeout: 10000
+            maximumAge: 30000, // 30초 이내 캐시된 위치 허용
+            timeout: 15000 // 15초 타임아웃 (더 긴 시간 허용)
         };
 
         // 첫 위치 한 번 가져와서 중심 이동
@@ -1009,7 +1032,22 @@ class SensmapApp {
     }
 
     stopUserLocation() {
-        if (this._geo?.watchId !== null) {
+        // _geo가 초기화되지 않았으면 초기화
+        if (!this._geo) {
+            this._geo = {
+                watchId: null,
+                isTracking: false,
+                layer: null,
+                marker: null,
+                accuracy: null,
+                lastCenter: false,
+                errorCount: 0,
+                lastErrorTime: null,
+                retryTimeout: null
+            };
+        }
+
+        if (this._geo.watchId !== null) {
             try { navigator.geolocation.clearWatch(this._geo.watchId); } catch (_) { }
         }
         this._geo.watchId = null;
@@ -1039,6 +1077,25 @@ class SensmapApp {
         if (!this.mapManager) return;
         const map = this.mapManager.getMap();
         if (!map) return;
+
+        // _geo가 초기화되지 않았으면 초기화
+        if (!this._geo) {
+            this._geo = {
+                watchId: null,
+                isTracking: false,
+                layer: null,
+                marker: null,
+                accuracy: null,
+                lastCenter: false,
+                errorCount: 0,
+                lastErrorTime: null,
+                retryTimeout: null
+            };
+        }
+        
+        // 위치 업데이트 성공 시 에러 카운트 리셋
+        this._geo.errorCount = 0;
+        this._geo.lastErrorTime = null;
 
         const { latitude, longitude, accuracy } = position.coords;
         const latlng = [latitude, longitude];
@@ -1091,24 +1148,116 @@ class SensmapApp {
     }
 
     _handlePositionError(error) {
-        console.warn('지오로케이션 오류:', error);
-        let msg = '위치 정보를 가져올 수 없습니다.';
-        switch (error.code) {
-            case error.PERMISSION_DENIED:
-                msg = '위치 권한이 거부되었습니다. 브라우저 설정에서 권한을 허용해주세요.';
-                break;
-            case error.POSITION_UNAVAILABLE:
-                msg = '위치 정보를 사용할 수 없습니다.';
-                break;
-            case error.TIMEOUT:
-                msg = '위치 요청이 시간 초과되었습니다.';
-                break;
+        // _geo 초기화 확인
+        if (!this._geo) {
+            this._geo = {
+                watchId: null,
+                isTracking: false,
+                layer: null,
+                marker: null,
+                accuracy: null,
+                lastCenter: false,
+                errorCount: 0,
+                lastErrorTime: null,
+                retryTimeout: null
+            };
         }
-        this.showToast(msg, 'error');
-        // 버튼 상태 되돌리기
-        const btn = document.getElementById('locateBtn');
-        if (btn) btn.classList.remove('active');
-        this.stopUserLocation();
+
+        // 에러 메시지 추출
+        const errorMessage = error.message || '';
+        const isCoreLocationError = errorMessage.includes('CoreLocation') || 
+                                     errorMessage.includes('kCLError');
+        const isLocationUnknown = errorMessage.includes('kCLErrorLocationUnknown') || 
+                                  errorMessage.includes('LocationUnknown') ||
+                                  error.code === 2; // POSITION_UNAVAILABLE
+        
+        // CoreLocation 내부 에러는 조용히 처리 (일시적인 GPS 신호 문제일 수 있음)
+        if (isCoreLocationError && isLocationUnknown) {
+            // 에러 카운트 증가
+            this._geo.errorCount = (this._geo.errorCount || 0) + 1;
+            this._geo.lastErrorTime = Date.now();
+            
+            // 개발 모드에서만 로그 출력
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                console.warn(`[지오로케이션] 일시적 위치 에러 (${this._geo.errorCount}회):`, error.message);
+            }
+            
+            // 연속 에러가 5회 이상이고 10초 이내에 발생한 경우에만 사용자에게 알림
+            if (this._geo.errorCount >= 5) {
+                const timeSinceLastError = Date.now() - (this._geo.lastErrorTime || 0);
+                if (timeSinceLastError < 10000) {
+                    // 심각한 문제로 판단하여 사용자에게 알림
+                    this.showToast('위치를 확인할 수 없습니다. GPS 신호가 약하거나 위치 서비스가 꺼져 있을 수 있습니다.', 'warning');
+                    this._geo.errorCount = 0; // 카운트 리셋
+                }
+            }
+            
+            // watchPosition은 자동으로 재시도하므로 여기서는 조용히 반환
+            return;
+        }
+        
+        // 개발 모드에서만 상세 로그 출력
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            console.warn('지오로케이션 오류:', error);
+        }
+        
+        // 에러 카운트 증가
+        this._geo.errorCount = (this._geo.errorCount || 0) + 1;
+        this._geo.lastErrorTime = Date.now();
+        
+        let msg = '위치 정보를 가져올 수 없습니다.';
+        let shouldStop = false; // 추적을 중지할지 여부
+        
+        switch (error.code) {
+            case 1: // PERMISSION_DENIED
+                msg = '위치 권한이 거부되었습니다. 브라우저 설정에서 위치 권한을 허용해주세요.';
+                shouldStop = true; // 권한 거부는 즉시 중지
+                break;
+            case 2: // POSITION_UNAVAILABLE
+                if (this._geo.errorCount >= 3) {
+                    // 연속 3회 이상 실패 시에만 사용자에게 알림
+                    msg = '위치 정보를 사용할 수 없습니다. 위치 서비스가 활성화되어 있는지 확인해주세요.';
+                    shouldStop = true;
+                } else {
+                    // 일시적인 에러는 조용히 처리하고 자동 재시도
+                    return;
+                }
+                break;
+            case 3: // TIMEOUT
+                if (this._geo.errorCount >= 3) {
+                    msg = '위치 요청이 시간 초과되었습니다. 네트워크 연결을 확인하고 다시 시도해주세요.';
+                    shouldStop = true;
+                } else {
+                    // 일시적인 타임아웃은 조용히 처리하고 자동 재시도
+                    return;
+                }
+                break;
+            default:
+                if (this._geo.errorCount >= 3) {
+                    msg = '위치 정보를 가져오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+                    shouldStop = true;
+                } else {
+                    // 일시적인 에러는 조용히 처리하고 자동 재시도
+                    return;
+                }
+        }
+        
+        // 심각한 에러인 경우에만 사용자에게 알림
+        if (shouldStop) {
+            this.showToast(msg, 'error');
+            
+            // 버튼 상태 되돌리기
+            const btn = document.getElementById('locateBtn');
+            const mobileBtn = document.getElementById('mobileLocateBtn');
+            if (btn) btn.classList.remove('active');
+            if (mobileBtn) mobileBtn.classList.remove('active');
+            
+            // 위치 추적 중지
+            this.stopUserLocation();
+            
+            // 에러 카운트 리셋
+            this._geo.errorCount = 0;
+        }
     }
 
 
@@ -1136,16 +1285,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         observer.observe(tutorialOverlay, { attributes: true, attributeFilter: ['style', 'class'] });
 
-        // 질문창 닫기
-        closeBtn.addEventListener('click', () => {
-            questionModal.style.display = 'none';
-        });
+        // 질문창 닫기 - uiHandler에서 이미 처리하므로 중복 등록 제거
+        // closeBtn.addEventListener('click', () => {
+        //     questionModal.style.display = 'none';
+        // });
 
-        // 답변 제출
-        document.getElementById('submitAnswerBtn')?.addEventListener('click', (e) => {
-        e.preventDefault(); // 혹시 type="button"이어도 안전
-        document.getElementById('questionForm')?.requestSubmit(); // ✅ 폼 submit 트리거
-        });
+        // 답변 제출 - uiHandler에서 이미 처리하므로 중복 등록 제거
+        // document.getElementById('submitAnswerBtn')?.addEventListener('click', (e) => {
+        // e.preventDefault(); // 혹시 type="button"이어도 안전
+        // document.getElementById('questionForm')?.requestSubmit(); // ✅ 폼 submit 트리거
+        // });
 
         // 재사용 가능한 바인딩 유틸
         function bindRangeWithImage({ slider, output, img, srcForValue, preload = true }) {
@@ -1287,6 +1436,5 @@ localStorage.setItem('sensoryProfile', JSON.stringify(window.sensoryProfile));
 function getSensoryProfile() {
 return { ...window.sensoryProfile };
 }
-
 
 
