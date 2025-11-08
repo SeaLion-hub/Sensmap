@@ -317,15 +317,28 @@ async function initializeDatabase() {
 
 // ===== 라우팅 순서 정리 (매우 중요) =====
 
-// 1단계: 정적 파일 서빙 (가장 먼저)
+// 0단계: Health check (가장 먼저, Railway healthcheck용)
+// [GET] /api/health - 서버 상태 확인
+app.get('/api/health', async (req, res) => {
+    // Railway healthcheck는 빠른 응답이 필요하므로 타임아웃 설정
+    const timeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Database query timeout')), 2000)
+    );
+    
+    try {
+        // 데이터베이스 연결 테스트 (타임아웃 적용)
+        await Promise.race([pool.query('SELECT 1'), timeout]);
+        res.status(200).json(createResponse(true, { status: 'healthy', database: 'connected' }, 'Server is running'));
+    } catch (error) {
+        // 데이터베이스 연결 실패해도 서버는 실행 중이므로 200 반환 (Railway healthcheck 통과)
+        res.status(200).json(createResponse(true, { status: 'healthy', database: 'connecting' }, 'Server is running, database connection in progress'));
+    }
+});
+
+// 1단계: 정적 파일 서빙
 app.use(express.static('.'));
 
 // 2단계: API 라우트들 (순서대로 정의)
-
-// [GET] /api/health - 서버 상태 확인
-app.get('/api/health', (req, res) => {
-    res.json(createResponse(true, { status: 'healthy', database: 'connected' }, 'Server is running'));
-});
 
 // --- 인증 API 엔드포인트 ---
 
