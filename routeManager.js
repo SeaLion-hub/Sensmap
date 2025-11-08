@@ -20,22 +20,33 @@ export class RouteManager {
         this.lastAvoidSets = [];            // Array<Feature[]> : [[], avoidSet]
         this.lastAvoidPreviewFeatures = []; // 실제 전송 폴리곤
 
-        // ===== 모드별 프로필(한눈에 튜닝) =====
-        // 주의: percentile은 "낮을수록 더 강하게 회피(핫스팟 더 많이 포함)".
-        // time 모드: 회피 완전 비활성(percentile = null)
+        // ===== 모드별 프로필 =====
+        // sensory: 절대 임계치 이상이면 회피 (퍼센타일 X)
+        // balanced: "높은 절대 임계치" ∩ "보수적 퍼센타일" 교집합만 회피
+        // time: 회피 비활성
         this.modeConfig = {
-            sensory: { kSens: 0.1, kTimeMin: 0, percentile: 0.50, baseRadius: 46, maxCount: 32, layers: 3, corridorM: 100 },
-            balanced: { kSens: 0.07, percentile: 1, baseRadius: 43, maxCount: 20, layers: 2, corridorM: 70, kTimeSec: 0, kDistM: 0 },
-            time: { kSens: 0.0, percentile: null } // 회피/프리뷰 없음, baseline만
-        };
-
-        this.sensoryNorm = {
-            // 각 감각 채널 최대치(데이터 단위에 맞게 조정)
-            perSensorMax: { noise: 100, light: 100, odor: 100, crowd: 100 },
-            // 표시 스케일 상한 (0~targetMax)
-            targetMax: 10,
-            // 미세 차이 강조용 (1.0이면 그대로)
-            gamma: 1.0
+            sensory: {
+                // 비용 가중(경로 선택용)
+                kSens: 4.0, kTimeMin: 0.10,
+                // 회피 구성 옵션
+                baseRadius: 46, layers: 3, maxCount: 32, corridorM: 100,
+                // 절대 임계치(기본: 종합점수 기준)
+                absUseComposite: true,       // true면 _pointScore(0~10) 기준, false면 채널별
+                absScore: 7.0,               // 종합점수 임계(0~10)
+                absPerChannelMin: null       // 채널별 임계(예: { noise:7, light:7, odor:7, crowd:7 })
+            },
+            balanced: {
+                // 비용 가중(경로 선택용)
+                kSens: 2.0, kTimeSec: 1.0, kDistM: 0.15,
+                // 회피 구성 옵션
+                baseRadius: 43, layers: 2, maxCount: 20, corridorM: 70,
+                // 교집합 조건: (절대 > absScoreHi) AND (퍼센타일 >= qConservative)
+                absUseComposite: true,
+                absScoreHi: 8.0,
+                absPerChannelMin: null,
+                qConservative: 0.90         // 0.90~0.95 권장
+            },
+            time: { kSens: 0.0, percentile: null } // 회피/프리뷰 없음
         };
     }
 
@@ -269,7 +280,7 @@ export class RouteManager {
                 if (routeControls.parentElement !== document.body) {
                     document.body.appendChild(routeControls);
                 }
-                
+
                 // 모든 스타일과 속성 설정
                 routeControls.removeAttribute('aria-hidden');
                 routeControls.style.setProperty('position', 'fixed', 'important');
@@ -292,7 +303,7 @@ export class RouteManager {
         if (mapContainer) mapContainer.style.cursor = 'crosshair';
         this.routePoints = [];
         this.clearRoute();
-        
+
         // 새 경로 시작 시 route options 패널 다시 표시
         const routeOptions = document.getElementById('routeOptions');
         if (routeOptions) {
@@ -300,7 +311,7 @@ export class RouteManager {
             routeOptions.style.removeProperty('visibility');
             routeOptions.style.display = 'none'; // 초기에는 숨김, 도착지 선택 후 표시
         }
-        
+
         this.app?.showToast?.('지도에서 출발지를 클릭하세요', 'info');
     }
     cancelRouteMode() {
@@ -329,7 +340,7 @@ export class RouteManager {
         if (this.routePoints.length === 0) {
             this.routePoints.push(latlng);
             this.addRouteMarker(latlng, 'start');
-            
+
             // 새 출발지 설정 시 route options 패널 다시 표시 준비
             const routeOptions = document.getElementById('routeOptions');
             if (routeOptions) {
@@ -337,7 +348,7 @@ export class RouteManager {
                 routeOptions.style.removeProperty('visibility');
                 routeOptions.style.display = 'none'; // 도착지 선택 후 표시
             }
-            
+
             this.updateRouteStatus('도착지 선택');
             this.app?.showToast?.('도착지를 클릭하세요', 'info');
         } else if (this.routePoints.length === 1) {
@@ -464,35 +475,68 @@ export class RouteManager {
        감각 포인트/퍼센타일 → 회피 폴리곤
     ==========================*/
     _getAllSensoryPoints() {
-        // Get data directly from dataManager to ensure we have timetable information
         const dm = this.app?.dataManager;
-        if (dm?.sensoryData && typeof dm.sensoryData.forEach === 'function') {
+
+        // 1) gridData가 있으면: 셀 중심 + 평균값 → '셀당 1점' 보장
+        if (dm?.gridData && typeof dm.gridData.forEach === 'function') {
             const out = [];
             try {
-                // Get all sensory reports with timetable information
-                dm.sensoryData.forEach((report, reportId) => {
-                    // Apply timetable filtering for regular data
-                    if (this._shouldIncludeReport(report)) {
-                        out.push({
-                            lat: report.lat,
-                            lng: report.lng,
-                            noise: report.noise,
-                            light: report.light,
-                            odor: report.odor,
-                            crowd: report.crowd,
-                            type: report.type,
-                            timetable: report.timetable,
-                            timetable_repeat: report.timetable_repeat
-                        });
-                    }
+                dm.gridData.forEach((cell, gridKey) => {
+                    const a = cell.averages || {};
+                    const center = this._cellCenter(cell, gridKey);
+                    out.push({
+                        lat: center.lat,
+                        lng: center.lng,
+                        noise: a.noise, light: a.light, odor: a.odor, crowd: a.crowd
+                    });
                 });
-            } catch (e) {
-                console.error('Error getting sensory data for routes:', e);
-            }
+            } catch { }
             return out;
         }
 
-        // Fallback to original method if dataManager doesn't have sensoryData
+        // 2) gridData가 아직 없으면: sensoryData를 '셀 중심' 기준으로 버킷 평균(셀당 1점)
+        if (dm?.sensoryData && typeof dm.sensoryData.forEach === 'function') {
+            const size =
+                Number(dm?.gridSize) ||
+                (typeof dm?.getGridSize === 'function' ? Number(dm.getGridSize()) : 0.0005);
+            const snap = (lat, lng) => {
+                if (!Number.isFinite(size)) return { lat, lng };
+                const south = Math.floor(lat / size) * size;
+                const west = Math.floor(lng / size) * size;
+                return { lat: south + size / 2, lng: west + size / 2 };
+            };
+            const bucket = new Map(); // key: "lat,lng"
+            dm.sensoryData.forEach((report) => {
+                if (!this._shouldIncludeReport(report)) return;
+                const c = snap(report.lat, report.lng);
+                const key = `${c.lat.toFixed(8)},${c.lng.toFixed(8)}`;
+                if (!bucket.has(key)) {
+                    bucket.set(key, {
+                        center: c,
+                        sum: { noise: 0, light: 0, odor: 0, crowd: 0 },
+                        cnt: { noise: 0, light: 0, odor: 0, crowd: 0 }
+                    });
+                }
+                const k = bucket.get(key);
+                const add = (ch, v) => { if (Number.isFinite(v)) { k.sum[ch] += v; k.cnt[ch]++; } };
+                add('noise', report.noise);
+                add('light', report.light);
+                add('odor', report.odor);
+                add('crowd', report.crowd);
+            });
+            const out = [];
+            bucket.forEach(({ center, sum, cnt }) => {
+                const avg = (ch) => cnt[ch] ? (sum[ch] / cnt[ch]) : 0;
+                out.push({
+                    lat: center.lat, lng: center.lng,
+                    noise: avg('noise'), light: avg('light'),
+                    odor: avg('odor'), crowd: avg('crowd')
+                });
+            });
+            return out;
+        }
+
+        // 3) 마지막 폴백: sensoryManager raw → 셀 중심으로 스냅만 적용
         const sm = this.app?.sensoryManager;
         if (sm) {
             try {
@@ -513,22 +557,6 @@ export class RouteManager {
                     return { ...p, lat: c.lat, lng: c.lng };
                 });
             } catch { }
-        }
-
-        if (dm?.gridData && typeof dm.gridData.forEach === 'function') {
-            const out = [];
-            try {
-                dm.gridData.forEach((cell, gridKey) => {
-                    const a = cell.averages || {};
-                    const center = this._cellCenter(cell, gridKey);
-                    out.push({
-                        lat: center.lat,
-                        lng: center.lng,
-                        noise: a.noise, light: a.light, odor: a.odor, crowd: a.crowd
-                    });
-                });
-            } catch { }
-            return out;
         }
         return [];
     }
@@ -611,6 +639,37 @@ export class RouteManager {
         const filtered = scored.filter(s => s._score >= th).sort((a, b) => b._score - a._score);
         return filtered.slice(0, maxCount);
     }
+    // === 절대 임계치 기반 선택(감각 우선 모드용)
+    _selectHotspotsByAbsolute({ maxCount = 32, absUseComposite = true, absScore = 7.0, absPerChannelMin = null } = {}) {
+        const pts = this._getAllSensoryPoints();
+        if (!pts.length) return [];
+        const pass = [];
+        for (const p of pts) {
+            // 채널 값(0~10로 클리핑)
+            const ch = {
+                noise: clip01(p.noise), light: clip01(p.light),
+                odor: clip01(p.odor), crowd: clip01(p.crowd)
+            };
+            // 1) 종합점수 임계
+            let okComposite = true;
+            if (absUseComposite && Number.isFinite(absScore)) {
+                const comp = this._pointScore(p); // vScoreVector 기반 0~10
+                okComposite = (comp >= absScore);
+            }
+            // 2) 채널별 임계
+            let okChannel = true;
+            if (absPerChannelMin && typeof absPerChannelMin === 'object') {
+                for (const k of ['noise', 'light', 'odor', 'crowd']) {
+                    const need = absPerChannelMin[k];
+                    if (Number.isFinite(need) && ch[k] < need) { okChannel = false; break; }
+                }
+            }
+            if (okComposite && okChannel) pass.push({ ...p, _score: this._pointScore(p) });
+        }
+        // 높은 점수부터 제한 개수만
+        pass.sort((a, b) => b._score - a._score);
+        return pass.slice(0, maxCount);
+    }
     _polygonCircleApprox(center, radiusMeters = 40, steps = 18) {
         const dLat = (radiusMeters / 111320);
         const dLng = (radiusMeters / (111320 * Math.cos(center.lat * Math.PI / 180)));
@@ -630,6 +689,44 @@ export class RouteManager {
         for (let k = 0; k < layers; k++) {
             const r = baseRadius * Math.pow(ramp, k);
             const features = hs.map(h => this._polygonCircleApprox({ lat: h.lat, lng: h.lng }, r, 18));
+            levels.push(features);
+        }
+        return levels;
+    }
+
+    // === 절대 임계치 기반 회피(감각 우선)
+    _buildAvoidPolygonsAbsolute({ baseRadius = 46, ramp = 1.45, layers = 3, maxCount = 32, absUseComposite = true, absScore = 7.0, absPerChannelMin = null } = {}) {
+        const hs = this._selectHotspotsByAbsolute({ maxCount, absUseComposite, absScore, absPerChannelMin });
+        const levels = [];
+        for (let k = 0; k < layers; k++) {
+            const r = baseRadius * Math.pow(ramp, k);
+            const features = hs.map(h => this._polygonCircleApprox({ lat: h.lat, lng: h.lng }, r, 18));
+            levels.push(features);
+        }
+        return levels;
+    }
+
+    // === 교집합: (절대 임계) ∩ (퍼센타일) → 균형 모드
+    _buildAvoidPolygonsIntersection({
+        baseRadius = 43, ramp = 1.45, layers = 2, maxCount = 20,
+        absUseComposite = true, absScoreHi = 8.0, absPerChannelMin = null, qConservative = 0.90
+    } = {}) {
+        // 1) 퍼센타일 상위 후보
+        const P = this._selectHotspotsByPercentile(maxCount * 3, qConservative); // 넉넉히 뽑아 교집합에 대비
+        const pKey = new Set(P.map(p => `${p.lat.toFixed(8)},${p.lng.toFixed(8)}`));
+        // 2) 절대 임계 통과 후보(높은 임계치)
+        const A = this._selectHotspotsByAbsolute({ maxCount: maxCount * 3, absUseComposite, absScore: absScoreHi, absPerChannelMin });
+        // 3) 교집합
+        const I = [];
+        for (const h of A) {
+            const key = `${h.lat.toFixed(8)},${h.lng.toFixed(8)}`;
+            if (pKey.has(key)) I.push(h);
+            if (I.length >= maxCount) break;
+        }
+        const levels = [];
+        for (let k = 0; k < Math.max(1, layers); k++) {
+            const r = baseRadius * Math.pow(ramp, k);
+            const features = I.map(h => this._polygonCircleApprox({ lat: h.lat, lng: h.lng }, r, 18));
             levels.push(features);
         }
         return levels;
@@ -735,14 +832,30 @@ export class RouteManager {
     ==========================*/
     _getModeAvoidOpts(type) {
         const m = this.modeConfig[type] || {};
-        if (type === 'time' || m.percentile == null) return null; // time: 회피 비활성
-        return {
+        if (type === 'time') return null; // time: 회피 비활성
+        // 공통 기본값
+        const common = {
             baseRadius: m.baseRadius ?? 40,
             maxCount: m.maxCount ?? 16,
             layers: m.layers ?? 2,
-            percentile: m.percentile ?? 0.85,
             ramp: 1.45,
             corridorM: m.corridorM ?? 80
+        };
+        if (type === 'sensory') {
+            return {
+                ...common,
+                absUseComposite: m.absUseComposite !== false,
+                absScore: Number.isFinite(m.absScore) ? m.absScore : 7.0,
+                absPerChannelMin: m.absPerChannelMin || null
+            };
+        }
+        // balanced
+        return {
+            ...common,
+            absUseComposite: m.absUseComposite !== false,
+            absScoreHi: Number.isFinite(m.absScoreHi) ? m.absScoreHi : 8.0,
+            absPerChannelMin: m.absPerChannelMin || null,
+            qConservative: Number.isFinite(m.qConservative) ? m.qConservative : 0.90
         };
     }
 
@@ -801,17 +914,22 @@ export class RouteManager {
         // 2) sensory/balanced: 회피 세트 구성
         const avoidOptsFromMode = this._getModeAvoidOpts(type) || this._defaultAvoidOpts();
         const avoidOpts = this.lastPreviewOpts
-            ? { ...avoidOptsFromMode, ...this.lastPreviewOpts } // 외부 override 허용
+            ? { ...avoidOptsFromMode, ...this.lastPreviewOpts }
             : avoidOptsFromMode;
-        const levelsAuto = this._buildAvoidPolygonsPercentile(avoidOpts, { mode: type });
-
+        // 모드별 회피 레벨 생성기 선택
+        let levelsAuto = [];
+        if (type === 'sensory') {
+            levelsAuto = this._buildAvoidPolygonsAbsolute(avoidOpts);
+        } else { // balanced
+            levelsAuto = this._buildAvoidPolygonsIntersection(avoidOpts);
+        }
         // 세트 인덱스를 baseline=0, 레벨 1..N 로 고정(프리뷰 인덱싱용)
         const avoidSets = [[]];
         if (type === 'balanced') {
-            // 완화: 첫 레벨만(필요하면 corridor 필터 적용하는 로직이 따로 있을 수 있음)
+            // 균형: 교집합 결과가 과도하면 첫 레벨만 사용(우회 과다 방지)
             avoidSets.push([...(levelsAuto[0] || [])]);
         } else {
-            // sensory: 전 레벨 전달(또는 레벨별로 나눠 전달하는 현재 방식 유지)
+            // 감각 우선: 절대 임계 기반 레벨 전체
             for (let k = 0; k < levelsAuto.length; k++) avoidSets.push([...levelsAuto[k]]);
         }
         this.lastAvoidSets = avoidSets;
@@ -902,12 +1020,12 @@ export class RouteManager {
         const routeControls = document.getElementById('routeControls');
         const routeOptions = document.getElementById('routeOptions');
         const isMobile = window.matchMedia('(max-width: 420px) and (max-height: 900px)').matches;
-        
+
         if (routeControls) {
             if (routeControls.parentElement !== document.body) {
                 document.body.appendChild(routeControls);
             }
-            
+
             // 모든 스타일과 속성 설정
             routeControls.removeAttribute('aria-hidden');
             routeControls.style.setProperty('position', 'fixed', 'important');
@@ -919,7 +1037,7 @@ export class RouteManager {
             routeControls.style.setProperty('z-index', '4000', 'important');
             routeControls.setAttribute('aria-hidden', 'false');
         }
-        
+
         // 모바일에서만 경로 옵션 패널 숨기기
         if (isMobile && routeOptions) {
             routeOptions.style.setProperty('display', 'none', 'important');
@@ -927,18 +1045,18 @@ export class RouteManager {
         }
 
         const sensEval = this._evaluateSensoryCostForDisplay(route); // sensory 기준 평가
-        
+
         // 시간과 거리 계산
         const km = (route.distance / 1000);
         const distance = isFinite(km) ? km.toFixed(1) : '-';
         const minutes = (route.duration / 60);
         const duration = isFinite(minutes) ? Math.round(minutes) : '-';
-        
+
         // 경로 상태에 시간과 거리 표시
         const routeTypeLabel = this.getRouteTypeLabel(type);
         const statusText = `${routeTypeLabel} 경로 | ${distance}km · ${duration}분`;
         this.updateRouteStatus(statusText);
-        
+
         this.showRouteInfo(route, sensEval);
         map.fitBounds(this.currentRoute.getBounds(), { padding: [50, 50] });
     }
@@ -978,7 +1096,7 @@ export class RouteManager {
             this.clearRoute();
             this.routePoints = [latlng];
             this.addRouteMarker(latlng, 'start');
-            
+
             // 새 출발지 설정 시 route options 패널 다시 표시 준비
             const routeOptions = document.getElementById('routeOptions');
             if (routeOptions) {
@@ -986,7 +1104,7 @@ export class RouteManager {
                 routeOptions.style.removeProperty('visibility');
                 routeOptions.style.display = 'none'; // 도착지 선택 후 표시
             }
-            
+
             this.updateRouteStatus('도착지 선택');
             this.app?.mapManager?.getMap?.().closePopup?.();
             this.app?.showToast?.('출발지가 설정되었습니다. 도착지를 선택하세요.', 'success');

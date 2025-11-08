@@ -1,3 +1,5 @@
+const cron = require('node-cron');
+
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
@@ -59,11 +61,13 @@ function validateSensoryData(data) {
 async function cleanupExpiredData() {
     try {
         const result = await pool.query(`
-            DELETE FROM sensory_reports 
-            WHERE 
-                (type = 'irregular' AND created_at < NOW() - INTERVAL '6 hours') OR
-                (type = 'regular' AND COALESCE(timetable_repeat, false) = false AND created_at < NOW() - INTERVAL '7 days')
-        `);
+      DELETE FROM sensory_reports 
+      WHERE 
+        (type = 'irregular' AND created_at < NOW() - INTERVAL '24 hours')
+        OR
+        (type = 'regular' AND created_at < NOW() - INTERVAL '90 days')
+    `);
+
         if (result.rowCount > 0) {
             console.log(`🧹 ${result.rowCount}개의 만료된 데이터를 자동으로 정리했습니다.`);
         }
@@ -86,7 +90,7 @@ function createResponse(success, data = null, message = '', error = null) {
 const verifyToken = (req, res, next) => {
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.split(' ')[1];
-    
+
     if (!token) {
         return res.status(401).json(createResponse(false, null, '', '인증 토큰이 필요합니다.'));
     }
@@ -104,7 +108,7 @@ const verifyToken = (req, res, next) => {
 const optionalAuth = (req, res, next) => {
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.split(' ')[1];
-    
+
     if (token) {
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
@@ -120,18 +124,18 @@ const optionalAuth = (req, res, next) => {
 async function initializeDatabase() {
     try {
         console.log('📄 데이터베이스 테이블을 확인하고 생성합니다...');
-        
+
         // 개발/테스트 환경에서만 테이블 초기화
-        const isDevelopment = process.env.NODE_ENV === 'development' || 
-                             process.env.NODE_ENV === 'test' || 
-                             !process.env.NODE_ENV;
-        
+        const isDevelopment = process.env.NODE_ENV === 'development' ||
+            process.env.NODE_ENV === 'test' ||
+            !process.env.NODE_ENV;
+
         if (isDevelopment && process.env.RESET_DB === 'true') {
             console.log('🔄 개발 환경: 기존 테이블을 삭제하고 재생성합니다...');
             await pool.query(`DROP TABLE IF EXISTS sensory_reports CASCADE;`);
             await pool.query(`DROP TABLE IF EXISTS users CASCADE;`);
         }
-        
+
         // 트리거 함수 먼저 생성 (있으면 교체)
         await pool.query(`
             CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -206,6 +210,8 @@ async function initializeDatabase() {
             )
         `);
 
+
+
         // user_id 컬럼 안전하게 추가 (마이그레이션)
         try {
             // 컬럼 존재 여부 확인
@@ -217,7 +223,7 @@ async function initializeDatabase() {
 
             if (columnExists.rows.length === 0) {
                 console.log('📄 sensory_reports 테이블에 user_id 컬럼을 추가합니다...');
-                
+
                 // user_id 컬럼 추가
                 await pool.query(`
                     ALTER TABLE sensory_reports 
@@ -235,7 +241,7 @@ async function initializeDatabase() {
             }
         } catch (migrationError) {
             console.warn('⚠️ user_id 컬럼 마이그레이션 중 오류 (이미 존재할 수 있음):', migrationError.message);
-            
+
             // 외래키 제약조건만 다시 시도 (컬럼은 있지만 제약조건이 없을 수 있음)
             try {
                 await pool.query(`
@@ -280,6 +286,28 @@ async function initializeDatabase() {
         await pool.query('CREATE INDEX IF NOT EXISTS idx_sensory_reports_user_id ON sensory_reports (user_id)');
         await pool.query('CREATE INDEX IF NOT EXISTS idx_users_email ON users (email)');
 
+        // === 셀 그리드 컬럼/인덱스 안전 보강 ===
+        try {
+            const colq2 = `SELECT column_name FROM information_schema.columns WHERE table_name = 'sensory_reports'`;
+            const cols2 = await pool.query(colq2);
+            const names2 = new Set(cols2.rows.map(r => r.column_name));
+            if (!names2.has('cell_key')) {
+                await pool.query(`ALTER TABLE sensory_reports ADD COLUMN cell_key TEXT`);
+            }
+            if (!names2.has('cell_center_lat')) {
+                await pool.query(`ALTER TABLE sensory_reports ADD COLUMN cell_center_lat DECIMAL(10,8)`);
+            }
+            if (!names2.has('cell_center_lng')) {
+                await pool.query(`ALTER TABLE sensory_reports ADD COLUMN cell_center_lng DECIMAL(11,8)`);
+            }
+            // 인덱스
+            await pool.query(`CREATE INDEX IF NOT EXISTS idx_sensory_reports_cell_key ON sensory_reports (cell_key)`);
+            await pool.query(`CREATE INDEX IF NOT EXISTS idx_sensory_reports_cell_key_time ON sensory_reports (cell_key, created_at DESC)`);
+        } catch (e) {
+            console.warn('⚠️ cell_key/center 컬럼 보강 중 경고:', e.message);
+        }
+
+
         console.log('✅ 데이터베이스 초기화가 완료되었습니다.');
     } catch (error) {
         console.error('❌ 데이터베이스 초기화 중 오류:', error);
@@ -305,7 +333,7 @@ app.get('/api/health', (req, res) => {
 app.post('/api/users/signup', async (req, res) => {
     try {
         let { name, email, password } = req.body;
-        
+
         // 기본 유효성 검사
         if (!name || !email || !password) {
             return res.status(400).json(createResponse(false, null, '', '모든 필드를 입력해주세요.'));
@@ -371,10 +399,10 @@ app.post('/api/users/signin', async (req, res) => {
 
         // JWT 토큰 생성
         const token = jwt.sign(
-            { 
+            {
                 userId: user.rows[0].id,
                 email: user.rows[0].email,
-                name: user.rows[0].name 
+                name: user.rows[0].name
             },
             JWT_SECRET,
             { expiresIn: '24h' }
@@ -399,10 +427,10 @@ app.post('/api/users/signin', async (req, res) => {
 app.get('/api/users/profile', verifyToken, async (req, res) => {
     try {
         const user = await pool.query(
-            'SELECT id, name, email, created_at, updated_at FROM users WHERE id = $1', 
+            'SELECT id, name, email, created_at, updated_at FROM users WHERE id = $1',
             [req.user.userId]
         );
-        
+
         if (user.rows.length === 0) {
             return res.status(404).json(createResponse(false, null, '', '사용자를 찾을 수 없습니다.'));
         }
@@ -483,7 +511,7 @@ app.put('/api/users/preferences', verifyToken, async (req, res) => {
 app.get('/api/reports', optionalAuth, async (req, res) => {
     try {
         const { recent_hours = 168 } = req.query; // 기본 1주일
-        
+
         // 사용자 정보와 함께 조회
         const result = await pool.query(`
             SELECT 
@@ -500,7 +528,7 @@ app.get('/api/reports', optionalAuth, async (req, res) => {
             ORDER BY sr.created_at DESC 
             LIMIT 2000
         `);
-        
+
         res.status(200).json(createResponse(true, result.rows, `${result.rows.length}개의 감각 데이터를 조회했습니다.`));
     } catch (err) {
         console.error('데이터 조회 중 오류:', err);
@@ -518,7 +546,7 @@ app.post('/api/reports', optionalAuth, async (req, res) => {
 
         // 1. req.body에서 wheelchair 제거
         const { lat, lng, noise, light, odor, crowd, type, duration, timetable, timetableRepeat } = req.body;
-        
+
         // 2. cleanData 객체에서 wheelchair 제거
         const cleanData = {
             lat: parseFloat(lat),
@@ -538,8 +566,8 @@ app.post('/api/reports', optionalAuth, async (req, res) => {
         const newReport = await pool.query(
             `INSERT INTO sensory_reports (lat, lng, noise, light, odor, crowd, type, duration, user_id, timetable, timetable_repeat)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
-            [cleanData.lat, cleanData.lng, cleanData.noise, cleanData.light, cleanData.odor, 
-             cleanData.crowd, cleanData.type, cleanData.duration, cleanData.user_id, cleanData.timetable, cleanData.timetable_repeat]
+            [cleanData.lat, cleanData.lng, cleanData.noise, cleanData.light, cleanData.odor,
+            cleanData.crowd, cleanData.type, cleanData.duration, cleanData.user_id, cleanData.timetable, cleanData.timetable_repeat]
         );
 
         // 사용자 정보도 함께 반환 (있는 경우)
@@ -560,7 +588,7 @@ app.post('/api/reports', optionalAuth, async (req, res) => {
 app.get('/api/reports/my', verifyToken, async (req, res) => {
     try {
         const { recent_hours = 168 } = req.query; // 기본 1주일
-        
+
         const result = await pool.query(`
             SELECT 
                 sr.*,
@@ -572,7 +600,7 @@ app.get('/api/reports/my', verifyToken, async (req, res) => {
             ORDER BY sr.created_at DESC 
             LIMIT 1000
         `, [req.user.userId]);
-        
+
         res.status(200).json(createResponse(true, result.rows, `${result.rows.length}개의 내 감각 데이터를 조회했습니다.`));
     } catch (err) {
         console.error('내 데이터 조회 중 오류:', err);
@@ -584,7 +612,7 @@ app.get('/api/reports/my', verifyToken, async (req, res) => {
 app.put('/api/reports/:id', verifyToken, async (req, res) => {
     try {
         const reportId = parseInt(req.params.id);
-        
+
         if (isNaN(reportId) || reportId <= 0) {
             return res.status(400).json(createResponse(false, null, '', '유효하지 않은 ID입니다.'));
         }
@@ -606,7 +634,7 @@ app.put('/api/reports/:id', verifyToken, async (req, res) => {
 
         // 1. req.body에서 wheelchair 제거
         const { lat, lng, noise, light, odor, crowd, type, duration, timetable, timetableRepeat } = req.body;
-        
+
         // 2. cleanData 객체에서 wheelchair 제거
         const cleanData = {
             lat: parseFloat(lat),
@@ -627,8 +655,8 @@ app.put('/api/reports/:id', verifyToken, async (req, res) => {
              SET lat = $1, lng = $2, noise = $3, light = $4, odor = $5, crowd = $6, 
                  type = $7, duration = $8, timetable = $9, timetable_repeat = $10, updated_at = NOW()
              WHERE id = $11 AND user_id = $12 RETURNING *`,
-            [cleanData.lat, cleanData.lng, cleanData.noise, cleanData.light, cleanData.odor, 
-             cleanData.crowd, cleanData.type, cleanData.duration, cleanData.timetable, cleanData.timetable_repeat, reportId, req.user.userId]
+            [cleanData.lat, cleanData.lng, cleanData.noise, cleanData.light, cleanData.odor,
+            cleanData.crowd, cleanData.type, cleanData.duration, cleanData.timetable, cleanData.timetable_repeat, reportId, req.user.userId]
         );
 
         res.status(200).json(createResponse(true, result.rows[0], '감각 데이터가 성공적으로 수정되었습니다.'));
@@ -642,7 +670,7 @@ app.put('/api/reports/:id', verifyToken, async (req, res) => {
 app.delete('/api/reports/:id', verifyToken, async (req, res) => {
     try {
         const reportId = parseInt(req.params.id);
-        
+
         if (isNaN(reportId) || reportId <= 0) {
             return res.status(400).json(createResponse(false, null, '', '유효하지 않은 ID입니다.'));
         }
@@ -687,7 +715,7 @@ app.get('/api/stats', optionalAuth, async (req, res) => {
             FROM sensory_reports
             WHERE created_at > NOW() - INTERVAL '7 days'
         `);
-        
+
         res.status(200).json(createResponse(true, stats.rows[0], '통계 정보를 조회했습니다.'));
     } catch (err) {
         console.error('통계 조회 중 오류:', err);
@@ -699,14 +727,14 @@ app.get('/api/stats', optionalAuth, async (req, res) => {
 app.get('/api/geocode', async (req, res) => {
     try {
         const { q } = req.query;
-        
+
         if (!q || !q.trim()) {
             return res.status(400).json(createResponse(false, null, '', '검색어를 입력해주세요.'));
         }
 
         const encodedQuery = encodeURIComponent(q.trim());
         const nominatimUrl = `https://nominatim.openstreetmap.org/search?q=${encodedQuery}&format=json&limit=5&addressdetails=1`;
-        
+
         const response = await fetch(nominatimUrl, {
             headers: {
                 'User-Agent': 'SensmapApp/1.0 (dev@sensmap.app)',
@@ -719,7 +747,7 @@ app.get('/api/geocode', async (req, res) => {
         }
 
         const results = await response.json();
-        
+
         res.status(200).json(createResponse(true, results, `${results.length}개의 결과를 찾았습니다.`));
     } catch (err) {
         console.error('지오코딩 오류:', err);
@@ -748,6 +776,40 @@ app.use((error, req, res, next) => {
     res.status(500).json(createResponse(false, null, '', '서버에서 예상치 못한 오류가 발생했습니다.'));
 });
 
+// 기존 app.listen 위에 추가
+(async () => {
+    await cleanupExpiredData();
+    console.log('✅ 초기 데이터 정리 완료');
+})();
+
+// 1시간마다 자동 정리
+cron.schedule('0 * * * *', async () => {
+    await cleanupExpiredData();
+});
+
+// API 엔드포인트 추가 (셀 단위 평균 조회)
+app.get('/api/heatmap', async (req, res) => {
+    try {
+        const result = await pool.query(`
+    SELECT
+       cell_south,
+        cell_west,
+        MIN(cell_center_lat) AS lat,   -- 중심은 같은 값이므로 MIN/MAX 아무거나
+        MIN(cell_center_lng) AS lng,
+        AVG(noise) AS noise,
+        AVG(light) AS light,
+        AVG(odor)  AS odor,
+        AVG(crowd) AS crowd
+      FROM sensory_reports
+      GROUP BY cell_south, cell_west
+    `);
+        res.json(result.rows);
+    } catch (err) {
+        console.error('❌ heatmap fetch error:', err);
+        res.status(500).send('DB query failed');
+    }
+});
+
 // --- 서버 시작 및 주기적 작업 설정 ---
 const server = app.listen(port, '0.0.0.0', async () => {
     console.log(`========================================`);
@@ -772,8 +834,8 @@ const server = app.listen(port, '0.0.0.0', async () => {
 
     try {
         await initializeDatabase();
-        setInterval(cleanupExpiredData, 3600000);
-        setTimeout(cleanupExpiredData, 5000);
+        // 부팅 직후 1회 실행
+        (async () => { await cleanupExpiredData(); console.log('✅ 초기 데이터 정리 완료'); })();
         console.log('✅ 서버 초기화가 완료되었습니다.');
     } catch (error) {
         console.error('❌ 서버 초기화 중 오류:', error);
@@ -784,26 +846,26 @@ const server = app.listen(port, '0.0.0.0', async () => {
 // 우아한 종료 처리
 const gracefulShutdown = (signal) => {
     console.log(`📄 ${signal} 신호를 받았습니다. 서버를 우아하게 종료합니다...`);
-    
+
     server.close((err) => {
         if (err) {
             console.error('❌ 서버 종료 중 오류:', err);
             process.exit(1);
         }
-        
+
         console.log('✅ 서버가 정상적으로 종료되었습니다.');
-        
+
         pool.end((poolErr) => {
             if (poolErr) {
                 console.error('❌ 데이터베이스 연결 종료 중 오류:', poolErr);
                 process.exit(1);
             }
-            
+
             console.log('✅ 데이터베이스 연결이 종료되었습니다.');
             process.exit(0);
         });
     });
-    
+
     setTimeout(() => {
         console.log('⚠️  강제 종료됩니다...');
         process.exit(1);
