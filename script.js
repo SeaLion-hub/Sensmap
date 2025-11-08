@@ -81,7 +81,7 @@ class SensmapApp {
             this.setupGeolocationUI();
             // 7단계: 초기 데이터 로드
             console.log('📡 감각 데이터 로드...');
-                nsoryData();
+            await this.dataManager.loadSensoryData();
             // 데이터 로드 후 폴리곤 프리뷰 갱신 (중요)
             if (this.routeManager?.isAvoidPreviewMode) {
                 this.routeManager.refreshAvoidPreview();
@@ -1287,5 +1287,6 @@ localStorage.setItem('sensoryProfile', JSON.stringify(window.sensoryProfile));
 function getSensoryProfile() {
 return { ...window.sensoryProfile };
 }
+
 
 
