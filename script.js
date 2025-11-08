@@ -10,7 +10,7 @@ import { AuthManager } from './authManager.js';
 
 class SensmapApp {
     constructor() {
-        this.version = '2.1.0';
+        this.version = '3.0.0';
         this.isInitialized = false;
         this.currentToast = null;
         this.undoTimeout = null;

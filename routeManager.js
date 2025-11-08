@@ -4,6 +4,8 @@ import { clip01, vScoreVector } from './sensoryScorer.js';
 export class RouteManager {
     constructor(app) {
         this.app = app;
+        // 빌드 태그(콘솔에서 확인용)
+        console.log('RouteManager build: 2025-11-08 bucket-guard v1');
 
         // ===== 경로 상태 =====
         this.isRouteMode = false;
@@ -48,6 +50,7 @@ export class RouteManager {
             },
             time: { kSens: 0.0, percentile: null } // 회피/프리뷰 없음
         };
+        this._ensureBucketedGetter();
     }
 
     /* =========================
@@ -59,6 +62,62 @@ export class RouteManager {
             if (partial[key]) Object.assign(this.modeConfig[key], partial[key]);
         }
         if (this.isAvoidPreviewMode) this.refreshAvoidPreview(); // 즉시 반영
+    }
+
+    // === 셀 중심 계산 헬퍼 (이미 존재) ===
+    // _cellCenter(cell, gridKey) { ... }
+
+    // === 항상 “셀당 1점”을 돌려주는 표준 버전 ===
+    _getAllSensoryPoints_bucketed() {
+        const dm = this.app?.dataManager;
+        if (!dm) return [];
+        // 1) gridData 우선: 셀 중심+평균 → 셀당 1개
+        if (dm?.gridData?.size > 0) {
+            const out = [];
+            dm.gridData.forEach((cell, gridKey) => {
+                const a = cell.averages || {};
+                const c = this._cellCenter(cell, gridKey);
+                out.push({ lat: c.lat, lng: c.lng, noise: a.noise, light: a.light, odor: a.odor, crowd: a.crowd });
+            });
+            return out;
+        }
+        // 2) sensoryData만 있을 때: 스냅 후 버킷 평균 → 셀당 1개
+        const size =
+            Number(dm?.gridSize) ||
+            (typeof dm?.getGridSize === 'function' ? Number(dm.getGridSize()) : 0.0005);
+        const snap = (lat, lng) => {
+            if (!Number.isFinite(size)) return { lat, lng };
+            const south = Math.floor(lat / size) * size;
+            const west = Math.floor(lng / size) * size;
+            return { lat: south + size / 2, lng: west + size / 2 };
+        };
+        const bucket = new Map();
+        dm?.sensoryData?.forEach?.((r) => {
+            const c = snap(r.lat, r.lng);
+            const key = `${c.lat.toFixed(8)},${c.lng.toFixed(8)}`;
+            if (!bucket.has(key)) {
+                bucket.set(key, { c, sum: { noise: 0, light: 0, odor: 0, crowd: 0 }, cnt: { noise: 0, light: 0, odor: 0, crowd: 0 } });
+            }
+            const b = bucket.get(key);
+            const add = (k, v) => { if (Number.isFinite(v)) { b.sum[k] += v; b.cnt[k]++; } };
+            add('noise', r.noise); add('light', r.light); add('odor', r.odor); add('crowd', r.crowd);
+        });
+        const pts = [];
+        bucket.forEach(({ c, sum, cnt }) => {
+            const avg = k => cnt[k] ? sum[k] / cnt[k] : 0;
+            pts.push({ lat: c.lat, lng: c.lng, noise: avg('noise'), light: avg('light'), odor: avg('odor'), crowd: avg('crowd') });
+        });
+        return pts;
+    }
+
+    // === 구버전 로드 시 자동으로 표준 버전으로 대체 ===
+    _ensureBucketedGetter() {
+        const body = (this._getAllSensoryPoints || '').toString();
+        if (!body.includes('bucket = new Map') && !body.includes('gridData')) {
+            // 구버전으로 판단 → 교체
+            this._getAllSensoryPoints = this._getAllSensoryPoints_bucketed.bind(this);
+            console.warn('[RouteManager] old _getAllSensoryPoints detected → bucketed version enabled');
+        }
     }
 
     // === 셀 중심 계산 헬퍼 ===

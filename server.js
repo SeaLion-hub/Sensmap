@@ -791,17 +791,17 @@ cron.schedule('0 * * * *', async () => {
 app.get('/api/heatmap', async (req, res) => {
     try {
         const result = await pool.query(`
-    SELECT
-       cell_south,
-        cell_west,
-        MIN(cell_center_lat) AS lat,   -- 중심은 같은 값이므로 MIN/MAX 아무거나
-        MIN(cell_center_lng) AS lng,
-        AVG(noise) AS noise,
-        AVG(light) AS light,
-        AVG(odor)  AS odor,
-        AVG(crowd) AS crowd
-      FROM sensory_reports
-      GROUP BY cell_south, cell_west
+            SELECT
+                cell_south,
+                cell_west,
+                MIN(cell_center_lat) AS lat,
+                MIN(cell_center_lng) AS lng,
+                AVG(noise) AS noise,
+                AVG(light) AS light,
+                AVG(odor)  AS odor,
+                AVG(crowd) AS crowd
+            FROM sensory_reports
+            GROUP BY cell_south, cell_west
     `);
         res.json(result.rows);
     } catch (err) {
