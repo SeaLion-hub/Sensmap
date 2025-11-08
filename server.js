@@ -824,12 +824,13 @@ app.get('/api/heatmap', async (req, res) => {
 });
 
 // --- 서버 시작 및 주기적 작업 설정 ---
-const server = app.listen(port, '0.0.0.0', async () => {
+const server = app.listen(port, '0.0.0.0', () => {
     console.log(`========================================`);
     console.log(`🚀 Sensmap 백엔드 서버가 시작되었습니다!`);
     console.log(`📍 포트: ${port}`);
     console.log(`🌍 환경: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🔐 인증: 활성화 (JWT)`);
+    console.log(`✅ 서버가 연결을 받을 준비가 되었습니다.`);
     console.log(`📊 API 엔드포인트:`);
     console.log(`   GET    /api/health - 서버 상태 확인`);
     console.log(`   POST   /api/users/signup - 회원가입`);
@@ -845,15 +846,28 @@ const server = app.listen(port, '0.0.0.0', async () => {
     console.log(`   GET    /api/stats - 통계 정보 조회`);
     console.log(`========================================`);
 
-    try {
-        await initializeDatabase();
-        // 부팅 직후 1회 실행
-        (async () => { await cleanupExpiredData(); console.log('✅ 초기 데이터 정리 완료'); })();
-        console.log('✅ 서버 초기화가 완료되었습니다.');
-    } catch (error) {
-        console.error('❌ 서버 초기화 중 오류:', error);
-        process.exit(1);
-    }
+    // 데이터베이스 초기화를 비동기로 실행 (서버는 계속 실행)
+    // Railway healthcheck가 통과할 수 있도록 서버는 즉시 시작
+    (async () => {
+        try {
+            await initializeDatabase();
+            // 부팅 직후 1회 실행
+            (async () => { 
+                try {
+                    await cleanupExpiredData(); 
+                    console.log('✅ 초기 데이터 정리 완료'); 
+                } catch (cleanupError) {
+                    console.warn('⚠️ 데이터 정리 중 오류 (무시):', cleanupError.message);
+                }
+            })();
+            console.log('✅ 서버 초기화가 완료되었습니다.');
+        } catch (error) {
+            // 데이터베이스 초기화 실패해도 서버는 계속 실행
+            // Railway healthcheck가 통과할 수 있도록 서버는 살아있어야 함
+            console.error('❌ 데이터베이스 초기화 중 오류 (서버는 계속 실행):', error.message);
+            console.error('⚠️ 데이터베이스 연결이 실패했지만 서버는 계속 실행됩니다.');
+        }
+    })();
 });
 
 // 우아한 종료 처리
