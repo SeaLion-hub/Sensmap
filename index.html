@@ -1062,67 +1062,218 @@
 
   <!-- 감각 도움말 모달 (첫 번째 파일에서 병합) -->
   <div class="modal-overlay" id="sensoryHelpModal" aria-hidden="true">
-    <div class="modal-content" role="dialog" aria-labelledby="sensoryHelpTitle">
-      <div class="modal-header">
-        <h3 id="sensoryHelpTitle">감각 숫자 설명</h3>
+    <div class="modal-content sensory-help-modal" role="dialog" aria-labelledby="sensoryHelpTitle">
+      <div class="modal-header sensory-help-header">
+        <div class="sensory-help-header-content">
+          <h3 id="sensoryHelpTitle"><i class="fas fa-info-circle"></i> 감각 숫자 설명</h3>
+          <p class="sensory-help-subtitle">각 감각 수준에 대한 상세한 설명을 확인하세요</p>
+        </div>
         <button class="close-btn" id="closeSensoryHelpBtn" aria-label="감각 도움말 닫기"><i class="fas fa-times"></i></button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body sensory-help-body">
         <div class="help-section" data-help="noise">
-          <h4>🔊 소음 (0–10)</h4>
-          <p>0: 도서관, 숲 속에서 새벽 바람소리, 사람이 없는 한적한 공원</p>
-          <p>1: 속삭임, 나뭇잎 흔들리는 소리, 조용한 골목길, 노트북 팬 소음(저소음)</p>
-          <p>2: 조용한 사무실, 냉장고 돌아가는 소리, 도서관 발자국, 작은 카페</p>
-          <p>3: 가까운 거리 대화, 조용한 상점 내부, 소형 자동차 소리, TV 낮은 볼륨</p>
-          <p>4: 일반 사무실 분위기, 붐비는 카페, 음식점 피크타임, 청소기</p>
-          <p>5: 번화가 차량 통행, 떠드는 학생 무리, 지하철 내부, TV 보통 볼륨</p>
-          <p>6: 버스/오토바이 도로 소음, 큰 목소리 대화, 전화 벨소리, 지하철 방송</p>
-          <p>7: 전동 드릴, 대형 트럭 근처, 헤어드라이어·믹서기, 붐비는 시장</p>
-          <p>8: 지하철 열차 진입, 공사장 함마드릴, 록 콘서트 객석, 오토바이</p>
-          <p>9: 앰뷸런스 사이렌, 대형 스피커 앞 콘서트, 폭죽 근거리</p>
-          <p>10: 제트기 이륙 활주로, 로켓 발사, 활주로 엔진 테스트, 총성 근접 거리</p>
+          <div class="help-section-header">
+            <h4><span class="help-icon">🔊</span> 소음 (0–10)</h4>
+          </div>
+          <div class="help-content">
+            <div class="help-item">
+              <span class="help-number">0</span>
+              <span class="help-text">도서관, 숲 속에서 새벽 바람소리, 사람이 없는 한적한 공원</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">1</span>
+              <span class="help-text">속삭임, 나뭇잎 흔들리는 소리, 조용한 골목길, 노트북 팬 소음(저소음)</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">2</span>
+              <span class="help-text">조용한 사무실, 냉장고 돌아가는 소리, 도서관 발자국, 작은 카페</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">3</span>
+              <span class="help-text">가까운 거리 대화, 조용한 상점 내부, 소형 자동차 소리, TV 낮은 볼륨</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">4</span>
+              <span class="help-text">일반 사무실 분위기, 붐비는 카페, 음식점 피크타임, 청소기</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">5</span>
+              <span class="help-text">번화가 차량 통행, 떠드는 학생 무리, 지하철 내부, TV 보통 볼륨</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">6</span>
+              <span class="help-text">버스/오토바이 도로 소음, 큰 목소리 대화, 전화 벨소리, 지하철 방송</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">7</span>
+              <span class="help-text">전동 드릴, 대형 트럭 근처, 헤어드라이어·믹서기, 붐비는 시장</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">8</span>
+              <span class="help-text">지하철 열차 진입, 공사장 함마드릴, 록 콘서트 객석, 오토바이</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">9</span>
+              <span class="help-text">앰뷸런스 사이렌, 대형 스피커 앞 콘서트, 폭죽 근거리</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">10</span>
+              <span class="help-text">제트기 이륙 활주로, 로켓 발사, 활주로 엔진 테스트, 총성 근접 거리</span>
+            </div>
+          </div>
         </div>
         <div class="help-section" data-help="light">
-          <h4>💡 빛 (0–10)</h4>
-          <p>0: 별빛 밤하늘, 달빛, 아주 어두운 동굴, 영화관 상영 중</p>
-          <p>1: 가로등 없는 밤길, 희미한 새벽녘, 창문 없는 어두운 방, 멀리 있는 촛불</p>
-          <p>2: 가로등 있는 밤거리, 어두운 복도, 달 밝은 시골길, 간접조명 방</p>
-          <p>3: 어두운 실내, 새벽 이른 아침 집안, 조명 약한 카페, 무드등 켜진 방</p>
-          <p>4: 일반 거실 조명, 편안한 독서등, 밤의 사무실, 가정용 LED 조명</p>
-          <p>5: 밝은 사무실, 독서실 조명, 병원 대기실, 교실 불 켜진 상태</p>
-          <p>6: 흐린 날 실외, 밝은 카페, 쇼핑몰 내부, 사진 스튜디오 보조광</p>
-          <p>7: 흐린 낮 실외, 밝은 사무실 천장등, 대형마트 내부, 병원 수술실 조명</p>
-          <p>8: 맑은 날 그늘, 창가 햇살 들어오는 방, 체육관 실내, 무대 조명 아래</p>
-          <p>9: 맑은 날 직사광선, 한낮의 해변, 햇빛 가득한 창가, 반사된 눈밭 풍경</p>
-          <p>10: 한여름 정오 태양, 사막의 직사광선, 스튜디오 조명 직사, 용접 불꽃</p>
+          <div class="help-section-header">
+            <h4><span class="help-icon">💡</span> 빛 (0–10)</h4>
+          </div>
+          <div class="help-content">
+            <div class="help-item">
+              <span class="help-number">0</span>
+              <span class="help-text">별빛 밤하늘, 달빛, 아주 어두운 동굴, 영화관 상영 중</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">1</span>
+              <span class="help-text">가로등 없는 밤길, 희미한 새벽녘, 창문 없는 어두운 방, 멀리 있는 촛불</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">2</span>
+              <span class="help-text">가로등 있는 밤거리, 어두운 복도, 달 밝은 시골길, 간접조명 방</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">3</span>
+              <span class="help-text">어두운 실내, 새벽 이른 아침 집안, 조명 약한 카페, 무드등 켜진 방</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">4</span>
+              <span class="help-text">일반 거실 조명, 편안한 독서등, 밤의 사무실, 가정용 LED 조명</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">5</span>
+              <span class="help-text">밝은 사무실, 독서실 조명, 병원 대기실, 교실 불 켜진 상태</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">6</span>
+              <span class="help-text">흐린 날 실외, 밝은 카페, 쇼핑몰 내부, 사진 스튜디오 보조광</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">7</span>
+              <span class="help-text">흐린 낮 실외, 밝은 사무실 천장등, 대형마트 내부, 병원 수술실 조명</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">8</span>
+              <span class="help-text">맑은 날 그늘, 창가 햇살 들어오는 방, 체육관 실내, 무대 조명 아래</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">9</span>
+              <span class="help-text">맑은 날 직사광선, 한낮의 해변, 햇빛 가득한 창가, 반사된 눈밭 풍경</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">10</span>
+              <span class="help-text">한여름 정오 태양, 사막의 직사광선, 스튜디오 조명 직사, 용접 불꽃</span>
+            </div>
+          </div>
         </div>
         <div class="help-section" data-help="odor">
-          <h4>👃 냄새 (0–10)</h4>
-          <p>0: 거의 무취, 한적한 숲속 공기, 잘 환기된 방, 비 온 뒤 맑은 공기</p>
-          <p>1: 아주 약한 향, 깨끗한 빨래 냄새, 종이 냄새, 잔잔한 풀내음</p>
-          <p>2: 은은한 향, 차 한잔의 향기, 향초 향기, 멀리서 풍기는 음식 냄새</p>
-          <p>3: 약간 느껴지는 냄새, 커피 향, 과일 껍질 향, 빵 굽는 냄새</p>
-          <p>4: 분명하지만 불편하지 않은 냄새, 꽃 향기, 향수 소량, 구운 고기 냄새</p>
-          <p>5: 강하게 인지되는 냄새, 향수 뿌린 사람 근처, 길거리 음식 냄새</p>
-          <p>6: 다소 거슬리는 냄새, 담배 연기, 지하철 땀 냄새, 음식물 쓰레기통</p>
-          <p>7: 매우 강하고 불쾌한 냄새, 암모니아 냄새, 하수구 냄새, 상한 음식 냄새</p>
-          <p>8: 극도로 거슬리는 냄새, 썩은 달걀, 강한 화학 약품 냄새, 타는 냄새</p>
-          <p>9: 견디기 힘든 냄새, 죽은 동물 사체, 부패한 고기, 강력 접착제 냄새</p>
-          <p>10: 즉시 회피 반응을 일으키는 냄새, 독성 가스, 화학 화재 연기</p>
+          <div class="help-section-header">
+            <h4><span class="help-icon">👃</span> 냄새 (0–10)</h4>
+          </div>
+          <div class="help-content">
+            <div class="help-item">
+              <span class="help-number">0</span>
+              <span class="help-text">거의 무취, 한적한 숲속 공기, 잘 환기된 방, 비 온 뒤 맑은 공기</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">1</span>
+              <span class="help-text">아주 약한 향, 깨끗한 빨래 냄새, 종이 냄새, 잔잔한 풀내음</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">2</span>
+              <span class="help-text">은은한 향, 차 한잔의 향기, 향초 향기, 멀리서 풍기는 음식 냄새</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">3</span>
+              <span class="help-text">약간 느껴지는 냄새, 커피 향, 과일 껍질 향, 빵 굽는 냄새</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">4</span>
+              <span class="help-text">분명하지만 불편하지 않은 냄새, 꽃 향기, 향수 소량, 구운 고기 냄새</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">5</span>
+              <span class="help-text">강하게 인지되는 냄새, 향수 뿌린 사람 근처, 길거리 음식 냄새</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">6</span>
+              <span class="help-text">다소 거슬리는 냄새, 담배 연기, 지하철 땀 냄새, 음식물 쓰레기통</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">7</span>
+              <span class="help-text">매우 강하고 불쾌한 냄새, 암모니아 냄새, 하수구 냄새, 상한 음식 냄새</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">8</span>
+              <span class="help-text">극도로 거슬리는 냄새, 썩은 달걀, 강한 화학 약품 냄새, 타는 냄새</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">9</span>
+              <span class="help-text">견디기 힘든 냄새, 죽은 동물 사체, 부패한 고기, 강력 접착제 냄새</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">10</span>
+              <span class="help-text">즉시 회피 반응을 일으키는 냄새, 독성 가스, 화학 화재 연기</span>
+            </div>
+          </div>
         </div>
         <div class="help-section" data-help="crowd">
-          <h4>👥 혼잡도 (0–10)</h4>
-          <p>0: 한적한 공원, 인적 드문 시골길, 텅 빈 도서관, 이른 새벽 해변</p>
-          <p>1: 산책하는 몇몇 사람, 동네 작은 카페 조용한 시간, 텅 빈 버스</p>
-          <p>2: 적당히 분산된 사람들, 낮 시간대 도서관, 평일 낮 지하철, 동네 편의점</p>
-          <p>3: 여유로운 수준의 사람들, 일반적인 공원 주말 낮, 도심 작은 상점가</p>
-          <p>4: 사람을 쉽게 피할 수 있는 수준, 지하철 평일 저녁 전, 쇼핑몰 비성수기</p>
-          <p>5: 붐비는 수준, 인기 카페 주말, 마트 저녁 시간, 식당 점심시간</p>
-          <p>6: 지하철 출퇴근 전, 맛집 웨이팅 줄, 번화가 메인 거리</p>
-          <p>7: 이동이 불편함, 유명 축제 입구, 대형 마트 세일 시간</p>
-          <p>8: 밀착된 수준, 콘서트 대기줄, 불꽃놀이 명당 자리</p>
-          <p>9: 밀집 상태, 지하철 퇴근 시간, 성수기 관광지, 대형 집회 한복판</p>
-          <p>10: 이동 불가, 콘서트 스탠딩 존, 지하철 만원, 대피 상황</p>
+          <div class="help-section-header">
+            <h4><span class="help-icon">👥</span> 혼잡도 (0–10)</h4>
+          </div>
+          <div class="help-content">
+            <div class="help-item">
+              <span class="help-number">0</span>
+              <span class="help-text">한적한 공원, 인적 드문 시골길, 텅 빈 도서관, 이른 새벽 해변</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">1</span>
+              <span class="help-text">산책하는 몇몇 사람, 동네 작은 카페 조용한 시간, 텅 빈 버스</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">2</span>
+              <span class="help-text">적당히 분산된 사람들, 낮 시간대 도서관, 평일 낮 지하철, 동네 편의점</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">3</span>
+              <span class="help-text">여유로운 수준의 사람들, 일반적인 공원 주말 낮, 도심 작은 상점가</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">4</span>
+              <span class="help-text">사람을 쉽게 피할 수 있는 수준, 지하철 평일 저녁 전, 쇼핑몰 비성수기</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">5</span>
+              <span class="help-text">붐비는 수준, 인기 카페 주말, 마트 저녁 시간, 식당 점심시간</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">6</span>
+              <span class="help-text">지하철 출퇴근 전, 맛집 웨이팅 줄, 번화가 메인 거리</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">7</span>
+              <span class="help-text">이동이 불편함, 유명 축제 입구, 대형 마트 세일 시간</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">8</span>
+              <span class="help-text">밀착된 수준, 콘서트 대기줄, 불꽃놀이 명당 자리</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">9</span>
+              <span class="help-text">밀집 상태, 지하철 퇴근 시간, 성수기 관광지, 대형 집회 한복판</span>
+            </div>
+            <div class="help-item">
+              <span class="help-number">10</span>
+              <span class="help-text">이동 불가, 콘서트 스탠딩 존, 지하철 만원, 대피 상황</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

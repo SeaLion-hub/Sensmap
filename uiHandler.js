@@ -1369,19 +1369,15 @@ export class UIHandler {
 
         // 섹션 표시 제어: 특정 섹션만 강조
         const sections = modal.querySelectorAll('.help-section');
-        if (sections.length === 0) {
-            // 섹션이 없으면 모든 섹션 표시
-            sections.forEach(sec => {
-                sec.style.display = '';
-                sec.classList.add('active');
-            });
-        } else {
+        if (sections.length > 0) {
             sections.forEach(sec => {
                 const key = sec.getAttribute('data-help');
-                if (!section || key !== section) {
+                if (section && key !== section) {
+                    // 특정 섹션이 지정되었고 현재 섹션이 아니면 숨김
                     sec.style.display = 'none';
                     sec.classList.remove('active');
                 } else {
+                    // 섹션이 지정되지 않았거나 현재 섹션이면 표시
                     sec.style.display = '';
                     sec.classList.add('active');
                 }

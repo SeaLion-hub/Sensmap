@@ -3439,3 +3439,297 @@ html {
 .mydata-list .icon-btn:active {
     transform: scale(0.95);
 }
+
+/* 감각 도움말 모달 스타일 */
+.sensory-help-modal {
+    max-width: 800px !important;
+    width: 95vw !important;
+    max-height: 90vh !important;
+}
+
+.sensory-help-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 28px 32px 24px !important;
+    border-bottom: 2px solid #e5e7eb;
+    background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+    position: relative;
+}
+
+.sensory-help-header .close-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: #f3f4f6;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    color: #6b7280;
+    flex-shrink: 0;
+}
+
+.sensory-help-header .close-btn:hover {
+    background: #e5e7eb;
+    color: #374151;
+    transform: rotate(90deg);
+}
+
+.sensory-help-header-content h3 {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0 0 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.sensory-help-header-content h3 i {
+    color: #3b82f6;
+}
+
+.sensory-help-subtitle {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.sensory-help-body {
+    padding: 32px !important;
+    overflow-y: auto;
+    max-height: calc(90vh - 180px);
+}
+
+.help-section {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e5e7eb;
+    transition: all 0.3s ease;
+}
+
+.help-section:last-child {
+    margin-bottom: 0;
+}
+
+.help-section:hover {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+}
+
+.help-section-header {
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #f3f4f6;
+}
+
+.help-section-header h4 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.help-icon {
+    font-size: 22px;
+    display: inline-block;
+}
+
+.help-content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.help-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 12px 16px;
+    background: #f8fafc;
+    border-radius: 12px;
+    border-left: 4px solid #3b82f6;
+    transition: all 0.2s ease;
+}
+
+.help-item:hover {
+    background: #f1f5f9;
+    transform: translateX(4px);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+.help-number {
+    min-width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: white;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 14px;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+    flex-shrink: 0;
+}
+
+.help-text {
+    flex: 1;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #374151;
+    padding-top: 2px;
+}
+
+/* 모바일 반응형 디자인 */
+@media (max-width: 768px) {
+    .sensory-help-modal {
+        max-width: 100% !important;
+        width: 100vw !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        max-height: 100vh !important;
+    }
+
+    .sensory-help-header {
+        padding: 20px 20px 16px !important;
+    }
+
+    .sensory-help-header .close-btn {
+        top: 16px;
+        right: 16px;
+        width: 32px;
+        height: 32px;
+    }
+
+    .sensory-help-header-content h3 {
+        font-size: 20px;
+    }
+
+    .sensory-help-subtitle {
+        font-size: 13px;
+    }
+
+    .sensory-help-body {
+        padding: 20px !important;
+        max-height: calc(100vh - 160px);
+    }
+
+    .help-section {
+        padding: 20px;
+        margin-bottom: 20px;
+        border-radius: 12px;
+    }
+
+    .help-section-header {
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+    }
+
+    .help-section-header h4 {
+        font-size: 16px;
+    }
+
+    .help-icon {
+        font-size: 20px;
+    }
+
+    .help-item {
+        padding: 10px 12px;
+        gap: 12px;
+        border-radius: 10px;
+    }
+
+    .help-number {
+        min-width: 32px;
+        height: 32px;
+        font-size: 13px;
+        border-radius: 8px;
+    }
+
+    .help-text {
+        font-size: 13px;
+        line-height: 1.5;
+    }
+}
+
+@media (max-width: 480px) {
+    .sensory-help-header {
+        padding: 16px 16px 12px !important;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .sensory-help-header .close-btn {
+        top: 12px;
+        right: 12px;
+        width: 30px;
+        height: 30px;
+    }
+
+    .sensory-help-header-content h3 {
+        font-size: 18px;
+        flex-wrap: wrap;
+    }
+
+    .sensory-help-subtitle {
+        font-size: 12px;
+    }
+
+    .sensory-help-body {
+        padding: 16px !important;
+        max-height: calc(100vh - 140px);
+    }
+
+    .help-section {
+        padding: 16px;
+        margin-bottom: 16px;
+        border-radius: 10px;
+    }
+
+    .help-section-header {
+        margin-bottom: 12px;
+        padding-bottom: 10px;
+    }
+
+    .help-section-header h4 {
+        font-size: 15px;
+    }
+
+    .help-content {
+        gap: 10px;
+    }
+
+    .help-item {
+        padding: 10px;
+        gap: 10px;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .help-number {
+        min-width: 28px;
+        height: 28px;
+        font-size: 12px;
+    }
+
+    .help-text {
+        font-size: 12px;
+        padding-top: 0;
+        width: 100%;
+    }
+}
