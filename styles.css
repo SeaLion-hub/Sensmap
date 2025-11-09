@@ -3564,13 +3564,13 @@ html {
 
 /* 3. 출발지 버튼 색상: 그린(Green) */
 .custom-popup .action-btn.start {
-    background-color: #4f46e5; /* Green */
+    background-color: #10b981; /* Green */
     color: white;
-    border: 1px solid #4f46e5;
+    border: 1px solid #10b981;
 }
 
 .custom-popup .action-btn.start:hover {
-    background-color: #4338ca;
+    background-color: #059669;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
