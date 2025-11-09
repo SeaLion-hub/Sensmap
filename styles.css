@@ -1660,78 +1660,89 @@ html, body {
     background: white;
 }
 
+/* [START] 팝업 헤더 스타일 교체 */
+/* 이 코드가 기존 .popup-header, .popup-title, .popup-subtitle 스타일을 대체합니다. */
 .popup-header {
-    background: linear-gradient(135deg, #1a73e8, #1557b0);
-    color: white;
-    padding: 12px 16px;
+    background: white; /* 흰색 배경 */
+    color: #1f2937;
+    padding: 16px 20px 12px;
     margin: -20px -20px 16px -20px;
     border-radius: 12px 12px 0 0;
     text-align: center;
+    border-bottom: 1px solid #e5e7eb; /* 옅은 구분선 */
 }
 
 .popup-title {
     font-size: 16px;
-    font-weight: 600;
-    margin: 0;
+    font-weight: 700;
+    margin-bottom: 4px;
 }
 
-.popup-subtitle {
+.popup-subtitle { 
     font-size: 12px;
+    color: #6b7280;
     opacity: 0.9;
     margin-top: 2px;
+    line-height: 1.4;
+    min-height: 18px; /* 주소 로딩 중 공간 유지 */
 }
+/* [END] 팝업 헤더 스타일 교체 */
 
-.action-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-bottom: 12px;
-}
 
+/* [START] 액션 버튼 스타일 교체 (파란색 포인트 적용) */
+/* 이 코드가 기존 .action-btn, .action-btn.start, .action-btn.end, .action-btn.add 스타일을 대체합니다. */
 .action-btn {
-    padding: 8px 12px;
-    border: none;
-    border-radius: 8px;
+    padding: 12px;
+    border: 1px solid #e5e7eb; 
+    border-radius: 10px;
+    background: #ffffff; 
     cursor: pointer;
-    font-size: 13px;
-    font-weight: 500;
+    font-size: 14px;
+    font-weight: 600;
     transition: all 0.3s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 8px;
+    color: #1f2937; 
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05); 
 }
 
-.action-btn.start { 
-    background: #10b981; 
-    color: white; 
+.action-btn i {
+    font-size: 18px;
 }
 
-.action-btn.end { 
-    background: #ef4444; 
-    color: white; 
+/* 수정*/
+.action-btn.start i { color: #3b82f6; }       
+.action-btn.end i { color: #1a73e8; }         
+.action-btn.add i { color: #10b981; }         
+
+.action-btn:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
 .action-btn.add {
-    background: #1a73e8;
-    color: white;
     width: 100%;
-    margin-top: 8px;
-    font-weight: 600;
-    border-radius: 12px;
-    padding: 14px;
-}
-
-.action-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    margin-top: 12px;
+    padding: 16px;
+    font-size: 16px;
 }
 
 .action-btn.add:hover {
-    background: #1557b0;
+    background: #f9fafb;
+    border-color: #3b82f6; 
+    box-shadow: 0 4px 12px rgba(59,130,246,0.15);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(26,115,232,0.3);
 }
+
+.action-btn.start, .action-btn.end {
+    font-size: 13px;
+    font-weight: 500;
+}
+/* 수정 끝*/
 
 .data-summary {
     background: #f8fafc;
@@ -3440,296 +3451,137 @@ html {
     transform: scale(0.95);
 }
 
-/* 감각 도움말 모달 스타일 */
-.sensory-help-modal {
-    max-width: 800px !important;
-    width: 95vw !important;
-    max-height: 90vh !important;
+/*수정*/
+
+#sensoryHelpModal .modal-content {
+    border-radius: 12px;
+    max-width: 650px; /* 더 넓혀서 텍스트 가독성 확보 */
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
 }
 
-.sensory-help-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 20px;
-    padding: 28px 32px 24px !important;
-    border-bottom: 2px solid #e5e7eb;
-    background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
-    position: relative;
-}
-
-.sensory-help-header .close-btn {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    width: 36px;
-    height: 36px;
-    border: none;
-    background: #f3f4f6;
-    border-radius: 50%;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-    color: #6b7280;
-    flex-shrink: 0;
-}
-
-.sensory-help-header .close-btn:hover {
-    background: #e5e7eb;
-    color: #374151;
-    transform: rotate(90deg);
-}
-
-.sensory-help-header-content h3 {
-    font-size: 24px;
-    font-weight: 700;
-    color: #1f2937;
-    margin: 0 0 8px 0;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.sensory-help-header-content h3 i {
-    color: #3b82f6;
-}
-
-.sensory-help-subtitle {
-    font-size: 14px;
-    color: #6b7280;
-    margin: 0;
-    line-height: 1.5;
-}
-
-.sensory-help-body {
-    padding: 32px !important;
-    overflow-y: auto;
-    max-height: calc(90vh - 180px);
-}
-
+/* 개별 섹션 (소음, 빛, 냄새, 혼잡도) 스타일링 */
 .help-section {
-    background: #ffffff;
-    border-radius: 16px;
-    padding: 24px;
-    margin-bottom: 24px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-    border: 1px solid #e5e7eb;
-    transition: all 0.3s ease;
+    padding: 20px 0 10px;
+    margin: 0 30px; /* 좌우 여백 증가 */
+    border-bottom: 1px solid #f0f0f0; /* 매우 옅은 구분선 */
 }
 
 .help-section:last-child {
-    margin-bottom: 0;
+    border-bottom: none;
 }
 
-.help-section:hover {
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
-    transform: translateY(-2px);
-}
-
-.help-section-header {
-    margin-bottom: 20px;
-    padding-bottom: 16px;
-    border-bottom: 2px solid #f3f4f6;
-}
-
-.help-section-header h4 {
+/* 섹션 타이틀 (Noise, Light, Odor, Crowd) */
+.help-section h4 {
     font-size: 18px;
     font-weight: 700;
-    color: #1f2937;
+    margin: 0 0 15px 0;
+    color: #1f2937; /* 진한 회색 텍스트 */
+}
+
+
+/* 점수별 상세 목록 스타일링 */
+.help-section p {
+    padding: 8px 0; 
     margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.help-icon {
-    font-size: 22px;
-    display: inline-block;
-}
-
-.help-content {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.help-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 16px;
-    padding: 12px 16px;
-    background: #f8fafc;
-    border-radius: 12px;
-    border-left: 4px solid #3b82f6;
-    transition: all 0.2s ease;
-}
-
-.help-item:hover {
-    background: #f1f5f9;
-    transform: translateX(4px);
-    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
-}
-
-.help-number {
-    min-width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-    color: white;
-    border-radius: 10px;
-    font-weight: 700;
-    font-size: 14px;
-    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
-    flex-shrink: 0;
-}
-
-.help-text {
-    flex: 1;
     font-size: 14px;
     line-height: 1.6;
-    color: #374151;
-    padding-top: 2px;
+    display: flex; 
+    align-items: flex-start;
+    gap: 12px; /* 점수 칩과 텍스트 사이 간격 */
+    color: #4b5563; /* 부드러운 회색 텍스트 */
+    border-bottom: 1px dashed #f3f4f6; /* 점선 구분선 */
 }
 
-/* 모바일 반응형 디자인 */
-@media (max-width: 768px) {
-    .sensory-help-modal {
-        max-width: 100% !important;
-        width: 100vw !important;
-        margin: 0 !important;
-        border-radius: 0 !important;
-        max-height: 100vh !important;
-    }
-
-    .sensory-help-header {
-        padding: 20px 20px 16px !important;
-    }
-
-    .sensory-help-header .close-btn {
-        top: 16px;
-        right: 16px;
-        width: 32px;
-        height: 32px;
-    }
-
-    .sensory-help-header-content h3 {
-        font-size: 20px;
-    }
-
-    .sensory-help-subtitle {
-        font-size: 13px;
-    }
-
-    .sensory-help-body {
-        padding: 20px !important;
-        max-height: calc(100vh - 160px);
-    }
-
-    .help-section {
-        padding: 20px;
-        margin-bottom: 20px;
-        border-radius: 12px;
-    }
-
-    .help-section-header {
-        margin-bottom: 16px;
-        padding-bottom: 12px;
-    }
-
-    .help-section-header h4 {
-        font-size: 16px;
-    }
-
-    .help-icon {
-        font-size: 20px;
-    }
-
-    .help-item {
-        padding: 10px 12px;
-        gap: 12px;
-        border-radius: 10px;
-    }
-
-    .help-number {
-        min-width: 32px;
-        height: 32px;
-        font-size: 13px;
-        border-radius: 8px;
-    }
-
-    .help-text {
-        font-size: 13px;
-        line-height: 1.5;
-    }
+.help-section p:hover {
+    color: #1f2937; /* 호버 시 텍스트 진하게 */
 }
 
-@media (max-width: 480px) {
-    .sensory-help-header {
-        padding: 16px 16px 12px !important;
-        flex-direction: column;
-        gap: 12px;
-    }
+/* === 핵심: 점수 칩 (Score Badge) 스타일 === */
+.score-badge {
+    min-width: 24px;
+    height: 24px;
+    background-color: #e5e7eb; /* 기본 배경색 (옅은 회색) */
+    color: #1f2937; /* 기본 글자색 */
+    border-radius: 50%; /* 원형 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.2s;
+    flex-shrink: 0; /* 텍스트가 길어져도 칩 크기 유지 */
+}
 
-    .sensory-help-header .close-btn {
-        top: 12px;
-        right: 12px;
-        width: 30px;
-        height: 30px;
-    }
+/* === 점수 칩 색상 코드 적용 (안전/주의/심각) === */
 
-    .sensory-help-header-content h3 {
-        font-size: 18px;
-        flex-wrap: wrap;
-    }
+/* 0-3점: 안전 (Safe - 초록 계열) */
+.help-section p:nth-child(n+2):nth-child(-n+5) .score-badge {
+    background-color: #ecfdf5; 
+    color: #059669; 
+    border: 1px solid #059669;
+}
 
-    .sensory-help-subtitle {
-        font-size: 12px;
-    }
+/* 4-6점: 주의 (Caution - 주황 계열) */
+.help-section p:nth-child(n+6):nth-child(-n+8) .score-badge {
+    background-color: #fff7ed; 
+    color: #f97316; 
+    border: 1px solid #f97316;
+}
 
-    .sensory-help-body {
-        padding: 16px !important;
-        max-height: calc(100vh - 140px);
-    }
+/* 7-10점: 심각 (Severe - 빨강 계열) */
+.help-section p:nth-child(n+9):nth-child(-n+12) .score-badge {
+    background-color: #fef2f2; 
+    color: #ef4444; 
+    font-weight: 700;
+    border: 1px solid #ef4444;
+}
+/* ================================================= */
+/* === [Sensmap] 지도 팝업 경로 설정 버튼 스타일 === */
+/* ================================================= */
 
-    .help-section {
-        padding: 16px;
-        margin-bottom: 16px;
-        border-radius: 10px;
-    }
+/* 1. 배치 (Layout): 출발지/도착지 버튼을 1:1로 나란히 배치 */
+.custom-popup .route-action-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr; 
+    gap: 8px; /* 버튼 사이 간격 */
+    margin-bottom: 12px; /* 아래 '감각 정보 추가' 버튼과의 간격 */
+}
 
-    .help-section-header {
-        margin-bottom: 12px;
-        padding-bottom: 10px;
-    }
+/* 2. 모든 경로 액션 버튼의 공통 스타일 */
+.custom-popup .action-btn {
+    width: 100%;
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s, box-shadow 0.2s;
+    display: flex; /* 아이콘과 텍스트 정렬을 위해 */
+    align-items: center;
+    justify-content: center;
+    gap: 6px; /* 아이콘과 텍스트 사이 간격 */
+}
 
-    .help-section-header h4 {
-        font-size: 15px;
-    }
+/* 3. 출발지 버튼 색상: 그린(Green) */
+.custom-popup .action-btn.start {
+    background-color: #4f46e5; /* Green */
+    color: white;
+    border: 1px solid #4f46e5;
+}
 
-    .help-content {
-        gap: 10px;
-    }
+.custom-popup .action-btn.start:hover {
+    background-color: #4338ca;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
 
-    .help-item {
-        padding: 10px;
-        gap: 10px;
-        flex-direction: column;
-        align-items: flex-start;
-    }
+/* 4. 도착지 버튼 색상: 레드(Red) */
+.custom-popup .action-btn.end {
+    background-color: #F44336; /* Red */
+    color: white;
+    border: 1px solid #F44336;
+}
 
-    .help-number {
-        min-width: 28px;
-        height: 28px;
-        font-size: 12px;
-    }
-
-    .help-text {
-        font-size: 12px;
-        padding-top: 0;
-        width: 100%;
-    }
+.custom-popup .action-btn.end:hover {
+    background-color: #da3d32;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }

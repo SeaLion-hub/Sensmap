@@ -84,18 +84,17 @@ class Utils {
         let popupContent = `
             <div class="popup-header">
                 <div class="popup-title">위치 정보</div>
-                <div class="popup-subtitle">좌표: ${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}</div>
-            </div>
+                </div>
             <div class="action-grid">
                 <button class="action-btn start" onclick="window.sensmapApp.routeManager.setRoutePointFromPopup(${latlng.lat}, ${latlng.lng}, 'start')">
-                    <i class="fas fa-play"></i>출발
+                    <i class="fas fa-play-circle"></i> 출발지 설정
                 </button>
                 <button class="action-btn end" onclick="window.sensmapApp.routeManager.setRoutePointFromPopup(${latlng.lat}, ${latlng.lng}, 'end')">
-                    <i class="fas fa-flag-checkered"></i>도착
+                    <i class="fas fa-flag-checkered"></i> 도착지 설정
                 </button>
             </div>
             <button class="action-btn add" onclick="window.sensmapApp.uiHandler.openSensoryPanel()">
-                <i class="fas fa-plus"></i> ${hasData ? '정보 추가' : '감각 정보 등록'}
+                <i class="fas fa-plus-circle"></i> ${hasData ? '감각 정보 추가' : '감각 정보 등록'}
             </button>
         `;
 

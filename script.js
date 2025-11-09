@@ -160,8 +160,13 @@ class SensmapApp {
     // 위치 팝업 표시
     showLocationPopup(latlng, gridKey, cellData) {
         if (!this.mapManager) return;
-
+    
         const map = this.mapManager.getMap();
+        
+        // 좌표를 미리 추출하여 고유 ID 및 콘텐츠에 사용합니다.
+        const lat = latlng.lat.toFixed(6);
+        const lng = latlng.lng.toFixed(6);
+        
         const reports = cellData ? cellData.reports : [];
         const hasData = reports.length > 0;
         
@@ -169,14 +174,20 @@ class SensmapApp {
         const currentUser = this.authManager ? this.authManager.getCurrentUser() : null;
         const userReports = currentUser ? 
             reports.filter(r => r.user_id === currentUser.id) : [];
-
+    
+        // ====== [수정된 부분: 위치 정보 헤더 - 로딩 상태 포함] ======
         let popupContent = `
             <div class="popup-header">
-                <div class="popup-title">📍 위치 정보</div>
-                <div class="popup-subtitle">위도: ${latlng.lat.toFixed(6)}, 경도: ${latlng.lng.toFixed(6)}</div>
+                <div class="popup-title" id="popup-address-title-${lat}-${lng}">
+                    <i class="fas fa-spinner fa-spin"></i> 주소 로딩 중...
+                </div>
+                <div class="popup-subtitle" id="popup-coordinates-${lat}-${lng}">
+                    ${lat}, ${lng}
+                </div>
             </div>
         `;
-
+        // ============================================================
+    
         // 경로 설정 버튼들 (항상 표시)
         popupContent += `
             <div class="action-grid">
@@ -188,7 +199,7 @@ class SensmapApp {
                 </button>
             </div>
         `;
-
+    
         // 감각 정보 추가 버튼 (로그인 또는 게스트 모드에서만)
         const isLoggedIn = this.authManager && this.authManager.getIsLoggedIn();
         const guestMode = localStorage.getItem('sensmap_guest_mode');
@@ -206,14 +217,14 @@ class SensmapApp {
                 </button>
             `;
         }
-
+    
         // 기존 데이터 표시
         if (hasData) {
             popupContent += `
                 <div class="data-summary">
                     <div class="summary-title">📊 현재 위치 정보 (${reports.length}건)</div>
             `;
-
+    
             // 평균값 표시
             if (cellData.averages) {
                 const avgData = [];
@@ -226,21 +237,21 @@ class SensmapApp {
                     popupContent += `<div class="data-item">평균: ${avgData.join(', ')}</div>`;
                 }
             }
-
-
+    
+    
             // 사용자별 데이터 표시
             const userDataCounts = {};
             reports.forEach(report => {
                 const userName = report.user_name || '익명';
                 userDataCounts[userName] = (userDataCounts[userName] || 0) + 1;
             });
-
+    
             popupContent += `<div class="data-item">`;
             const userCounts = Object.entries(userDataCounts)
                 .map(([name, count]) => `${name}: ${count}건`)
                 .join(', ');
             popupContent += `작성자: ${userCounts}</div>`;
-
+    
             // 내 데이터가 있으면 관리 옵션 표시
             if (userReports.length > 0) {
                 popupContent += `
@@ -263,12 +274,12 @@ class SensmapApp {
                 
                 popupContent += `</div></div>`;
             }
-
+    
             popupContent += '</div>';
         } 
-
-        // 팝업 표시
-        L.popup({
+    
+        // 팝업 표시 및 인스턴스 저장
+        const popup = L.popup({
             className: 'custom-popup',
             maxWidth: 300,
             closeOnClick: false
@@ -276,6 +287,31 @@ class SensmapApp {
         .setLatLng(latlng)
         .setContent(popupContent)
         .openOn(map);
+    
+        this.currentPopup = popup; // 팝업 인스턴스를 저장하여 다른 기능에서 사용 가능하게 함 (선택 사항)
+    
+        // ====== [추가된 부분: 비동기 주소 검색 및 업데이트] ======
+        this.mapManager.getAddressFromLatLng(latlng)
+            .then(address => {
+                const titleEl = document.getElementById(`popup-address-title-${lat}-${lng}`);
+                if (titleEl) {
+                    // 주소 로드 성공 시 아이콘 및 텍스트 업데이트
+                    titleEl.innerHTML = `<i class="fas fa-map-marker-alt"></i> ${address}`;
+                }
+            })
+            .catch(error => {
+                // 주소 로드 실패 시
+                console.warn('주소 변환 실패. 좌표를 제목으로 표시:', error);
+                const titleEl = document.getElementById(`popup-address-title-${lat}-${lng}`);
+                if (titleEl) {
+                    // 실패 시 로딩 메시지 대신 '검색 실패'와 아이콘 표시
+                    titleEl.innerHTML = `<i class="fas fa-map-pin"></i> 좌표 위치 (검색 실패)`;
+                    if (this.utils) { 
+                        this.utils.showToast('주소 검색에 실패하여 좌표로 표시됩니다.', 'warning');
+                    }
+                }
+            });
+        // ====================================================
     }
 
     // Timetable functionality
@@ -1436,5 +1472,4 @@ localStorage.setItem('sensoryProfile', JSON.stringify(window.sensoryProfile));
 function getSensoryProfile() {
 return { ...window.sensoryProfile };
 }
-
 
