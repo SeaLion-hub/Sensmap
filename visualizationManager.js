@@ -433,58 +433,58 @@ export class VisualizationManager {
     }
 
     _installLiveHeatmapHooks() {
-+    // 이미 연결돼 있으면 재구독하지 않음
-+    if (this._heatSSE && this._heatSSE.readyState === 1) return;
-+
-+    // 혹시 남아있을 폴링 타이머가 있다면 정리
-+    if (this._heatPoll) { clearInterval(this._heatPoll); this._heatPoll = null; }
-+
-+    try {
-+      const base = (window.SENSMAP_SERVER_URL || '').replace(/\/+$/, '');
-+      const url  = `${base}/api/heatmap/stream`;
-+      const es   = new EventSource(url, { withCredentials: false });
-+      this._heatSSE = es;
-+
-+      const onUpdate = async () => {
-+        // 1) 최신 데이터 재적재 → gridData 갱신
-+        await this.app?.dataManager?.loadSensoryData?.();
-+        // 2) 히트맵 레이어 리프레시(내부 디바운스 사용)
-+        this._requestHeatmapRefresh();
-+        // 3) 회피 프리뷰 켜져 있으면 재계산
-+        this.app?.routeManager?.refreshAvoidPreview?.();
-+      };
-+
-+      let last = Date.now();
-+      const bump = () => { last = Date.now(); };
-+      es.addEventListener('heatmap:update', (e) => { bump(); onUpdate(); });
-+      es.addEventListener('ping', () => { }); // keep-alive
-+      es.onerror = (e) => {
-+        console.warn('SSE 연결 오류(자동 재시도):', e);
-+      };
-+
-+      // 언로드 시 정리
-+      const cleanup = () => {
-+        try { es.close(); } catch {}
-+        this._heatSSE = null;
-+      };
-+      window.addEventListener('beforeunload', cleanup, { once: true });
-+      this._cleanupHeatSSE = cleanup;
-+
-+      // 유휴 폴백: 45초 동안 업데이트 없으면 1회 리로드
-+      if (this._idleKick) clearInterval(this._idleKick);
-+      this._idleKick = setInterval(async () => {
-+        if (!this._heatSSE || this._heatSSE.readyState !== 1) return;
-+        if (Date.now() - last > 45000) {
-+          last = Date.now();
-+          await this.app?.dataManager?.loadSensoryData?.();
-+          this._requestHeatmapRefresh();
-+          this.app?.routeManager?.refreshAvoidPreview?.();
-+        }
-+      }, 10000);
-+    } catch (e) {
-+      console.warn('라이브 히트맵 훅 설치 실패:', e);
-+    }
-+  }
+        // 이미 연결돼 있으면 재구독하지 않음
+        if (this._heatSSE && this._heatSSE.readyState === 1) return;
+
+        // 혹시 남아있을 폴링 타이머가 있다면 정리
+        if (this._heatPoll) { clearInterval(this._heatPoll); this._heatPoll = null; }
+
+        try {
+            const base = (window.SENSMAP_SERVER_URL || '').replace(/\/+$/, '');
+            const url = `${base}/api/heatmap/stream`;
+            const es = new EventSource(url, { withCredentials: false });
+            this._heatSSE = es;
+
+            const onUpdate = async () => {
+                // 1) 최신 데이터 재적재 → gridData 갱신
+                await this.app?.dataManager?.loadSensoryData?.();
+                // 2) 히트맵 레이어 리프레시(내부 디바운스 사용)
+                this._requestHeatmapRefresh();
+                // 3) 회피 프리뷰 켜져 있으면 재계산
+                this.app?.routeManager?.refreshAvoidPreview?.();
+            };
+
+            let last = Date.now();
+            const bump = () => { last = Date.now(); };
+            es.addEventListener('heatmap:update', (e) => { bump(); onUpdate(); });
+            es.addEventListener('ping', () => { }); // keep-alive
+            es.onerror = (e) => {
+                console.warn('SSE 연결 오류(자동 재시도):', e);
+            };
+
+            // 언로드 시 정리
+            const cleanup = () => {
+                try { es.close(); } catch { }
+                this._heatSSE = null;
+            };
+            window.addEventListener('beforeunload', cleanup, { once: true });
+            this._cleanupHeatSSE = cleanup;
+
+            // 유휴 폴백: 45초 동안 업데이트 없으면 1회 리로드
+            if (this._idleKick) clearInterval(this._idleKick);
+            this._idleKick = setInterval(async () => {
+                if (!this._heatSSE || this._heatSSE.readyState !== 1) return;
+                if (Date.now() - last > 45000) {
+                    last = Date.now();
+                    await this.app?.dataManager?.loadSensoryData?.();
+                    this._requestHeatmapRefresh();
+                    this.app?.routeManager?.refreshAvoidPreview?.();
+                }
+            }, 10000);
+        } catch (e) {
+            console.warn('라이브 히트맵 훅 설치 실패:', e);
+        }
+    }
     // 그리기용 포인트(0~1) 계산만 분리
     _computeHeatmapPoints() {
         const now = Date.now();
