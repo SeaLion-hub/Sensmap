@@ -647,12 +647,12 @@
           </div>
           <div class="menu-separator" id="userSeparator" style="display:none;"></div>
 
-          <div class="menu-item"><button class="menu-btn" id="profileMenuBtn"><i class="fas fa-user-cog"></i><span>감각 프로필</span></button></div>
-          <div class="menu-item auth-required" style="display:none;"><button class="menu-btn" id="myDataBtn"><i class="fas fa-database"></i><span>내 데이터</span></button></div>
+          <div class="menu-item desktop-only"><button class="menu-btn" id="profileMenuBtn"><i class="fas fa-user-cog"></i><span>감각 프로필</span></button></div>
+          <div class="menu-item auth-required desktop-only" style="display:none;"><button class="menu-btn" id="myDataBtn"><i class="fas fa-database"></i><span>내 데이터</span></button></div>
 
-          <div class="menu-separator"></div>
-          <div class="menu-item"><button class="menu-btn" id="settingsBtn"><i class="fas fa-cog"></i><span>설정</span></button></div>
-          <div class="menu-item"><button class="menu-btn" id="helpBtn"><i class="fas fa-question-circle"></i><span>도움말</span></button></div>
+          <div class="menu-separator desktop-only"></div>
+          <div class="menu-item desktop-only"><button class="menu-btn" id="settingsBtn"><i class="fas fa-cog"></i><span>설정</span></button></div>
+          <div class="menu-item desktop-only"><button class="menu-btn" id="helpBtn"><i class="fas fa-question-circle"></i><span>도움말</span></button></div>
           
           <div class="menu-separator"></div>
           <div class="menu-item" id="loginMenuItem"><button class="menu-btn" id="loginMenuBtn"><i class="fas fa-sign-in-alt"></i><span>로그인</span></button></div>
@@ -694,11 +694,37 @@
     </div>
   </header>
   
-  <!-- 모바일용 하단 버튼 컨테이너 -->
-  <div class="mobile-bottom-buttons">
-    <button class="mobile-icon-btn active" id="mobileShowDataBtn" title="데이터 표시/숨김" aria-label="데이터 표시 토글" aria-pressed="true"><i class="fas fa-eye"></i></button>
-    <button class="mobile-icon-btn" id="mobileRouteBtn" title="경로 찾기" aria-label="경로 찾기 모드"><i class="fas fa-route"></i></button>
-    <button class="mobile-icon-btn locate-btn" id="mobileLocateBtn" title="내 위치 표시/추적"><i class="fas fa-location-crosshairs"></i></button>
+  <!-- 모바일용 하단 네비게이션 바 -->
+  <nav class="mobile-bottom-nav" id="mobileBottomNav">
+    <button class="bottom-nav-item" id="mobileProfileBtn" aria-label="감각 프로필">
+      <i class="fas fa-user-cog"></i>
+      <span>프로필</span>
+    </button>
+    <button class="bottom-nav-item" id="mobileMyDataBtn" aria-label="내 데이터">
+      <i class="fas fa-database"></i>
+      <span>내 데이터</span>
+    </button>
+    <button class="bottom-nav-item" id="mobileSettingsBtn" aria-label="설정">
+      <i class="fas fa-cog"></i>
+      <span>설정</span>
+    </button>
+    <button class="bottom-nav-item" id="mobileHelpBtn" aria-label="도움말">
+      <i class="fas fa-question-circle"></i>
+      <span>도움말</span>
+    </button>
+  </nav>
+
+  <!-- 모바일용 플로팅 액션 버튼 -->
+  <div class="mobile-fab-container">
+    <button class="mobile-fab" id="mobileLocateBtn" title="내 위치" aria-label="내 위치 표시/추적">
+      <i class="fas fa-location-crosshairs"></i>
+    </button>
+    <button class="mobile-fab secondary" id="mobileRouteBtn" title="경로 찾기" aria-label="경로 찾기 모드">
+      <i class="fas fa-route"></i>
+    </button>
+    <button class="mobile-fab secondary" id="mobileShowDataBtn" title="데이터 표시" aria-label="데이터 표시 토글" aria-pressed="true">
+      <i class="fas fa-eye"></i>
+    </button>
   </div>
 
   <!-- 설정 패널 -->
