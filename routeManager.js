@@ -34,7 +34,7 @@ export class RouteManager {
                 baseRadius: 46, layers: 3, maxCount: 150, corridorM: 100,
                 // 절대 임계치(기본: 종합점수 기준)
                 // 점수→크기 스케일(완만하게)
-                sizeByScore: { enabled: true, scale: 0.20, gamma: 0.6, maxFactor: 1.25 },
+                sizeByScore: { enabled: true, scale: 0.25, gamma: 0.7, maxFactor: 1.20 },
                 absUseComposite: true,       // true면 _pointScore(0~10) 기준, false면 채널별
                 absScore: 7.0,               // 종합점수 임계(0~10)
                 absPerChannelMin: null       // 채널별 임계(예: { noise:7, light:7, odor:7, crowd:7 })
@@ -43,9 +43,9 @@ export class RouteManager {
                 // 비용 가중(경로 선택용)
                 kSens: 2.0, kTimeSec: 1.0, kDistM: 0.15,
                 // 회피 구성 옵션
-                baseRadius: 43, layers: 2, maxCount: 100, corridorM: 70,
+                baseRadius: 42, layers: 2, maxCount: 100, corridorM: 70,
                 // 균형 모드는 더 보수적으로
-                sizeByScore: { enabled: true, scale: 0.10, gamma: 0.6, maxFactor: 1.15 },
+                sizeByScore: { enabled: true, scale: 0.10, gamma: 0.7, maxFactor: 1.08 },
                 // 교집합 조건: (절대 > absScoreHi) AND (퍼센타일 >= qConservative)
                 absUseComposite: true,
                 absScoreHi: 8.5,
@@ -1028,7 +1028,8 @@ export class RouteManager {
             avoidSets.push([...(levelsAuto[0] || [])]);
         } else {
             // 감각 우선: 절대 임계 기반 레벨 전체
-            for (let k = 0; k < levelsAuto.length; k++) avoidSets.push([...levelsAuto[k]]);
+            // 감각 우선도 우회 과다 방지: 첫 레벨만 사용
+            avoidSets.push([...(levelsAuto[0] || [])]);
         }
         this.lastAvoidSets = avoidSets;
 
