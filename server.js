@@ -19,13 +19,20 @@ function broadcast(event, data = {}) {
     }
 }
 app.get('/api/heatmap/stream', (req, res) => {
-    // SSE 헤더
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
+    // --- CORS 허용: 로컬/운영 프런트 모두 허용(필요시 화이트리스트 배열로 교체)
+    const origin = req.headers.origin || '*';
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    // --- SSE 핵심 헤더
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
-    // CORS는 app.use(cors())가 이미 처리
+    // --- 일부 프록시의 버퍼링 끄기
+    res.setHeader('X-Accel-Buffering', 'no');   // nginx
+    res.setHeader('Keep-Alive', 'timeout=120');
 
     res.flushHeaders?.();      // 일부 프록시에서 즉시 전송
+    res.flushHeaders?.();      // 즉시 헤더 플러시
     res.write(':\n\n');        // 프롤로그(코멘트) — 일부 클라에서 초기화 용도
     clients.add(res);
 
@@ -768,22 +775,22 @@ app.delete('/api/reports/:id', verifyToken, async (req, res) => {
 
 // ===== DB로부터 오는 알림을 받아서(다른 인스턴스에서 보낸 것 포함) SSE로 재브로드캐스트 =====
 (async function attachDbListener() {
-  try {
-    const client = await pool.connect();
-    await client.query('LISTEN heatmap_update');
-    client.on('notification', (msg) => {
-      try {
-        const payload = msg.payload ? JSON.parse(msg.payload) : {};
-        broadcast('heatmap:update', payload);
-      } catch {
-        broadcast('heatmap:update', {});
-      }
-    });
-    client.on('error', (e) => console.warn('LISTEN client error:', e.message));
-    console.log('🔔 LISTEN heatmap_update ready');
-  } catch (e) {
-    console.warn('LISTEN attach failed (will continue without cross-instance fanout):', e.message);
-  }
+    try {
+        const client = await pool.connect();
+        await client.query('LISTEN heatmap_update');
+        client.on('notification', (msg) => {
+            try {
+                const payload = msg.payload ? JSON.parse(msg.payload) : {};
+                broadcast('heatmap:update', payload);
+            } catch {
+                broadcast('heatmap:update', {});
+            }
+        });
+        client.on('error', (e) => console.warn('LISTEN client error:', e.message));
+        console.log('🔔 LISTEN heatmap_update ready');
+    } catch (e) {
+        console.warn('LISTEN attach failed (will continue without cross-instance fanout):', e.message);
+    }
 })();
 // [GET] /api/stats - 모든 데이터 통계 정보 조회 (선택적 인증)
 app.get('/api/stats', optionalAuth, async (req, res) => {

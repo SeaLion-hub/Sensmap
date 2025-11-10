@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
   <script>
     window.ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjMzOWIwNWViNGNhZjRhN2FhYmFkZWQ3YWJjYWU1YmY5IiwiaCI6Im11cm11cjY0In0=';  /* ← 발급 키로 교체 */
@@ -9,13 +10,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sensmap - Advanced Sensory Navigation</title>
 
+  <script>
+    window.SENSMAP_SERVER_URL = 'https://your-prod.railway.app';
+  </script>
+
   <!-- 서버 URL 설정 -->
   <script>
     window.SENSMAP_SERVER_URL = 'https://sensmap-production.up.railway.app';
     console.log('서버 URL 설정:', window.SENSMAP_SERVER_URL);
   </script>
 
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>">
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>">
   <meta name="description" content="Sensmap - 감각 친화적 내비게이션을 통해 더 쾌적한 경로를 찾아보세요">
   <meta name="keywords" content="감각지도, 접근성, 내비게이션, 쾌적한경로, 감각친화적">
   <meta name="author" content="Sensmap Team">
@@ -30,6 +36,7 @@
   <link rel="preconnect" href="https://unpkg.com">
   <link rel="preconnect" href="https://cdnjs.cloudflare.com">
 </head>
+
 <body>
   <!-- 로그인 모달 -->
   <div class="modal-overlay" id="loginModal">
@@ -51,12 +58,14 @@
         <form class="auth-form active" id="loginForm">
           <div class="form-group">
             <label for="loginEmail">이메일</label>
-            <input type="email" class="form-input" id="loginEmail" name="email" placeholder="example@sensmap.com" required autocomplete="email">
+            <input type="email" class="form-input" id="loginEmail" name="email" placeholder="example@sensmap.com"
+              required autocomplete="email">
             <div class="input-icon"><i class="fas fa-envelope"></i></div>
           </div>
           <div class="form-group">
             <label for="loginPassword">비밀번호</label>
-            <input type="password" class="form-input" id="loginPassword" name="password" placeholder="비밀번호를 입력하세요" required autocomplete="current-password">
+            <input type="password" class="form-input" id="loginPassword" name="password" placeholder="비밀번호를 입력하세요"
+              required autocomplete="current-password">
             <div class="input-icon"><i class="fas fa-lock"></i></div>
           </div>
           <button type="submit" class="auth-btn primary"><i class="fas fa-sign-in-alt"></i>로그인</button>
@@ -65,24 +74,30 @@
         <form class="auth-form" id="signupForm">
           <div class="form-group">
             <label for="signupName">이름</label>
-            <input type="text" class="form-input" id="signupName" name="name" placeholder="홍길동" required autocomplete="name" minlength="2">
+            <input type="text" class="form-input" id="signupName" name="name" placeholder="홍길동" required
+              autocomplete="name" minlength="2">
             <div class="input-icon"><i class="fas fa-user"></i></div>
           </div>
           <div class="form-group">
             <label for="signupEmail">이메일</label>
-            <input type="email" class="form-input" id="signupEmail" name="email" placeholder="example@sensmap.com" required autocomplete="email">
+            <input type="email" class="form-input" id="signupEmail" name="email" placeholder="example@sensmap.com"
+              required autocomplete="email">
             <div class="input-icon"><i class="fas fa-envelope"></i></div>
           </div>
           <div class="form-group">
             <label for="signupPassword">비밀번호</label>
-            <input type="password" class="form-input" id="signupPassword" name="password" placeholder="8자 이상 입력하세요" required autocomplete="new-password" minlength="8">
+            <input type="password" class="form-input" id="signupPassword" name="password" placeholder="8자 이상 입력하세요"
+              required autocomplete="new-password" minlength="8">
             <div class="input-icon"><i class="fas fa-lock"></i></div>
-            <div class="password-strength"><div class="password-strength-bar" id="passwordStrengthBar"></div></div>
+            <div class="password-strength">
+              <div class="password-strength-bar" id="passwordStrengthBar"></div>
+            </div>
             <div class="password-hint" id="passwordHint">8자 이상의 비밀번호를 입력하세요</div>
           </div>
           <div class="form-group">
             <label for="confirmPassword">비밀번호 확인</label>
-            <input type="password" class="form-input" id="confirmPassword" name="confirmPassword" placeholder="비밀번호를 다시 입력하세요" required autocomplete="new-password">
+            <input type="password" class="form-input" id="confirmPassword" name="confirmPassword"
+              placeholder="비밀번호를 다시 입력하세요" required autocomplete="new-password">
             <div class="input-icon"><i class="fas fa-lock"></i></div>
           </div>
           <button type="submit" class="auth-btn primary"><i class="fas fa-user-plus"></i>회원가입</button>
@@ -152,30 +167,30 @@
       </div>
 
       <!-- 프리-스텝: 설문 개수 선택 -->
-    <section class="tutorial-step active" data-step="0" id="questionCountStep">
-      <div class="question-block survey-question">
-        <div class="question-header">
-          <div class="question-number">설문 준비</div>
-          <div class="question-category"><i class="fas fa-clipboard-list"></i> 개수 선택</div>
-        </div>
-        <label>감각 프로필 설문 개수를 선택하세요</label>
-        <div class="question-content">
-          <div class="range-container" style="max-width:520px;">
-            <div class="survey-count-choices" style="display:grid; gap:12px;">
-              <button type="button" id="surveyCount4Btn" class="tutorial-btn secondary">
-                <i class="fas fa-bolt"></i> 빠른 설문 (4문항)
-              </button>
-              <button type="button" id="surveyCount20Btn" class="tutorial-btn primary">
-                <i class="fas fa-list-ol"></i> 정밀 설문 (20문항)
-              </button>
+      <section class="tutorial-step active" data-step="0" id="questionCountStep">
+        <div class="question-block survey-question">
+          <div class="question-header">
+            <div class="question-number">설문 준비</div>
+            <div class="question-category"><i class="fas fa-clipboard-list"></i> 개수 선택</div>
+          </div>
+          <label>감각 프로필 설문 개수를 선택하세요</label>
+          <div class="question-content">
+            <div class="range-container" style="max-width:520px;">
+              <div class="survey-count-choices" style="display:grid; gap:12px;">
+                <button type="button" id="surveyCount4Btn" class="tutorial-btn secondary">
+                  <i class="fas fa-bolt"></i> 빠른 설문 (4문항)
+                </button>
+                <button type="button" id="surveyCount20Btn" class="tutorial-btn primary">
+                  <i class="fas fa-list-ol"></i> 정밀 설문 (20문항)
+                </button>
+              </div>
+              <p style="margin-top:8px; font-size:13px; color:#6b7280;">
+                * 4문항: 핵심 문항만 진행 (q17~q20) · 20문항: 전체 진행
+              </p>
             </div>
-            <p style="margin-top:8px; font-size:13px; color:#6b7280;">
-              * 4문항: 핵심 문항만 진행 (q17~q20) · 20문항: 전체 진행
-            </p>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
 
       <div class="modal-body survey-body">
@@ -191,7 +206,8 @@
                 <label for="soundFoodcourt">점심시간에 붐비고 시끄러운 푸드코트에서 얼마나 불쾌함을 느끼시나요?</label>
                 <div class="question-content">
                   <div class="range-container">
-                    <input type="range" id="soundFoodcourt" name="q1" min="1" max="10" step="1" value="5" class="survey-range">
+                    <input type="range" id="soundFoodcourt" name="q1" min="1" max="10" step="1" value="5"
+                      class="survey-range">
                     <div class="range-labels">
                       <span class="range-label">매우 편안</span>
                       <span class="range-value-display" id="soundFoodcourtValue">5</span>
@@ -212,7 +228,8 @@
                 <label for="soundTraffic">자동차 경적 소리와 사이렌이 울리는 복잡한 거리를 상상해 보세요. 이 소리가 얼마나 당신을 괴롭히나요?</label>
                 <div class="question-content">
                   <div class="range-container">
-                    <input type="range" id="soundTraffic" name="q2" min="1" max="10" step="1" value="5" class="survey-range">
+                    <input type="range" id="soundTraffic" name="q2" min="1" max="10" step="1" value="5"
+                      class="survey-range">
                     <div class="range-labels">
                       <span class="range-label">편안</span>
                       <span class="range-value-display" id="soundTrafficValue">5</span>
@@ -233,7 +250,8 @@
                 <label for="soundMinor">도서관이나 조용한 스터디룸에서 사소한 소리에 얼마나 민감한가요?</label>
                 <div class="question-content">
                   <div class="range-container">
-                    <input type="range" id="soundMinor" name="q3" min="1" max="10" step="1" value="5" class="survey-range">
+                    <input type="range" id="soundMinor" name="q3" min="1" max="10" step="1" value="5"
+                      class="survey-range">
                     <div class="range-labels">
                       <span class="range-label">편안</span>
                       <span class="range-value-display" id="soundMinorValue">5</span>
@@ -254,7 +272,8 @@
                 <label for="soundBgm">낮은 볼륨의 배경음악이 집중/이완에 방해되나요?</label>
                 <div class="question-content">
                   <div class="range-container">
-                    <input type="range" id="soundBgm" name="q4" min="1" max="10" step="1" value="5" class="survey-range">
+                    <input type="range" id="soundBgm" name="q4" min="1" max="10" step="1" value="5"
+                      class="survey-range">
                     <div class="range-labels">
                       <span class="range-label">편안</span>
                       <span class="range-value-display" id="soundBgmValue">5</span>
@@ -275,7 +294,8 @@
                 <label for="lightMall">밝은 쇼핑몰 환경에 대해 얼마나 불쾌함을 느끼시나요?</label>
                 <div class="question-content">
                   <div class="range-container">
-                    <input type="range" id="lightMall" name="q5" min="1" max="10" step="1" value="5" class="survey-range">
+                    <input type="range" id="lightMall" name="q5" min="1" max="10" step="1" value="5"
+                      class="survey-range">
                     <div class="range-labels">
                       <span class="range-label">편안</span>
                       <span class="range-value-display" id="lightMallValue">5</span>
@@ -296,7 +316,8 @@
                 <label for="lightFlicker">형광등 깜빡임/모니터 눈부심을 알아차리나요?</label>
                 <div class="question-content">
                   <div class="range-container">
-                    <input type="range" id="lightFlicker" name="q6" min="1" max="10" step="1" value="5" class="survey-range">
+                    <input type="range" id="lightFlicker" name="q6" min="1" max="10" step="1" value="5"
+                      class="survey-range">
                     <div class="range-labels">
                       <span class="range-label">편안</span>
                       <span class="range-value-display" id="lightFlickerValue">5</span>
@@ -317,7 +338,8 @@
                 <label for="lightGlare">강한 반사광(차 반사 등)이 얼마나 불편한가요?</label>
                 <div class="question-content">
                   <div class="range-container">
-                    <input type="range" id="lightGlare" name="q7" min="1" max="10" step="1" value="5" class="survey-range">
+                    <input type="range" id="lightGlare" name="q7" min="1" max="10" step="1" value="5"
+                      class="survey-range">
                     <div class="range-labels">
                       <span class="range-label">편안</span>
                       <span class="range-value-display" id="lightGlareValue">5</span>
@@ -338,7 +360,8 @@
                 <label for="lightControl">조명 제어의 중요도는?</label>
                 <div class="question-content">
                   <div class="range-container">
-                    <input type="range" id="lightControl" name="q8" min="1" max="10" step="1" value="5" class="survey-range">
+                    <input type="range" id="lightControl" name="q8" min="1" max="10" step="1" value="5"
+                      class="survey-range">
                     <div class="range-labels">
                       <span class="range-label">낮음</span>
                       <span class="range-value-display" id="lightControlValue">5</span>
@@ -359,7 +382,8 @@
                 <label for="smellStore">강한 향의 매장(베이커리/향수점)에서의 영향은?</label>
                 <div class="question-content">
                   <div class="range-container">
-                    <input type="range" id="smellStore" name="q9" min="1" max="10" step="1" value="5" class="survey-range">
+                    <input type="range" id="smellStore" name="q9" min="1" max="10" step="1" value="5"
+                      class="survey-range">
                     <div class="range-labels">
                       <span class="range-label">편안</span>
                       <span class="range-value-display" id="smellStoreValue">5</span>
@@ -380,7 +404,8 @@
                 <label for="smellSubtle">향수/요리 냄새 같은 미묘한 냄새 인지/반응?</label>
                 <div class="question-content">
                   <div class="range-container">
-                    <input type="range" id="smellSubtle" name="q10" min="1" max="10" step="1" value="5" class="survey-range">
+                    <input type="range" id="smellSubtle" name="q10" min="1" max="10" step="1" value="5"
+                      class="survey-range">
                     <div class="range-labels">
                       <span class="range-label">편안</span>
                       <span class="range-value-display" id="smellSubtleValue">5</span>
@@ -401,7 +426,8 @@
                 <label for="smellUnpleasant">불쾌한 냄새(쓰레기차 등)가 편안함에 미치는 영향?</label>
                 <div class="question-content">
                   <div class="range-container">
-                    <input type="range" id="smellUnpleasant" name="q11" min="1" max="10" step="1" value="5" class="survey-range">
+                    <input type="range" id="smellUnpleasant" name="q11" min="1" max="10" step="1" value="5"
+                      class="survey-range">
                     <div class="range-labels">
                       <span class="range-label">편안</span>
                       <span class="range-value-display" id="smellUnpleasantValue">5</span>
@@ -422,7 +448,8 @@
                 <label for="smellAvoid">냄새 때문에 특정 장소를 피한 경험?</label>
                 <div class="question-content">
                   <div class="range-container">
-                    <input type="range" id="smellAvoid" name="q12" min="1" max="10" step="1" value="5" class="survey-range">
+                    <input type="range" id="smellAvoid" name="q12" min="1" max="10" step="1" value="5"
+                      class="survey-range">
                     <div class="range-labels">
                       <span class="range-label">없음</span>
                       <span class="range-value-display" id="smellAvoidValue">5</span>
@@ -443,7 +470,8 @@
                 <label for="crowdSubway">출퇴근 시간 지하철역 통과에 대한 느낌?</label>
                 <div class="question-content">
                   <div class="range-container">
-                    <input type="range" id="crowdSubway" name="q13" min="1" max="10" step="1" value="5" class="survey-range">
+                    <input type="range" id="crowdSubway" name="q13" min="1" max="10" step="1" value="5"
+                      class="survey-range">
                     <div class="range-labels">
                       <span class="range-label">편안</span>
                       <span class="range-value-display" id="crowdSubwayValue">5</span>
@@ -464,7 +492,8 @@
                 <label for="crowdMarket">주말 붐비는 마트에서의 불편함?</label>
                 <div class="question-content">
                   <div class="range-container">
-                    <input type="range" id="crowdMarket" name="q14" min="1" max="10" step="1" value="5" class="survey-range">
+                    <input type="range" id="crowdMarket" name="q14" min="1" max="10" step="1" value="5"
+                      class="survey-range">
                     <div class="range-labels">
                       <span class="range-label">편안</span>
                       <span class="range-value-display" id="crowdMarketValue">5</span>
@@ -485,7 +514,8 @@
                 <label for="crowdCinema">만원 엘리베이터/영화관이 유발하는 스트레스?</label>
                 <div class="question-content">
                   <div class="range-container">
-                    <input type="range" id="crowdCinema" name="q15" min="1" max="10" step="1" value="5" class="survey-range">
+                    <input type="range" id="crowdCinema" name="q15" min="1" max="10" step="1" value="5"
+                      class="survey-range">
                     <div class="range-labels">
                       <span class="range-label">편안</span>
                       <span class="range-value-display" id="crowdCinemaValue">5</span>
@@ -506,7 +536,8 @@
                 <label for="crowdContact">우발적 신체 접촉에 대한 반응?</label>
                 <div class="question-content">
                   <div class="range-container">
-                    <input type="range" id="crowdContact" name="q16" min="1" max="10" step="1" value="5" class="survey-range">
+                    <input type="range" id="crowdContact" name="q16" min="1" max="10" step="1" value="5"
+                      class="survey-range">
                     <div class="range-labels">
                       <span class="range-label">편안</span>
                       <span class="range-value-display" id="crowdContactValue">5</span>
@@ -527,7 +558,8 @@
                 <label for="noiseShock">예상치 못한 큰 소음을 얼마나 견딜 수 있나요?</label>
                 <div class="question-content">
                   <div class="range-container">
-                    <input type="range" id="noiseShock" name="q17" min="1" max="10" step="1" value="5" class="survey-range">
+                    <input type="range" id="noiseShock" name="q17" min="1" max="10" step="1" value="5"
+                      class="survey-range">
                     <div class="range-labels">
                       <span class="range-label">견딜 수 있음</span>
                       <span class="range-value-display" id="noiseShockValue">5</span>
@@ -548,7 +580,8 @@
                 <label for="lightFlash">번쩍이는 불빛이 얼마나 성가시나요?</label>
                 <div class="question-content">
                   <div class="range-container">
-                    <input type="range" id="lightFlash" name="q18" min="1" max="10" step="1" value="5" class="survey-range">
+                    <input type="range" id="lightFlash" name="q18" min="1" max="10" step="1" value="5"
+                      class="survey-range">
                     <div class="range-labels">
                       <span class="range-label">편안</span>
                       <span class="range-value-display" id="lightFlashValue">5</span>
@@ -590,7 +623,8 @@
                 <label for="crowdAvoid">혼잡을 피하려 우회 경로를 택할 가능성?</label>
                 <div class="question-content">
                   <div class="range-container">
-                    <input type="range" id="crowdAvoid" name="q20" min="1" max="10" step="1" value="5" class="survey-range">
+                    <input type="range" id="crowdAvoid" name="q20" min="1" max="10" step="1" value="5"
+                      class="survey-range">
                     <div class="range-labels">
                       <span class="range-label">낮음</span>
                       <span class="range-value-display" id="crowdAvoidValue">5</span>
@@ -608,7 +642,8 @@
             <button class="tutorial-btn secondary" id="surveyPrev">이전</button>
             <button class="tutorial-btn primary" id="surveyNext">다음</button>
           </div>
-          <button id="submitAnswerBtn" class="primary-btn" style="margin-top:12px; display:none;" type="submit">제출</button>
+          <button id="submitAnswerBtn" class="primary-btn" style="margin-top:12px; display:none;"
+            type="submit">제출</button>
         </div>
       </div>
     </div>
@@ -636,7 +671,8 @@
     <div class="header-left">
       <div class="logo"><i class="fas fa-map-marked-alt"></i> Sensmap</div>
       <nav class="hamburger-menu">
-        <button class="hamburger-btn" id="hamburgerBtn" aria-label="메뉴 열기" aria-expanded="false"><i class="fas fa-bars"></i></button>
+        <button class="hamburger-btn" id="hamburgerBtn" aria-label="메뉴 열기" aria-expanded="false"><i
+            class="fas fa-bars"></i></button>
         <div class="hamburger-dropdown" id="hamburgerDropdown" aria-hidden="true">
           <div class="user-info" id="userInfo" style="display:none;">
             <div class="user-avatar"><i class="fas fa-user-circle"></i></div>
@@ -647,16 +683,22 @@
           </div>
           <div class="menu-separator" id="userSeparator" style="display:none;"></div>
 
-          <div class="menu-item desktop-only"><button class="menu-btn" id="profileMenuBtn"><i class="fas fa-user-cog"></i><span>감각 프로필</span></button></div>
-          <div class="menu-item auth-required desktop-only" style="display:none;"><button class="menu-btn" id="myDataBtn"><i class="fas fa-database"></i><span>내 데이터</span></button></div>
+          <div class="menu-item desktop-only"><button class="menu-btn" id="profileMenuBtn"><i
+                class="fas fa-user-cog"></i><span>감각 프로필</span></button></div>
+          <div class="menu-item auth-required desktop-only" style="display:none;"><button class="menu-btn"
+              id="myDataBtn"><i class="fas fa-database"></i><span>내 데이터</span></button></div>
 
           <div class="menu-separator desktop-only"></div>
-          <div class="menu-item desktop-only"><button class="menu-btn" id="settingsBtn"><i class="fas fa-cog"></i><span>설정</span></button></div>
-          <div class="menu-item desktop-only"><button class="menu-btn" id="helpBtn"><i class="fas fa-question-circle"></i><span>도움말</span></button></div>
-          
+          <div class="menu-item desktop-only"><button class="menu-btn" id="settingsBtn"><i
+                class="fas fa-cog"></i><span>설정</span></button></div>
+          <div class="menu-item desktop-only"><button class="menu-btn" id="helpBtn"><i
+                class="fas fa-question-circle"></i><span>도움말</span></button></div>
+
           <div class="menu-separator"></div>
-          <div class="menu-item" id="loginMenuItem"><button class="menu-btn" id="loginMenuBtn"><i class="fas fa-sign-in-alt"></i><span>로그인</span></button></div>
-          <div class="menu-item auth-required" style="display:none;" id="logoutMenuItem"><button class="menu-btn" id="logoutBtn"><i class="fas fa-sign-out-alt"></i><span>로그아웃</span></button></div>
+          <div class="menu-item" id="loginMenuItem"><button class="menu-btn" id="loginMenuBtn"><i
+                class="fas fa-sign-in-alt"></i><span>로그인</span></button></div>
+          <div class="menu-item auth-required" style="display:none;" id="logoutMenuItem"><button class="menu-btn"
+              id="logoutBtn"><i class="fas fa-sign-out-alt"></i><span>로그아웃</span></button></div>
         </div>
       </nav>
       <!-- 모바일용 주소 입력 필드 (메뉴 버튼 옆) -->
@@ -682,18 +724,21 @@
 
       <div class="intensity-control">
         <label for="intensitySlider" style="font-size:12px;color:#6b7280;">표시 강도</label>
-        <input type="range" class="intensity-slider" id="intensitySlider" min="0.3" max="1" step="0.1" value="0.7" aria-label="표시 강도 조절">
+        <input type="range" class="intensity-slider" id="intensitySlider" min="0.3" max="1" step="0.1" value="0.7"
+          aria-label="표시 강도 조절">
         <span id="intensityValue" style="font-size:12px;font-weight:600;">0.7</span>
       </div>
     </div>
 
     <div class="header-right">
-      <button class="icon-btn active" id="showDataBtn" title="데이터 표시/숨김" aria-label="데이터 표시 토글" aria-pressed="true"><i class="fas fa-eye"></i></button>
+      <button class="icon-btn active" id="showDataBtn" title="데이터 표시/숨김" aria-label="데이터 표시 토글" aria-pressed="true"><i
+          class="fas fa-eye"></i></button>
       <button class="icon-btn" id="routeBtn" title="경로 찾기" aria-label="경로 찾기 모드"><i class="fas fa-route"></i></button>
-      <button class="icon-btn locate-btn" id="locateBtn" title="내 위치 표시/추적"><i class="fas fa-location-crosshairs"></i></button>
+      <button class="icon-btn locate-btn" id="locateBtn" title="내 위치 표시/추적"><i
+          class="fas fa-location-crosshairs"></i></button>
     </div>
   </header>
-  
+
   <!-- 모바일용 하단 네비게이션 바 -->
   <nav class="mobile-bottom-nav" id="mobileBottomNav">
     <button class="bottom-nav-item" id="mobileProfileBtn" aria-label="감각 프로필">
@@ -722,7 +767,8 @@
     <button class="mobile-fab secondary" id="mobileRouteBtn" title="경로 찾기" aria-label="경로 찾기 모드">
       <i class="fas fa-route"></i>
     </button>
-    <button class="mobile-fab secondary" id="mobileShowDataBtn" title="데이터 표시" aria-label="데이터 표시 토글" aria-pressed="true">
+    <button class="mobile-fab secondary" id="mobileShowDataBtn" title="데이터 표시" aria-label="데이터 표시 토글"
+      aria-pressed="true">
       <i class="fas fa-eye"></i>
     </button>
   </div>
@@ -731,7 +777,9 @@
   <aside class="settings-panel" id="settingsPanel">
     <div class="panel-header">
       <div class="panel-title">설정</div>
-      <button type="button" class="close-btn" id="closeSettingsBtn" aria-label="설정 패널 닫기" onclick="if(window.app && window.app.uiHandler) { window.app.uiHandler.closeSettingsPanel(); return false; } else { console.error('App or uiHandler not found'); }"><i class="fas fa-times"></i></button>
+      <button type="button" class="close-btn" id="closeSettingsBtn" aria-label="설정 패널 닫기"
+        onclick="if(window.app && window.app.uiHandler) { window.app.uiHandler.closeSettingsPanel(); return false; } else { console.error('App or uiHandler not found'); }"><i
+          class="fas fa-times"></i></button>
     </div>
     <div class="panel-content">
       <div class="settings-list">
@@ -798,7 +846,8 @@
           </div>
         </div>
         <div class="notice-actions">
-          <button class="primary-btn small" onclick="authManager.showLoginModal()"><i class="fas fa-sign-in-alt"></i>로그인하기</button>
+          <button class="primary-btn small" onclick="authManager.showLoginModal()"><i
+              class="fas fa-sign-in-alt"></i>로그인하기</button>
         </div>
       </div>
 
@@ -821,66 +870,80 @@
         <div class="smart-form-group" data-field="noise">
           <div class="field-header">
             <label class="form-label" for="noiseInput">소음 수준</label>
-            <button type="button" class="help-btn sensory-help-btn" data-field="noise" title="소음 숫자 설명" aria-label="소음 숫자 설명"><i class="fas fa-question-circle"></i></button>
+            <button type="button" class="help-btn sensory-help-btn" data-field="noise" title="소음 숫자 설명"
+              aria-label="소음 숫자 설명"><i class="fas fa-question-circle"></i></button>
             <button type="button" class="skip-btn" data-field="noise">건너뛰기</button>
           </div>
           <div class="slider-container">
-            <input type="range" class="range-slider" id="noiseInput" name="noise" min="0" max="10" value="5" aria-describedby="noiseHelp">
+            <input type="range" class="range-slider" id="noiseInput" name="noise" min="0" max="10" value="5"
+              aria-describedby="noiseHelp">
             <div class="range-value">5</div>
           </div>
-          <small id="noiseHelp" style="font-size:11px;color:#6b7280;margin-top:4px;display:block;">0: 매우 조용함, 10: 매우 시끄러움</small>
+          <small id="noiseHelp" style="font-size:11px;color:#6b7280;margin-top:4px;display:block;">0: 매우 조용함, 10: 매우
+            시끄러움</small>
         </div>
 
         <!-- 빛 -->
         <div class="smart-form-group" data-field="light">
           <div class="field-header">
             <label class="form-label" for="lightInput">빛 강도</label>
-            <button type="button" class="help-btn sensory-help-btn" data-field="light" title="빛 숫자 설명" aria-label="빛 숫자 설명"><i class="fas fa-question-circle"></i></button>
+            <button type="button" class="help-btn sensory-help-btn" data-field="light" title="빛 숫자 설명"
+              aria-label="빛 숫자 설명"><i class="fas fa-question-circle"></i></button>
             <button type="button" class="skip-btn" data-field="light">건너뛰기</button>
           </div>
           <div class="slider-container">
-            <input type="range" class="range-slider" id="lightInput" name="light" min="0" max="10" value="5" aria-describedby="lightHelp">
+            <input type="range" class="range-slider" id="lightInput" name="light" min="0" max="10" value="5"
+              aria-describedby="lightHelp">
             <div class="range-value">5</div>
           </div>
-          <small id="lightHelp" style="font-size:11px;color:#6b7280;margin-top:4px;display:block;">0: 매우 어두움, 10: 매우 밝음</small>
+          <small id="lightHelp" style="font-size:11px;color:#6b7280;margin-top:4px;display:block;">0: 매우 어두움, 10: 매우
+            밝음</small>
         </div>
 
         <!-- 냄새 -->
         <div class="smart-form-group" data-field="odor">
           <div class="field-header">
             <label class="form-label" for="odorInput">냄새 정도</label>
-            <button type="button" class="help-btn sensory-help-btn" data-field="odor" title="냄새 숫자 설명" aria-label="냄새 숫자 설명"><i class="fas fa-question-circle"></i></button>
+            <button type="button" class="help-btn sensory-help-btn" data-field="odor" title="냄새 숫자 설명"
+              aria-label="냄새 숫자 설명"><i class="fas fa-question-circle"></i></button>
             <button type="button" class="skip-btn" data-field="odor">건너뛰기</button>
           </div>
           <div class="slider-container">
-            <input type="range" class="range-slider" id="odorInput" name="odor" min="0" max="10" value="5" aria-describedby="odorHelp">
+            <input type="range" class="range-slider" id="odorInput" name="odor" min="0" max="10" value="5"
+              aria-describedby="odorHelp">
             <div class="range-value">5</div>
           </div>
-          <small id="odorHelp" style="font-size:11px;color:#6b7280;margin-top:4px;display:block;">0: 냄새 없음, 10: 매우 강한 냄새</small>
+          <small id="odorHelp" style="font-size:11px;color:#6b7280;margin-top:4px;display:block;">0: 냄새 없음, 10: 매우 강한
+            냄새</small>
         </div>
 
         <!-- 혼잡 -->
         <div class="smart-form-group" data-field="crowd">
           <div class="field-header">
             <label class="form-label" for="crowdInput">혼잡도</label>
-            <button type="button" class="help-btn sensory-help-btn" data-field="crowd" title="혼잡 숫자 설명" aria-label="혼잡 숫자 설명"><i class="fas fa-question-circle"></i></button>
+            <button type="button" class="help-btn sensory-help-btn" data-field="crowd" title="혼잡 숫자 설명"
+              aria-label="혼잡 숫자 설명"><i class="fas fa-question-circle"></i></button>
             <button type="button" class="skip-btn" data-field="crowd">건너뛰기</button>
           </div>
           <div class="slider-container">
-            <input type="range" class="range-slider" id="crowdInput" name="crowd" min="0" max="10" value="5" aria-describedby="crowdHelp">
+            <input type="range" class="range-slider" id="crowdInput" name="crowd" min="0" max="10" value="5"
+              aria-describedby="crowdHelp">
             <div class="range-value">5</div>
           </div>
-          <small id="crowdHelp" style="font-size:11px;color:#6b7280;margin-top:4px;display:block;">0: 한적함, 10: 매우 혼잡함</small>
+          <small id="crowdHelp" style="font-size:11px;color:#6b7280;margin-top:4px;display:block;">0: 한적함, 10: 매우
+            혼잡함</small>
         </div>
 
         <!-- 예상 지속 시간 -->
         <div class="form-group" id="durationGroup" style="display:none;">
           <label class="form-label" for="durationInput">예상 지속 시간(분) <span class="optional-badge">선택</span></label>
-          <input type="number" class="duration-input" id="durationInput" name="duration" min="1" placeholder="예: 30, 60 (최대 1시간)" aria-describedby="durationHelp">
-          <small id="durationHelp" style="font-size:11px;color:#6b7280;margin-top:4px;display:block;">비워두면 기본값이 적용됩니다</small>
+          <input type="number" class="duration-input" id="durationInput" name="duration" min="1"
+            placeholder="예: 30, 60 (최대 1시간)" aria-describedby="durationHelp">
+          <small id="durationHelp" style="font-size:11px;color:#6b7280;margin-top:4px;display:block;">비워두면 기본값이
+            적용됩니다</small>
         </div>
 
-      
+
 
         <!-- 시간표 섹션 (첫 번째 파일에서 병합) -->
         <section class="timetable-section" id="timetableSection" aria-label="시간표" style="display:none;">
@@ -892,8 +955,13 @@
           <div class="timetable-header" style="gap:8px;">
             <label for="timetableDaySelect" class="timetable-select">요일 선택</label>
             <select id="timetableDaySelect" class="timetable-select" aria-label="요일 선택">
-              <option value="0">일</option><option value="1">월</option><option value="2">화</option>
-              <option value="3">수</option><option value="4">목</option><option value="5">금</option><option value="6">토</option>
+              <option value="0">일</option>
+              <option value="1">월</option>
+              <option value="2">화</option>
+              <option value="3">수</option>
+              <option value="4">목</option>
+              <option value="5">금</option>
+              <option value="6">토</option>
             </select>
           </div>
 
@@ -901,30 +969,78 @@
             <div class="time-slots">
               <div class="time-slot-header">시간</div>
               <!-- 00~23시 -->
-              <div class="time-slot" data-time="00"><span>00:00</span><div class="time-cell" data-key="00" data-time="00"></div></div>
-              <div class="time-slot" data-time="01"><span>01:00</span><div class="time-cell" data-key="01" data-time="01"></div></div>
-              <div class="time-slot" data-time="02"><span>02:00</span><div class="time-cell" data-key="02" data-time="02"></div></div>
-              <div class="time-slot" data-time="03"><span>03:00</span><div class="time-cell" data-key="03" data-time="03"></div></div>
-              <div class="time-slot" data-time="04"><span>04:00</span><div class="time-cell" data-key="04" data-time="04"></div></div>
-              <div class="time-slot" data-time="05"><span>05:00</span><div class="time-cell" data-key="05" data-time="05"></div></div>
-              <div class="time-slot" data-time="06"><span>06:00</span><div class="time-cell" data-key="06" data-time="06"></div></div>
-              <div class="time-slot" data-time="07"><span>07:00</span><div class="time-cell" data-key="07" data-time="07"></div></div>
-              <div class="time-slot" data-time="08"><span>08:00</span><div class="time-cell" data-key="08" data-time="08"></div></div>
-              <div class="time-slot" data-time="09"><span>09:00</span><div class="time-cell" data-key="09" data-time="09"></div></div>
-              <div class="time-slot" data-time="10"><span>10:00</span><div class="time-cell" data-key="10" data-time="10"></div></div>
-              <div class="time-slot" data-time="11"><span>11:00</span><div class="time-cell" data-key="11" data-time="11"></div></div>
-              <div class="time-slot" data-time="12"><span>12:00</span><div class="time-cell" data-key="12" data-time="12"></div></div>
-              <div class="time-slot" data-time="13"><span>13:00</span><div class="time-cell" data-key="13" data-time="13"></div></div>
-              <div class="time-slot" data-time="14"><span>14:00</span><div class="time-cell" data-key="14" data-time="14"></div></div>
-              <div class="time-slot" data-time="15"><span>15:00</span><div class="time-cell" data-key="15" data-time="15"></div></div>
-              <div class="time-slot" data-time="16"><span>16:00</span><div class="time-cell" data-key="16" data-time="16"></div></div>
-              <div class="time-slot" data-time="17"><span>17:00</span><div class="time-cell" data-key="17" data-time="17"></div></div>
-              <div class="time-slot" data-time="18"><span>18:00</span><div class="time-cell" data-key="18" data-time="18"></div></div>
-              <div class="time-slot" data-time="19"><span>19:00</span><div class="time-cell" data-key="19" data-time="19"></div></div>
-              <div class="time-slot" data-time="20"><span>20:00</span><div class="time-cell" data-key="20" data-time="20"></div></div>
-              <div class="time-slot" data-time="21"><span>21:00</span><div class="time-cell" data-key="21" data-time="21"></div></div>
-              <div class="time-slot" data-time="22"><span>22:00</span><div class="time-cell" data-key="22" data-time="22"></div></div>
-              <div class="time-slot" data-time="23"><span>23:00</span><div class="time-cell" data-key="23" data-time="23"></div></div>
+              <div class="time-slot" data-time="00"><span>00:00</span>
+                <div class="time-cell" data-key="00" data-time="00"></div>
+              </div>
+              <div class="time-slot" data-time="01"><span>01:00</span>
+                <div class="time-cell" data-key="01" data-time="01"></div>
+              </div>
+              <div class="time-slot" data-time="02"><span>02:00</span>
+                <div class="time-cell" data-key="02" data-time="02"></div>
+              </div>
+              <div class="time-slot" data-time="03"><span>03:00</span>
+                <div class="time-cell" data-key="03" data-time="03"></div>
+              </div>
+              <div class="time-slot" data-time="04"><span>04:00</span>
+                <div class="time-cell" data-key="04" data-time="04"></div>
+              </div>
+              <div class="time-slot" data-time="05"><span>05:00</span>
+                <div class="time-cell" data-key="05" data-time="05"></div>
+              </div>
+              <div class="time-slot" data-time="06"><span>06:00</span>
+                <div class="time-cell" data-key="06" data-time="06"></div>
+              </div>
+              <div class="time-slot" data-time="07"><span>07:00</span>
+                <div class="time-cell" data-key="07" data-time="07"></div>
+              </div>
+              <div class="time-slot" data-time="08"><span>08:00</span>
+                <div class="time-cell" data-key="08" data-time="08"></div>
+              </div>
+              <div class="time-slot" data-time="09"><span>09:00</span>
+                <div class="time-cell" data-key="09" data-time="09"></div>
+              </div>
+              <div class="time-slot" data-time="10"><span>10:00</span>
+                <div class="time-cell" data-key="10" data-time="10"></div>
+              </div>
+              <div class="time-slot" data-time="11"><span>11:00</span>
+                <div class="time-cell" data-key="11" data-time="11"></div>
+              </div>
+              <div class="time-slot" data-time="12"><span>12:00</span>
+                <div class="time-cell" data-key="12" data-time="12"></div>
+              </div>
+              <div class="time-slot" data-time="13"><span>13:00</span>
+                <div class="time-cell" data-key="13" data-time="13"></div>
+              </div>
+              <div class="time-slot" data-time="14"><span>14:00</span>
+                <div class="time-cell" data-key="14" data-time="14"></div>
+              </div>
+              <div class="time-slot" data-time="15"><span>15:00</span>
+                <div class="time-cell" data-key="15" data-time="15"></div>
+              </div>
+              <div class="time-slot" data-time="16"><span>16:00</span>
+                <div class="time-cell" data-key="16" data-time="16"></div>
+              </div>
+              <div class="time-slot" data-time="17"><span>17:00</span>
+                <div class="time-cell" data-key="17" data-time="17"></div>
+              </div>
+              <div class="time-slot" data-time="18"><span>18:00</span>
+                <div class="time-cell" data-key="18" data-time="18"></div>
+              </div>
+              <div class="time-slot" data-time="19"><span>19:00</span>
+                <div class="time-cell" data-key="19" data-time="19"></div>
+              </div>
+              <div class="time-slot" data-time="20"><span>20:00</span>
+                <div class="time-cell" data-key="20" data-time="20"></div>
+              </div>
+              <div class="time-slot" data-time="21"><span>21:00</span>
+                <div class="time-cell" data-key="21" data-time="21"></div>
+              </div>
+              <div class="time-slot" data-time="22"><span>22:00</span>
+                <div class="time-cell" data-key="22" data-time="22"></div>
+              </div>
+              <div class="time-slot" data-time="23"><span>23:00</span>
+                <div class="time-cell" data-key="23" data-time="23"></div>
+              </div>
             </div>
           </div>
 
@@ -940,224 +1056,249 @@
     </div>
   </aside>
 
-    <!-- 내 데이터 패널 추가 -->
-    <aside class="side-panel" id="myDataPanel" aria-hidden="true">
-        <div class="panel-header">
-            <div class="panel-title">내 감각 정보</div>
-            <div class="panel-subtitle">내가 등록한 감각 데이터를 관리하세요</div>
-            <button class="close-btn" id="closeMyDataBtn" aria-label="패널 닫기">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        
-        <div class="panel-content">
-            <!-- ① 툴바 -->
-            <div class="mydata-toolbar" id="myDataToolbar" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; align-items:flex-start; margin-bottom:16px;">
-                <div style="display:flex; flex-direction:column; gap:4px;">
-                    <label for="mdPeriod" style="font-size:11px; font-weight:600; color:#4b5563;">기간</label>
-                    <select id="mdPeriod" class="form-input" style="font-size:13px;">
-                        <option value="all">전체 기간</option>
-                        <option value="24">최근 24시간</option>
-                        <option value="168">최근 7일</option>
-                        <option value="720">최근 30일</option>
-                    </select>
-                </div>
-                <div style="display:flex; flex-direction:column; gap:4px;">
-                    <label for="mdType" style="font-size:11px; font-weight:600; color:#4b5563;">유형</label>
-                    <select id="mdType" class="form-input" style="font-size:13px;">
-                        <option value="all">모든 유형</option>
-                        <option value="irregular">⚡ 일시적</option>
-                        <option value="regular">🟢 지속적</option>
-                    </select>
-                </div>
-                <div style="display:flex; flex-direction:column; gap:4px;">
-                    <label for="mdSort" style="font-size:11px; font-weight:600; color:#4b5563;">정렬</label>
-                    <select id="mdSort" class="form-input" style="font-size:13px;">
-                        <option value="newest">최신순</option>
-                        <option value="oldest">오래된순</option>
-                        <option value="scoreDesc">개인화 점수↓</option>
-                        <option value="scoreAsc">개인화 점수↑</option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- ② 통계 카드 -->
-            <div id="myDataStatsBar" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:16px;">
-                <div class="stat-card" style="background:#f9fafb; border-radius:12px; padding:16px; text-align:center; box-shadow:0 8px 18px rgba(15, 23, 42, 0.06);">
-                    <div class="stat-number" id="mdTotal" style="font-size:22px; font-weight:700; color:#111827;">-</div>
-                    <div class="stat-label" style="font-size:11px; color:#6b7280; margin-top:6px;">총 등록</div>
-                </div>
-                <div class="stat-card" style="background:#f9fafb; border-radius:12px; padding:16px; text-align:center; box-shadow:0 8px 18px rgba(15, 23, 42, 0.06);">
-                    <div class="stat-number" id="mdLast" style="font-size:14px; font-weight:600; color:#111827;">-</div>
-                    <div class="stat-label" style="font-size:11px; color:#6b7280; margin-top:6px;">최근 등록</div>
-                </div>
-            </div>
-
-    <!-- ③ 리스트 컨테이너 -->
-    <div id="myDataList" class="mydata-list" style="display:flex; flex-direction:column; gap:10px;">
-        <div class="loading-placeholder" style="text-align:center; padding:40px; color:#9ca3af;">
-            <i class="fas fa-spinner fa-spin" style="font-size:24px; margin-bottom:8px;"></i>
-            <div style="font-size:13px;">데이터를 불러오는 중...</div>
-        </div>
-    </div>
-</div>
-
-  <!-- 프로필 패널 -->
-  <aside class="side-panel" id="profilePanel" aria-hidden="true">
+  <!-- 내 데이터 패널 추가 -->
+  <aside class="side-panel" id="myDataPanel" aria-hidden="true">
     <div class="panel-header">
-      <div class="panel-title">감각 프로필</div>
-      <div class="panel-subtitle">개인 민감도를 설정하여 맞춤형 경로를 찾아보세요</div>
-      <button class="close-btn" id="closeProfileBtn" aria-label="패널 닫기"><i class="fas fa-times"></i></button>
+      <div class="panel-title">내 감각 정보</div>
+      <div class="panel-subtitle">내가 등록한 감각 데이터를 관리하세요</div>
+      <button class="close-btn" id="closeMyDataBtn" aria-label="패널 닫기">
+        <i class="fas fa-times"></i>
+      </button>
     </div>
+
     <div class="panel-content">
-      <form id="profileForm">
-        <div class="form-group">
-          <label class="form-label" for="noiseThreshold">소음 민감도</label>
-          <div class="slider-container">
-            <input type="range" class="range-slider" id="noiseThreshold" name="noiseThreshold" min="0" max="10" value="5" aria-describedby="noiseThresholdHelp">
-            <div class="range-value">5</div>
-          </div>
-          <small id="noiseThresholdHelp" style="font-size:11px;color:#6b7280;margin-top:4px;display:block;">높을수록 소음에 민감함</small>
+      <!-- ① 툴바 -->
+      <div class="mydata-toolbar" id="myDataToolbar"
+        style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; align-items:flex-start; margin-bottom:16px;">
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          <label for="mdPeriod" style="font-size:11px; font-weight:600; color:#4b5563;">기간</label>
+          <select id="mdPeriod" class="form-input" style="font-size:13px;">
+            <option value="all">전체 기간</option>
+            <option value="24">최근 24시간</option>
+            <option value="168">최근 7일</option>
+            <option value="720">최근 30일</option>
+          </select>
         </div>
-
-        <div class="form-group">
-          <label class="form-label" for="lightThreshold">빛 민감도</label>
-          <div class="slider-container">
-            <input type="range" class="range-slider" id="lightThreshold" name="lightThreshold" min="0" max="10" value="5" aria-describedby="lightThresholdHelp">
-            <div class="range-value">5</div>
-          </div>
-          <small id="lightThresholdHelp" style="font-size:11px;color:#6b7280;margin-top:4px;display:block;">높을수록 밝은 빛에 민감함</small>
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          <label for="mdType" style="font-size:11px; font-weight:600; color:#4b5563;">유형</label>
+          <select id="mdType" class="form-input" style="font-size:13px;">
+            <option value="all">모든 유형</option>
+            <option value="irregular">⚡ 일시적</option>
+            <option value="regular">🟢 지속적</option>
+          </select>
         </div>
-
-        <div class="form-group">
-          <label class="form-label" for="odorThreshold">냄새 민감도</label>
-          <div class="slider-container">
-            <input type="range" class="range-slider" id="odorThreshold" name="odorThreshold" min="0" max="10" value="5" aria-describedby="odorThresholdHelp">
-            <div class="range-value">5</div>
-          </div>
-          <small id="odorThresholdHelp" style="font-size:11px;color:#6b7280;margin-top:4px;display:block;">높을수록 냄새에 민감함</small>
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          <label for="mdSort" style="font-size:11px; font-weight:600; color:#4b5563;">정렬</label>
+          <select id="mdSort" class="form-input" style="font-size:13px;">
+            <option value="newest">최신순</option>
+            <option value="oldest">오래된순</option>
+            <option value="scoreDesc">개인화 점수↓</option>
+            <option value="scoreAsc">개인화 점수↑</option>
+          </select>
         </div>
-
-        <div class="form-group">
-          <label class="form-label" for="crowdThreshold">혼잡 민감도</label>
-          <div class="slider-container">
-            <input type="range" class="range-slider" id="crowdThreshold" name="crowdThreshold" min="0" max="10" value="5" aria-describedby="crowdThresholdHelp">
-            <div class="range-value">5</div>
-          </div>
-          <small id="crowdThresholdHelp" style="font-size:11px;color:#6b7280;margin-top:4px;display:block;">높을수록 혼잡함에 민감함</small>
-        </div>
-
-        <button type="submit" class="primary-btn"><i class="fas fa-user-check"></i>프로필 저장</button>
-        <button type="button" class="secondary-btn" id="cancelMyDataBtn"><i class="fas fa-times"></i>취소</button>
-      </form>
-    </div>
-  </aside>
-
-  <!-- 경로 컨트롤 -->
-  <div class="route-controls" id="routeControls" aria-hidden="true">
-    <div class="route-info"><div class="route-badge" id="routeStatus">출발지 선택</div></div>
-    <div class="route-options" id="routeOptions" style="display:none;">
-      <button class="route-option-btn" id="sensoryRouteBtn">
-        <i class="fas fa-leaf" style="color:#10b981;"></i>
-        <div><div class="route-option-title">감각 우선</div><div class="route-option-desc">가장 쾌적한 경로</div></div>
-      </button>
-      <button class="route-option-btn balanced" id="balancedRouteBtn">
-        <i class="fas fa-balance-scale" style="color:#f59e0b;"></i>
-        <div><div class="route-option-title">균형</div><div class="route-option-desc">쾌적함과 시간의 균형</div></div>
-      </button>
-      <button class="route-option-btn" id="timeRouteBtn">
-        <i class="fas fa-clock" style="color:#3b82f6;"></i>
-        <div><div class="route-option-title">시간 우선</div><div class="route-option-desc">가장 빠른 경로</div></div>
-      </button>
-    </div>
-    <button class="secondary-btn" id="cancelRouteBtn"><i class="fas fa-times"></i>취소</button>
-  </div>
-
-  <!-- 토스트/배너/되돌리기 -->
-  <div class="undo-action" id="undoAction" style="display:none;">
-    <span class="undo-text">감각 정보가 추가되었습니다</span>
-    <button class="undo-btn" id="undoBtn"><i class="fas fa-undo"></i>실행취소</button>
-  </div>
-
-  <div class="toast" id="toast" role="alert" aria-live="polite"></div>
-
-  <div class="alert-banner" id="alertBanner" style="display:none;">
-    <div class="alert-content"><i class="fas fa-exclamation-triangle"></i><span id="alertText"></span></div>
-    <button class="alert-close" id="alertClose" aria-label="알림 닫기"><i class="fas fa-times"></i></button>
-  </div>
-
-  <!-- 감각 도움말 모달 (첫 번째 파일에서 병합) -->
-  <div class="modal-overlay" id="sensoryHelpModal" aria-hidden="true">
-    <div class="modal-content" role="dialog" aria-labelledby="sensoryHelpTitle">
-      <div class="modal-header">
-        <h3 id="sensoryHelpTitle">감각 숫자 설명</h3>
-        <button class="close-btn" id="closeSensoryHelpBtn" aria-label="감각 도움말 닫기"><i class="fas fa-times"></i></button>
       </div>
-      <div class="modal-body">
-        <div class="help-section" data-help="noise">
-          <h4>🔊 소음 (0–10)</h4>
-          <p><span class="score-badge">0</span> 0: 도서관, 숲 속에서 새벽 바람소리, 사람이 없는 한적한 공원</p>
-          <p><span class="score-badge">1</span> 1: 속삭임, 나뭇잎 흔들리는 소리, 조용한 골목길, 노트북 팬 소음(저소음)</p>
-          <p><span class="score-badge">2</span> 2: 조용한 사무실, 냉장고 돌아가는 소리, 도서관 발자국, 작은 카페</p>
-          <p><span class="score-badge">3</span> 3: 가까운 거리 대화, 조용한 상점 내부, 소형 자동차 소리, TV 낮은 볼륨</p>
-          <p><span class="score-badge">4</span> 4: 일반 사무실 분위기, 붐비는 카페, 음식점 피크타임, 청소기</p>
-          <p><span class="score-badge">5</span> 5: 번화가 차량 통행, 떠드는 학생 무리, 지하철 내부, TV 보통 볼륨</p>
-          <p><span class="score-badge">6</span> 6: 버스/오토바이 도로 소음, 큰 목소리 대화, 전화 벨소리, 지하철 방송</p>
-          <p><span class="score-badge">7</span> 7: 전동 드릴, 대형 트럭 근처, 헤어드라이어·믹서기, 붐비는 시장</p>
-          <p><span class="score-badge">8</span> 8: 지하철 열차 진입, 공사장 함마드릴, 록 콘서트 객석, 오토바이</p>
-          <p><span class="score-badge">9</span> 9: 앰뷸런스 사이렌, 대형 스피커 앞 콘서트, 폭죽 근거리</p>
-          <p><span class="score-badge">10</span> 10: 제트기 이륙 활주로, 로켓 발사, 활주로 엔진 테스트, 총성 근접 거리</p>
+
+      <!-- ② 통계 카드 -->
+      <div id="myDataStatsBar"
+        style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:16px;">
+        <div class="stat-card"
+          style="background:#f9fafb; border-radius:12px; padding:16px; text-align:center; box-shadow:0 8px 18px rgba(15, 23, 42, 0.06);">
+          <div class="stat-number" id="mdTotal" style="font-size:22px; font-weight:700; color:#111827;">-</div>
+          <div class="stat-label" style="font-size:11px; color:#6b7280; margin-top:6px;">총 등록</div>
         </div>
-        <div class="help-section" data-help="light">
-          <h4>💡 빛 (0–10)</h4>
-          <p><span class="score-badge">0</span> 0: 별빛 밤하늘, 달빛, 아주 어두운 동굴, 영화관 상영 중</p>
-          <p><span class="score-badge">1</span> 1: 가로등 없는 밤길, 희미한 새벽녘, 창문 없는 어두운 방, 멀리 있는 촛불</p>
-          <p><span class="score-badge">2</span> 2: 가로등 있는 밤거리, 어두운 복도, 달 밝은 시골길, 간접조명 방</p>
-          <p><span class="score-badge">3</span> 3: 어두운 실내, 새벽 이른 아침 집안, 조명 약한 카페, 무드등 켜진 방</p>
-          <p><span class="score-badge">4</span> 4: 일반 거실 조명, 편안한 독서등, 밤의 사무실, 가정용 LED 조명</p>
-          <p><span class="score-badge">5</span> 5: 밝은 사무실, 독서실 조명, 병원 대기실, 교실 불 켜진 상태</p>
-          <p><span class="score-badge">6</span> 6: 흐린 날 실외, 밝은 카페, 쇼핑몰 내부, 사진 스튜디오 보조광</p>
-          <p><span class="score-badge">7</span> 7: 흐린 낮 실외, 밝은 사무실 천장등, 대형마트 내부, 병원 수술실 조명</p>
-          <p><span class="score-badge">8</span> 8: 맑은 날 그늘, 창가 햇살 들어오는 방, 체육관 실내, 무대 조명 아래</p>
-          <p><span class="score-badge">9</span> 9: 맑은 날 직사광선, 한낮의 해변, 햇빛 가득한 창가, 반사된 눈밭 풍경</p>
-          <p><span class="score-badge">10</span> 10: 한여름 정오 태양, 사막의 직사광선, 스튜디오 조명 직사, 용접 불꽃</p>
+        <div class="stat-card"
+          style="background:#f9fafb; border-radius:12px; padding:16px; text-align:center; box-shadow:0 8px 18px rgba(15, 23, 42, 0.06);">
+          <div class="stat-number" id="mdLast" style="font-size:14px; font-weight:600; color:#111827;">-</div>
+          <div class="stat-label" style="font-size:11px; color:#6b7280; margin-top:6px;">최근 등록</div>
         </div>
-        <div class="help-section" data-help="odor">
-          <h4>👃 냄새 (0–10)</h4>
-          <p><span class="score-badge">0</span> 0: 거의 무취, 한적한 숲속 공기, 잘 환기된 방, 비 온 뒤 맑은 공기</p>
-          <p><span class="score-badge">1</span> 1: 아주 약한 향, 깨끗한 빨래 냄새, 종이 냄새, 잔잔한 풀내음</p>
-          <p><span class="score-badge">2</span> 2: 은은한 향, 차 한잔의 향기, 향초 향기, 멀리서 풍기는 음식 냄새</p>
-          <p><span class="score-badge">3</span> 3: 약간 느껴지는 냄새, 커피 향, 과일 껍질 향, 빵 굽는 냄새</p>
-          <p><span class="score-badge">4</span> 4: 분명하지만 불편하지 않은 냄새, 꽃 향기, 향수 소량, 구운 고기 냄새</p>
-          <p><span class="score-badge">5</span> 5: 강하게 인지되는 냄새, 향수 뿌린 사람 근처, 길거리 음식 냄새</p>
-          <p><span class="score-badge">6</span> 6: 다소 거슬리는 냄새, 담배 연기, 지하철 땀 냄새, 음식물 쓰레기통</p>
-          <p><span class="score-badge">7</span> 7: 매우 강하고 불쾌한 냄새, 암모니아 냄새, 하수구 냄새, 상한 음식 냄새</p>
-          <p><span class="score-badge">8</span> 8: 극도로 거슬리는 냄새, 썩은 달걀, 강한 화학 약품 냄새, 타는 냄새</p>
-          <p><span class="score-badge">9</span> 9: 견디기 힘든 냄새, 죽은 동물 사체, 부패한 고기, 강력 접착제 냄새</p>
-          <p><span class="score-badge">10</span> 10: 즉시 회피 반응을 일으키는 냄새, 독성 가스, 화학 화재 연기</p>
-        </div>
-        <div class="help-section" data-help="crowd">
-          <h4>👥 혼잡도 (0–10)</h4>
-          <p><span class="score-badge">0</span> 0: 한적한 공원, 인적 드문 시골길, 텅 빈 도서관, 이른 새벽 해변</p>
-          <p><span class="score-badge">1</span> 1: 산책하는 몇몇 사람, 동네 작은 카페 조용한 시간, 텅 빈 버스</p>
-          <p><span class="score-badge">2</span> 2: 적당히 분산된 사람들, 낮 시간대 도서관, 평일 낮 지하철, 동네 편의점</p>
-          <p><span class="score-badge">3</span> 3: 여유로운 수준의 사람들, 일반적인 공원 주말 낮, 도심 작은 상점가</p>
-          <p><span class="score-badge">4</span> 4: 사람을 쉽게 피할 수 있는 수준, 지하철 평일 저녁 전, 쇼핑몰 비성수기</p>
-          <p><span class="score-badge">5</span> 5: 붐비는 수준, 인기 카페 주말, 마트 저녁 시간, 식당 점심시간</p>
-          <p><span class="score-badge">6</span> 6: 지하철 출퇴근 전, 맛집 웨이팅 줄, 번화가 메인 거리</p>
-          <p><span class="score-badge">7</span> 7: 이동이 불편함, 유명 축제 입구, 대형 마트 세일 시간</p>
-          <p><span class="score-badge">8</span> 8: 밀착된 수준, 콘서트 대기줄, 불꽃놀이 명당 자리</p>
-          <p><span class="score-badge">9</span> 9: 밀집 상태, 지하철 퇴근 시간, 성수기 관광지, 대형 집회 한복판</p>
-          <p><span class="score-badge">10</span> 10: 이동 불가, 콘서트 스탠딩 존, 지하철 만원, 대피 상황</p>
+      </div>
+
+      <!-- ③ 리스트 컨테이너 -->
+      <div id="myDataList" class="mydata-list" style="display:flex; flex-direction:column; gap:10px;">
+        <div class="loading-placeholder" style="text-align:center; padding:40px; color:#9ca3af;">
+          <i class="fas fa-spinner fa-spin" style="font-size:24px; margin-bottom:8px;"></i>
+          <div style="font-size:13px;">데이터를 불러오는 중...</div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- 외부 라이브러리 -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet-geosearch@3.11.0/dist/geosearch.umd.js"></script>
-  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
-  <script type="module" src="./script.js"></script>
+    <!-- 프로필 패널 -->
+    <aside class="side-panel" id="profilePanel" aria-hidden="true">
+      <div class="panel-header">
+        <div class="panel-title">감각 프로필</div>
+        <div class="panel-subtitle">개인 민감도를 설정하여 맞춤형 경로를 찾아보세요</div>
+        <button class="close-btn" id="closeProfileBtn" aria-label="패널 닫기"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="panel-content">
+        <form id="profileForm">
+          <div class="form-group">
+            <label class="form-label" for="noiseThreshold">소음 민감도</label>
+            <div class="slider-container">
+              <input type="range" class="range-slider" id="noiseThreshold" name="noiseThreshold" min="0" max="10"
+                value="5" aria-describedby="noiseThresholdHelp">
+              <div class="range-value">5</div>
+            </div>
+            <small id="noiseThresholdHelp" style="font-size:11px;color:#6b7280;margin-top:4px;display:block;">높을수록 소음에
+              민감함</small>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="lightThreshold">빛 민감도</label>
+            <div class="slider-container">
+              <input type="range" class="range-slider" id="lightThreshold" name="lightThreshold" min="0" max="10"
+                value="5" aria-describedby="lightThresholdHelp">
+              <div class="range-value">5</div>
+            </div>
+            <small id="lightThresholdHelp" style="font-size:11px;color:#6b7280;margin-top:4px;display:block;">높을수록 밝은 빛에
+              민감함</small>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="odorThreshold">냄새 민감도</label>
+            <div class="slider-container">
+              <input type="range" class="range-slider" id="odorThreshold" name="odorThreshold" min="0" max="10"
+                value="5" aria-describedby="odorThresholdHelp">
+              <div class="range-value">5</div>
+            </div>
+            <small id="odorThresholdHelp" style="font-size:11px;color:#6b7280;margin-top:4px;display:block;">높을수록 냄새에
+              민감함</small>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="crowdThreshold">혼잡 민감도</label>
+            <div class="slider-container">
+              <input type="range" class="range-slider" id="crowdThreshold" name="crowdThreshold" min="0" max="10"
+                value="5" aria-describedby="crowdThresholdHelp">
+              <div class="range-value">5</div>
+            </div>
+            <small id="crowdThresholdHelp" style="font-size:11px;color:#6b7280;margin-top:4px;display:block;">높을수록 혼잡함에
+              민감함</small>
+          </div>
+
+          <button type="submit" class="primary-btn"><i class="fas fa-user-check"></i>프로필 저장</button>
+          <button type="button" class="secondary-btn" id="cancelMyDataBtn"><i class="fas fa-times"></i>취소</button>
+        </form>
+      </div>
+    </aside>
+
+    <!-- 경로 컨트롤 -->
+    <div class="route-controls" id="routeControls" aria-hidden="true">
+      <div class="route-info">
+        <div class="route-badge" id="routeStatus">출발지 선택</div>
+      </div>
+      <div class="route-options" id="routeOptions" style="display:none;">
+        <button class="route-option-btn" id="sensoryRouteBtn">
+          <i class="fas fa-leaf" style="color:#10b981;"></i>
+          <div>
+            <div class="route-option-title">감각 우선</div>
+            <div class="route-option-desc">가장 쾌적한 경로</div>
+          </div>
+        </button>
+        <button class="route-option-btn balanced" id="balancedRouteBtn">
+          <i class="fas fa-balance-scale" style="color:#f59e0b;"></i>
+          <div>
+            <div class="route-option-title">균형</div>
+            <div class="route-option-desc">쾌적함과 시간의 균형</div>
+          </div>
+        </button>
+        <button class="route-option-btn" id="timeRouteBtn">
+          <i class="fas fa-clock" style="color:#3b82f6;"></i>
+          <div>
+            <div class="route-option-title">시간 우선</div>
+            <div class="route-option-desc">가장 빠른 경로</div>
+          </div>
+        </button>
+      </div>
+      <button class="secondary-btn" id="cancelRouteBtn"><i class="fas fa-times"></i>취소</button>
+    </div>
+
+    <!-- 토스트/배너/되돌리기 -->
+    <div class="undo-action" id="undoAction" style="display:none;">
+      <span class="undo-text">감각 정보가 추가되었습니다</span>
+      <button class="undo-btn" id="undoBtn"><i class="fas fa-undo"></i>실행취소</button>
+    </div>
+
+    <div class="toast" id="toast" role="alert" aria-live="polite"></div>
+
+    <div class="alert-banner" id="alertBanner" style="display:none;">
+      <div class="alert-content"><i class="fas fa-exclamation-triangle"></i><span id="alertText"></span></div>
+      <button class="alert-close" id="alertClose" aria-label="알림 닫기"><i class="fas fa-times"></i></button>
+    </div>
+
+    <!-- 감각 도움말 모달 (첫 번째 파일에서 병합) -->
+    <div class="modal-overlay" id="sensoryHelpModal" aria-hidden="true">
+      <div class="modal-content" role="dialog" aria-labelledby="sensoryHelpTitle">
+        <div class="modal-header">
+          <h3 id="sensoryHelpTitle">감각 숫자 설명</h3>
+          <button class="close-btn" id="closeSensoryHelpBtn" aria-label="감각 도움말 닫기"><i
+              class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+          <div class="help-section" data-help="noise">
+            <h4>🔊 소음 (0–10)</h4>
+            <p><span class="score-badge">0</span> 0: 도서관, 숲 속에서 새벽 바람소리, 사람이 없는 한적한 공원</p>
+            <p><span class="score-badge">1</span> 1: 속삭임, 나뭇잎 흔들리는 소리, 조용한 골목길, 노트북 팬 소음(저소음)</p>
+            <p><span class="score-badge">2</span> 2: 조용한 사무실, 냉장고 돌아가는 소리, 도서관 발자국, 작은 카페</p>
+            <p><span class="score-badge">3</span> 3: 가까운 거리 대화, 조용한 상점 내부, 소형 자동차 소리, TV 낮은 볼륨</p>
+            <p><span class="score-badge">4</span> 4: 일반 사무실 분위기, 붐비는 카페, 음식점 피크타임, 청소기</p>
+            <p><span class="score-badge">5</span> 5: 번화가 차량 통행, 떠드는 학생 무리, 지하철 내부, TV 보통 볼륨</p>
+            <p><span class="score-badge">6</span> 6: 버스/오토바이 도로 소음, 큰 목소리 대화, 전화 벨소리, 지하철 방송</p>
+            <p><span class="score-badge">7</span> 7: 전동 드릴, 대형 트럭 근처, 헤어드라이어·믹서기, 붐비는 시장</p>
+            <p><span class="score-badge">8</span> 8: 지하철 열차 진입, 공사장 함마드릴, 록 콘서트 객석, 오토바이</p>
+            <p><span class="score-badge">9</span> 9: 앰뷸런스 사이렌, 대형 스피커 앞 콘서트, 폭죽 근거리</p>
+            <p><span class="score-badge">10</span> 10: 제트기 이륙 활주로, 로켓 발사, 활주로 엔진 테스트, 총성 근접 거리</p>
+          </div>
+          <div class="help-section" data-help="light">
+            <h4>💡 빛 (0–10)</h4>
+            <p><span class="score-badge">0</span> 0: 별빛 밤하늘, 달빛, 아주 어두운 동굴, 영화관 상영 중</p>
+            <p><span class="score-badge">1</span> 1: 가로등 없는 밤길, 희미한 새벽녘, 창문 없는 어두운 방, 멀리 있는 촛불</p>
+            <p><span class="score-badge">2</span> 2: 가로등 있는 밤거리, 어두운 복도, 달 밝은 시골길, 간접조명 방</p>
+            <p><span class="score-badge">3</span> 3: 어두운 실내, 새벽 이른 아침 집안, 조명 약한 카페, 무드등 켜진 방</p>
+            <p><span class="score-badge">4</span> 4: 일반 거실 조명, 편안한 독서등, 밤의 사무실, 가정용 LED 조명</p>
+            <p><span class="score-badge">5</span> 5: 밝은 사무실, 독서실 조명, 병원 대기실, 교실 불 켜진 상태</p>
+            <p><span class="score-badge">6</span> 6: 흐린 날 실외, 밝은 카페, 쇼핑몰 내부, 사진 스튜디오 보조광</p>
+            <p><span class="score-badge">7</span> 7: 흐린 낮 실외, 밝은 사무실 천장등, 대형마트 내부, 병원 수술실 조명</p>
+            <p><span class="score-badge">8</span> 8: 맑은 날 그늘, 창가 햇살 들어오는 방, 체육관 실내, 무대 조명 아래</p>
+            <p><span class="score-badge">9</span> 9: 맑은 날 직사광선, 한낮의 해변, 햇빛 가득한 창가, 반사된 눈밭 풍경</p>
+            <p><span class="score-badge">10</span> 10: 한여름 정오 태양, 사막의 직사광선, 스튜디오 조명 직사, 용접 불꽃</p>
+          </div>
+          <div class="help-section" data-help="odor">
+            <h4>👃 냄새 (0–10)</h4>
+            <p><span class="score-badge">0</span> 0: 거의 무취, 한적한 숲속 공기, 잘 환기된 방, 비 온 뒤 맑은 공기</p>
+            <p><span class="score-badge">1</span> 1: 아주 약한 향, 깨끗한 빨래 냄새, 종이 냄새, 잔잔한 풀내음</p>
+            <p><span class="score-badge">2</span> 2: 은은한 향, 차 한잔의 향기, 향초 향기, 멀리서 풍기는 음식 냄새</p>
+            <p><span class="score-badge">3</span> 3: 약간 느껴지는 냄새, 커피 향, 과일 껍질 향, 빵 굽는 냄새</p>
+            <p><span class="score-badge">4</span> 4: 분명하지만 불편하지 않은 냄새, 꽃 향기, 향수 소량, 구운 고기 냄새</p>
+            <p><span class="score-badge">5</span> 5: 강하게 인지되는 냄새, 향수 뿌린 사람 근처, 길거리 음식 냄새</p>
+            <p><span class="score-badge">6</span> 6: 다소 거슬리는 냄새, 담배 연기, 지하철 땀 냄새, 음식물 쓰레기통</p>
+            <p><span class="score-badge">7</span> 7: 매우 강하고 불쾌한 냄새, 암모니아 냄새, 하수구 냄새, 상한 음식 냄새</p>
+            <p><span class="score-badge">8</span> 8: 극도로 거슬리는 냄새, 썩은 달걀, 강한 화학 약품 냄새, 타는 냄새</p>
+            <p><span class="score-badge">9</span> 9: 견디기 힘든 냄새, 죽은 동물 사체, 부패한 고기, 강력 접착제 냄새</p>
+            <p><span class="score-badge">10</span> 10: 즉시 회피 반응을 일으키는 냄새, 독성 가스, 화학 화재 연기</p>
+          </div>
+          <div class="help-section" data-help="crowd">
+            <h4>👥 혼잡도 (0–10)</h4>
+            <p><span class="score-badge">0</span> 0: 한적한 공원, 인적 드문 시골길, 텅 빈 도서관, 이른 새벽 해변</p>
+            <p><span class="score-badge">1</span> 1: 산책하는 몇몇 사람, 동네 작은 카페 조용한 시간, 텅 빈 버스</p>
+            <p><span class="score-badge">2</span> 2: 적당히 분산된 사람들, 낮 시간대 도서관, 평일 낮 지하철, 동네 편의점</p>
+            <p><span class="score-badge">3</span> 3: 여유로운 수준의 사람들, 일반적인 공원 주말 낮, 도심 작은 상점가</p>
+            <p><span class="score-badge">4</span> 4: 사람을 쉽게 피할 수 있는 수준, 지하철 평일 저녁 전, 쇼핑몰 비성수기</p>
+            <p><span class="score-badge">5</span> 5: 붐비는 수준, 인기 카페 주말, 마트 저녁 시간, 식당 점심시간</p>
+            <p><span class="score-badge">6</span> 6: 지하철 출퇴근 전, 맛집 웨이팅 줄, 번화가 메인 거리</p>
+            <p><span class="score-badge">7</span> 7: 이동이 불편함, 유명 축제 입구, 대형 마트 세일 시간</p>
+            <p><span class="score-badge">8</span> 8: 밀착된 수준, 콘서트 대기줄, 불꽃놀이 명당 자리</p>
+            <p><span class="score-badge">9</span> 9: 밀집 상태, 지하철 퇴근 시간, 성수기 관광지, 대형 집회 한복판</p>
+            <p><span class="score-badge">10</span> 10: 이동 불가, 콘서트 스탠딩 존, 지하철 만원, 대피 상황</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 외부 라이브러리 -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-geosearch@3.11.0/dist/geosearch.umd.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <script type="module" src="./script.js"></script>
 </body>
+
 </html>
