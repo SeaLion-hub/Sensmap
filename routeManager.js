@@ -31,8 +31,10 @@ export class RouteManager {
                 // 비용 가중(경로 선택용)
                 kSens: 4.0, kTimeMin: 0.10,
                 // 회피 구성 옵션
-                baseRadius: 46, layers: 3, maxCount: 32, corridorM: 100,
+                baseRadius: 46, layers: 3, maxCount: 150, corridorM: 100,
                 // 절대 임계치(기본: 종합점수 기준)
+                // 점수→크기 스케일(완만하게)
+                sizeByScore: { enabled: true, scale: 0.20, gamma: 0.6, maxFactor: 1.25 },
                 absUseComposite: true,       // true면 _pointScore(0~10) 기준, false면 채널별
                 absScore: 7.0,               // 종합점수 임계(0~10)
                 absPerChannelMin: null       // 채널별 임계(예: { noise:7, light:7, odor:7, crowd:7 })
@@ -41,12 +43,14 @@ export class RouteManager {
                 // 비용 가중(경로 선택용)
                 kSens: 2.0, kTimeSec: 1.0, kDistM: 0.15,
                 // 회피 구성 옵션
-                baseRadius: 43, layers: 2, maxCount: 20, corridorM: 70,
+                baseRadius: 43, layers: 2, maxCount: 100, corridorM: 70,
+                // 균형 모드는 더 보수적으로
+                sizeByScore: { enabled: true, scale: 0.10, gamma: 0.6, maxFactor: 1.15 },
                 // 교집합 조건: (절대 > absScoreHi) AND (퍼센타일 >= qConservative)
                 absUseComposite: true,
-                absScoreHi: 8.0,
+                absScoreHi: 8.5,
                 absPerChannelMin: null,
-                qConservative: 0.90         // 0.90~0.95 권장
+                qConservative: 0.80         // 0.90~0.95 권장
             },
             time: { kSens: 0.0, percentile: null } // 회피/프리뷰 없음
         };
@@ -118,6 +122,28 @@ export class RouteManager {
             this._getAllSensoryPoints = this._getAllSensoryPoints_bucketed.bind(this);
             console.warn('[RouteManager] old _getAllSensoryPoints detected → bucketed version enabled');
         }
+    }
+
+    // === 점수에 따른 크기 스케일(완만한 버전) ===
+    _sizeFactorForScore(h, mode = 'sensory') {
+        const m = this.modeConfig[mode] || {};
+        const cfg = m.sizeByScore || {};
+        if (cfg.enabled === false) return 1;
+
+        // 점수 없으면 계산해서 사용
+        let sRaw = h._score;
+        if (!Number.isFinite(sRaw)) sRaw = this._pointScore(h);
+        if (!Number.isFinite(sRaw)) return 1;
+
+        // 0~10 → 0~1 정규화
+        const s = Math.max(0, Math.min(10, sRaw)) / 10;
+        const gamma = Number.isFinite(cfg.gamma) ? cfg.gamma : 0.6;   // <1 이면 완만(루트 느낌)
+        const scale = Number.isFinite(cfg.scale) ? cfg.scale : 0.2;   // 0~0.2 정도
+
+        const u = Math.pow(s, gamma);                // 0~1
+        const rawF = 1 + u * scale;                  // 1 ~ 1+scale
+        const maxF = Number.isFinite(cfg.maxFactor) ? cfg.maxFactor : 1.25;
+        return Math.min(maxF, rawF);                 // 과한 팽창 방지
     }
 
     // === 셀 중심 계산 헬퍼 ===
@@ -746,8 +772,13 @@ export class RouteManager {
         const hs = this._selectHotspotsByPercentile(maxCount, percentile);
         const levels = [];
         for (let k = 0; k < layers; k++) {
-            const r = baseRadius * Math.pow(ramp, k);
-            const features = hs.map(h => this._polygonCircleApprox({ lat: h.lat, lng: h.lng }, r, 18));
+            const r0 = baseRadius * Math.pow(ramp, k);
+            const features = hs.map(h => {
+                // 퍼센타일 프리뷰는 Sensory 기준 스케일을 가볍게 사용
+                const f = this._sizeFactorForScore(h, 'sensory');
+                const r = r0 * f;
+                return this._polygonCircleApprox({ lat: h.lat, lng: h.lng }, r, 18);
+            });
             levels.push(features);
         }
         return levels;
@@ -758,8 +789,12 @@ export class RouteManager {
         const hs = this._selectHotspotsByAbsolute({ maxCount, absUseComposite, absScore, absPerChannelMin });
         const levels = [];
         for (let k = 0; k < layers; k++) {
-            const r = baseRadius * Math.pow(ramp, k);
-            const features = hs.map(h => this._polygonCircleApprox({ lat: h.lat, lng: h.lng }, r, 18));
+            const r0 = baseRadius * Math.pow(ramp, k);
+            const features = hs.map(h => {
+                const f = this._sizeFactorForScore(h, 'sensory');
+                const r = r0 * f;
+                return this._polygonCircleApprox({ lat: h.lat, lng: h.lng }, r, 18);
+            });
             levels.push(features);
         }
         return levels;
@@ -784,8 +819,12 @@ export class RouteManager {
         }
         const levels = [];
         for (let k = 0; k < Math.max(1, layers); k++) {
-            const r = baseRadius * Math.pow(ramp, k);
-            const features = I.map(h => this._polygonCircleApprox({ lat: h.lat, lng: h.lng }, r, 18));
+            const r0 = baseRadius * Math.pow(ramp, k);
+            const features = I.map(h => {
+                const f = this._sizeFactorForScore(h, 'balanced');
+                const r = r0 * f;
+                return this._polygonCircleApprox({ lat: h.lat, lng: h.lng }, r, 18);
+            });
             levels.push(features);
         }
         return levels;

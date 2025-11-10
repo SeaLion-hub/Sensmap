@@ -433,33 +433,57 @@ export class VisualizationManager {
     }
 
     _installLiveHeatmapHooks() {
-        // 1) 같은 탭에서 프로필이 바뀌었을 때: 커스텀 이벤트로 통일
-        window.addEventListener('sensmap:profile-changed', () => this._requestHeatmapRefresh());
-        // 2) 다른 탭에서 localStorage가 바뀌었을 때
-        window.addEventListener('storage', (e) => {
-            if (e.key === 'sensmap_profile') this._requestHeatmapRefresh();
-        });
-        // 3) 데이터가 바뀌었을 때(보고서 추가/삭제 등)
-        document.addEventListener('sensmap:data-updated', () => this._requestHeatmapRefresh());
+        // 이미 연결돼 있으면 재구독하지 않음
+        if (this._heatSSE && this._heatSSE.readyState === 1) return;
 
-        // 4) 가능하면 dataManager의 이벤트/메서드에 직접 연결 (방어적)
-        const dm = this.app?.dataManager;
-        if (!dm) return;
-        // a) EventEmitter 스타일
-        ['update', 'updated', 'change', 'changed', 'dataUpdated', 'gridChanged', 'reportAdded']
-            .forEach(ev => { try { dm.on?.(ev, () => this._requestHeatmapRefresh()); } catch { } });
-        // b) 메서드 후킹(폴백)
-        ['addReport', 'saveReport', 'setGridData', 'mergeReports'].forEach(fn => {
-            if (typeof dm[fn] === 'function' && !dm[`__vmWrapped_${fn}`]) {
-                const orig = dm[fn].bind(dm);
-                dm[fn] = (...args) => {
-                    const r = orig(...args);
-                    queueMicrotask(() => this._requestHeatmapRefresh());
-                    return r;
-                };
-                dm[`__vmWrapped_${fn}`] = true;
-            }
-        });
+        // 혹시 남아있을 폴링 타이머가 있다면 정리
+        if (this._heatPoll) { clearInterval(this._heatPoll); this._heatPoll = null; }
+
+        try {
+            const base = (window.SENSMAP_SERVER_URL || '').replace(/\/+$/, '');
+            const url = `${base}/api/heatmap/stream`;
+            const es = new EventSource(url, { withCredentials: false });
+            this._heatSSE = es;
+
+            const onUpdate = async () => {
+                // 1) 최신 데이터 재적재 → gridData 갱신
+                await this.app?.dataManager?.loadSensoryData?.();
+                // 2) 히트맵 레이어 리프레시(내부 디바운스 사용)
+                this._requestHeatmapRefresh();
+                // 3) 회피 프리뷰 켜져 있으면 재계산
+                this.app?.routeManager?.refreshAvoidPreview?.();
+            };
+
+            let last = Date.now();
+            const bump = () => { last = Date.now(); };
+            es.addEventListener('heatmap:update', (e) => { bump(); onUpdate(); });
+            es.addEventListener('ping', () => { }); // keep-alive
+            es.onerror = (e) => {
+                console.warn('SSE 연결 오류(자동 재시도):', e);
+            };
+
+            // 언로드 시 정리
+            const cleanup = () => {
+                try { es.close(); } catch { }
+                this._heatSSE = null;
+            };
+            window.addEventListener('beforeunload', cleanup, { once: true });
+            this._cleanupHeatSSE = cleanup;
+
+            // 유휴 폴백: 45초 동안 업데이트 없으면 1회 리로드
+            if (this._idleKick) clearInterval(this._idleKick);
+            this._idleKick = setInterval(async () => {
+                if (!this._heatSSE || this._heatSSE.readyState !== 1) return;
+                if (Date.now() - last > 45000) {
+                    last = Date.now();
+                    await this.app?.dataManager?.loadSensoryData?.();
+                    this._requestHeatmapRefresh();
+                    this.app?.routeManager?.refreshAvoidPreview?.();
+                }
+            }, 10000);
+        } catch (e) {
+            console.warn('라이브 히트맵 훅 설치 실패:', e);
+        }
     }
     // 그리기용 포인트(0~1) 계산만 분리
     _computeHeatmapPoints() {

@@ -10,6 +10,34 @@ require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 3000;
 
+// ===== SSE(실시간 히트맵 알림) =====
+const clients = new Set();
+function broadcast(event, data = {}) {
+    const payload = `event: ${event}\n` + `data: ${JSON.stringify(data)}\n\n`;
+    for (const res of clients) {
+        try { res.write(payload); } catch { /* 연결이 끊긴 클라 제거는 아래 close 핸들러에서 처리 */ }
+    }
+}
+app.get('/api/heatmap/stream', (req, res) => {
+    // SSE 헤더
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    // CORS는 app.use(cors())가 이미 처리
+
+    res.flushHeaders?.();      // 일부 프록시에서 즉시 전송
+    res.write(':\n\n');        // 프롤로그(코멘트) — 일부 클라에서 초기화 용도
+    clients.add(res);
+
+    // keep-alive(railway 프록시 유휴타임아웃 방지)
+    const ping = setInterval(() => res.write('event: ping\ndata: {}\n\n'), 20000);
+
+    req.on('close', () => {
+        clearInterval(ping);
+        clients.delete(res);
+    });
+});
+
 // --- 기본 미들웨어 설정 (순서 중요) ---
 app.use(cors());
 app.use(express.json());
@@ -41,6 +69,15 @@ pool.on('error', (err) => {
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_here';
 
 // --- 유틸리티 함수 ---
+// 크로스-인스턴스 팬아웃: DB를 통해 모든 서버에 알림
+async function pgNotify(channel, payloadObj) {
+    try {
+        await pool.query('SELECT pg_notify($1, $2)', [channel, JSON.stringify(payloadObj || {})]);
+    } catch (e) {
+        console.warn('pg_notify failed:', e.message);
+    }
+}
+
 function validateSensoryData(data) {
     const { lat, lng, type } = data;
     if (lat === undefined || lng === undefined || type === undefined) {
@@ -70,6 +107,10 @@ async function cleanupExpiredData() {
 
         if (result.rowCount > 0) {
             console.log(`🧹 ${result.rowCount}개의 만료된 데이터를 자동으로 정리했습니다.`);
+            // 🔔 히트맵 갱신 알림
+            broadcast('heatmap:update', { reason: 'cleanup', removed: result.rowCount });
+            // 🔔 DB 팬아웃 (다른 인스턴스에도 전파)
+            pgNotify('heatmap_update', { reason: 'cleanup', removed: result.rowCount });
         }
     } catch (error) {
         console.error('❌ 데이터 자동 정리 중 오류:', error);
@@ -321,10 +362,10 @@ async function initializeDatabase() {
 // [GET] /api/health - 서버 상태 확인
 app.get('/api/health', async (req, res) => {
     // Railway healthcheck는 빠른 응답이 필요하므로 타임아웃 설정
-    const timeout = new Promise((_, reject) => 
+    const timeout = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Database query timeout')), 2000)
     );
-    
+
     try {
         // 데이터베이스 연결 테스트 (타임아웃 적용)
         await Promise.race([pool.query('SELECT 1'), timeout]);
@@ -590,6 +631,10 @@ app.post('/api/reports', optionalAuth, async (req, res) => {
             responseData.user_email = req.user.email;
         }
 
+        // 🔔 저장 성공 → 히트맵 갱신 알림 (로컬 + 크로스 인스턴스)
+        const payload = { reason: 'insert', id: responseData.id };
+        broadcast('heatmap:update', payload);
+        pgNotify('heatmap_update', payload);
         res.status(201).json(createResponse(true, responseData, '감각 정보가 성공적으로 저장되었습니다.'));
     } catch (err) {
         console.error('데이터 추가 중 오류:', err);
@@ -672,6 +717,11 @@ app.put('/api/reports/:id', verifyToken, async (req, res) => {
             cleanData.crowd, cleanData.type, cleanData.duration, cleanData.timetable, cleanData.timetable_repeat, reportId, req.user.userId]
         );
 
+        // 🔔 수정 성공 → 히트맵 갱신 알림
+        broadcast('heatmap:update', { reason: 'update', id: result.rows[0].id });
+        const payload = { reason: 'update', id: result.rows[0].id };
+        broadcast('heatmap:update', payload);
+        pgNotify('heatmap_update', payload);
         res.status(200).json(createResponse(true, result.rows[0], '감각 데이터가 성공적으로 수정되었습니다.'));
     } catch (err) {
         console.error('데이터 수정 중 오류:', err);
@@ -703,6 +753,11 @@ app.delete('/api/reports/:id', verifyToken, async (req, res) => {
             [reportId, req.user.userId]
         );
 
+        // 🔔 삭제 성공 → 히트맵 갱신 알림
+        broadcast('heatmap:update', { reason: 'delete', id: result.rows[0]?.id });
+        const payload = { reason: 'delete', id: result.rows[0]?.id };
+        broadcast('heatmap:update', payload);
+        pgNotify('heatmap_update', payload);
         res.status(200).json(createResponse(true, result.rows[0], '감각 데이터가 성공적으로 삭제되었습니다.'));
     } catch (err) {
         console.error('데이터 삭제 중 오류:', err);
@@ -710,6 +765,26 @@ app.delete('/api/reports/:id', verifyToken, async (req, res) => {
     }
 });
 
+
+// ===== DB로부터 오는 알림을 받아서(다른 인스턴스에서 보낸 것 포함) SSE로 재브로드캐스트 =====
+(async function attachDbListener() {
+  try {
+    const client = await pool.connect();
+    await client.query('LISTEN heatmap_update');
+    client.on('notification', (msg) => {
+      try {
+        const payload = msg.payload ? JSON.parse(msg.payload) : {};
+        broadcast('heatmap:update', payload);
+      } catch {
+        broadcast('heatmap:update', {});
+      }
+    });
+    client.on('error', (e) => console.warn('LISTEN client error:', e.message));
+    console.log('🔔 LISTEN heatmap_update ready');
+  } catch (e) {
+    console.warn('LISTEN attach failed (will continue without cross-instance fanout):', e.message);
+  }
+})();
 // [GET] /api/stats - 모든 데이터 통계 정보 조회 (선택적 인증)
 app.get('/api/stats', optionalAuth, async (req, res) => {
     try {
@@ -852,10 +927,10 @@ const server = app.listen(port, '0.0.0.0', () => {
         try {
             await initializeDatabase();
             // 부팅 직후 1회 실행
-            (async () => { 
+            (async () => {
                 try {
-                    await cleanupExpiredData(); 
-                    console.log('✅ 초기 데이터 정리 완료'); 
+                    await cleanupExpiredData();
+                    console.log('✅ 초기 데이터 정리 완료');
                 } catch (cleanupError) {
                     console.warn('⚠️ 데이터 정리 중 오류 (무시):', cleanupError.message);
                 }
