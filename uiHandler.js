@@ -162,6 +162,24 @@ export class UIHandler {
             document.getElementById('routeBtn')?.addEventListener('click', () => this.app.routeManager.toggleRouteMode());
             
             // 모바일 버튼 이벤트 리스너 - 함수들이 이미 모바일 버튼도 업데이트하므로 직접 호출만 하면 됨
+            // Mobile bottom navigation buttons
+            document.getElementById('mobileProfileBtn')?.addEventListener('click', () => {
+                this.openProfilePanel();
+            });
+            
+            document.getElementById('mobileMyDataBtn')?.addEventListener('click', () => {
+                this.openMyDataPanel();
+            });
+            
+            document.getElementById('mobileSettingsBtn')?.addEventListener('click', () => {
+                this.openSettingsPanel();
+            });
+            
+            document.getElementById('mobileHelpBtn')?.addEventListener('click', () => {
+                this.openHelpPanel();
+            });
+            
+            // Mobile floating action buttons
             document.getElementById('mobileShowDataBtn')?.addEventListener('click', () => {
                 this.toggleDataDisplay();
             });
@@ -1660,6 +1678,42 @@ export class UIHandler {
     openSettingsPanel() {
         // openPanel 메서드 사용
         this.openPanel('settingsPanel');
+        // Update mobile bottom nav active state
+        this.updateMobileBottomNavActive('settings');
+    }
+
+    openMyDataPanel() {
+        // 내 데이터 패널 열기
+        this.app.authManager.showMyData();
+        // Update mobile bottom nav active state
+        this.updateMobileBottomNavActive('myData');
+    }
+
+    openHelpPanel() {
+        // 도움말 (튜토리얼) 표시
+        this.showTutorial();
+        // Update mobile bottom nav active state
+        this.updateMobileBottomNavActive('help');
+    }
+
+    updateMobileBottomNavActive(activeItem) {
+        // Remove active class from all bottom nav items
+        document.querySelectorAll('.bottom-nav-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        
+        // Add active class to the selected item
+        const itemMap = {
+            'profile': 'mobileProfileBtn',
+            'myData': 'mobileMyDataBtn',
+            'settings': 'mobileSettingsBtn',
+            'help': 'mobileHelpBtn'
+        };
+        
+        const activeBtn = document.getElementById(itemMap[activeItem]);
+        if (activeBtn) {
+            activeBtn.classList.add('active');
+        }
     }
 
     closeSettingsPanel() {
@@ -1697,14 +1751,15 @@ export class UIHandler {
         console.log('Settings panel closed', panel.classList.contains('open'), panel.style.right);
     }
 
-    
-
     openProfilePanel() {
         // 모든 포커스된 요소 먼저 blur 처리
         const activeElement = document.activeElement;
         if (activeElement && activeElement.blur) {
             activeElement.blur();
         }
+        
+        // Update mobile bottom nav active state
+        this.updateMobileBottomNavActive('profile');
         
         // 다른 패널들만 닫기 (profilePanel은 제외)
         document.querySelectorAll('.side-panel').forEach(panel => {
