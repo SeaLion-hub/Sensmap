@@ -572,6 +572,10 @@ export class AuthManager {
         
         const modal = document.getElementById('loginModal');
         if (modal) {
+            // aria-hidden 제거 (접근성 개선)
+            modal.removeAttribute('aria-hidden');
+            modal.setAttribute('aria-hidden', 'false');
+            
             modal.classList.add('show');
             // 기본적으로 로그인 폼 표시
             this.showLoginForm();
@@ -592,6 +596,15 @@ export class AuthManager {
     hideLoginModal() {
         const modal = document.getElementById('loginModal');
         if (modal) {
+            // 포커스된 요소가 있으면 먼저 blur 처리 (aria-hidden 경고 방지)
+            const focusedElement = document.activeElement;
+            if (focusedElement && modal.contains(focusedElement)) {
+                focusedElement.blur();
+            }
+            
+            // aria-hidden 설정 (접근성 개선)
+            modal.setAttribute('aria-hidden', 'true');
+            
             modal.classList.remove('show');
             
             // 폼 초기화
