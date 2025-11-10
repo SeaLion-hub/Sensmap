@@ -11,7 +11,7 @@ import { AuthManager } from './authManager.js';
 class SensmapApp {
     constructor() {
         
-        this.version = '3.1.0';
+        this.version = '3.1.1';
         this.isInitialized = false;
         this.currentToast = null;
         this.undoTimeout = null;
@@ -70,7 +70,7 @@ class SensmapApp {
             this.routeManager = new RouteManager(this);
             window.app = this;                  // 앱을 전역에 노출
             window.routeManager = this.routeManager; // routeManager 전역 노출
-            this.routeManager.setAvoidPreviewMode(true, {source: 'lastSent'});
+            this.routeManager.setAvoidPreviewMode(false);
 
             // 6단계: UI 핸들러 초기화 (마지막)
             console.log('🖥️ UI 핸들러 초기화...');
