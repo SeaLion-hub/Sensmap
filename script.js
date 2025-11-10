@@ -1474,3 +1474,4 @@ function getSensoryProfile() {
 return { ...window.sensoryProfile };
 }
 
+

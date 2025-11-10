@@ -2427,8 +2427,8 @@ html, body {
 }
 
 .mobile-fab {
-    width: 56px;
-    height: 56px;
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
     border: none;
     background: white;
@@ -2439,7 +2439,7 @@ html, body {
     justify-content: center;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    font-size: 22px;
+    font-size: 20px;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
     z-index: 1;
