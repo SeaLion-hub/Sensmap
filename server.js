@@ -37,7 +37,7 @@ app.get('/api/heatmap/stream', (req, res) => {
     clients.add(res);
 
     // keep-alive(railway 프록시 유휴타임아웃 방지)
-    const ping = setInterval(() => res.write('event: ping\ndata: {}\n\n'), 20000);
+    const ping = setInterval(() => res.write('event: ping\ndata: {}\n\n'), 15000);
 
     req.on('close', () => {
         clearInterval(ping);
