@@ -162,6 +162,24 @@ export class UIHandler {
             document.getElementById('routeBtn')?.addEventListener('click', () => this.app.routeManager.toggleRouteMode());
             
             // 모바일 버튼 이벤트 리스너 - 함수들이 이미 모바일 버튼도 업데이트하므로 직접 호출만 하면 됨
+            // Mobile bottom navigation buttons
+            document.getElementById('mobileProfileBtn')?.addEventListener('click', () => {
+                this.openProfilePanel();
+            });
+            
+            document.getElementById('mobileMyDataBtn')?.addEventListener('click', () => {
+                this.openMyDataPanel();
+            });
+            
+            document.getElementById('mobileSettingsBtn')?.addEventListener('click', () => {
+                this.openSettingsPanel();
+            });
+            
+            document.getElementById('mobileHelpBtn')?.addEventListener('click', () => {
+                this.openHelpPanel();
+            });
+            
+            // Mobile floating action buttons
             document.getElementById('mobileShowDataBtn')?.addEventListener('click', () => {
                 this.toggleDataDisplay();
             });
@@ -194,7 +212,12 @@ export class UIHandler {
             
 
             // Sensory help modal - use event delegation for dynamically shown buttons
+            // Make sure this doesn't interfere with close button clicks
             document.addEventListener('click', (e) => {
+                // Don't open if clicking on close button or if modal is being closed
+                if (e.target.closest('#closeSensoryHelpBtn') || this._isClosingSensoryHelpModal) {
+                    return;
+                }
                 const helpBtn = e.target.closest('.sensory-help-btn');
                 if (helpBtn) {
                     const field = helpBtn.dataset?.field;
@@ -203,7 +226,117 @@ export class UIHandler {
                     e.preventDefault();
                 }
             });
-            document.getElementById('closeSensoryHelpBtn')?.addEventListener('click', () => this.closeSensoryHelpModal());
+            
+            // Also handle touch events for mobile
+            // Use passive: false to allow preventDefault
+            document.addEventListener('touchstart', (e) => {
+                // Don't open if touching close button or if modal is being closed
+                if (e.target.closest('#closeSensoryHelpBtn') || 
+                    e.target.closest('[data-close-modal="true"]') ||
+                    e.target.id === 'closeSensoryHelpBtn' ||
+                    e.target.closest('.close-btn')?.id === 'closeSensoryHelpBtn' ||
+                    this._isClosingSensoryHelpModal) {
+                    console.log('Preventing help modal open - close button touched or modal closing');
+                    e.stopPropagation();
+                    e.preventDefault();
+                    return;
+                }
+                const helpBtn = e.target.closest('.sensory-help-btn');
+                if (helpBtn) {
+                    const field = helpBtn.dataset?.field;
+                    this.openSensoryHelpModal(field);
+                    e.stopPropagation();
+                    e.preventDefault();
+                }
+            }, { passive: false }); // Allow preventDefault
+            
+            // Sensory help modal close button - mobile-friendly handler
+            const closeSensoryHelpHandler = (e) => {
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                e.preventDefault();
+                this.closeSensoryHelpModal();
+                return false;
+            };
+            
+            // Global touch handler with bounds checking (fixes mobile touch issues)
+            const globalTouchHandler = (e) => {
+                const touch = e.touches?.[0] || e.changedTouches?.[0];
+                if (touch) {
+                    const elementAtPoint = document.elementFromPoint(touch.clientX, touch.clientY);
+                    const closeBtn = document.getElementById('closeSensoryHelpBtn');
+                    
+                    if (closeBtn) {
+                        const rect = closeBtn.getBoundingClientRect();
+                        const isTouchInBounds = touch.clientX >= rect.left && 
+                                               touch.clientX <= rect.right &&
+                                               touch.clientY >= rect.top && 
+                                               touch.clientY <= rect.bottom;
+                        const isCloseBtn = elementAtPoint?.id === 'closeSensoryHelpBtn' || 
+                                         elementAtPoint?.closest('#closeSensoryHelpBtn') ||
+                                         elementAtPoint?.closest('i.fa-times')?.parentElement?.id === 'closeSensoryHelpBtn';
+                        
+                        // If touch is within button bounds, trigger close
+                        if (isTouchInBounds || isCloseBtn) {
+                            e.stopImmediatePropagation();
+                            e.stopPropagation();
+                            e.preventDefault();
+                            closeSensoryHelpHandler(e);
+                            return false;
+                        }
+                    }
+                }
+            };
+            
+            // Attach global touch handlers
+            document.addEventListener('touchstart', globalTouchHandler, true);
+            document.addEventListener('touchend', globalTouchHandler, true);
+            
+            // Store attach function for re-attachment when modal is moved
+            this.attachCloseSensoryHelpListener = () => {
+                const closeBtn = document.getElementById('closeSensoryHelpBtn');
+                if (closeBtn) {
+                    // Remove old listeners by cloning
+                    const newBtn = closeBtn.cloneNode(true);
+                    closeBtn.parentNode.replaceChild(newBtn, closeBtn);
+                    
+                    // Attach handlers
+                    newBtn.addEventListener('click', closeSensoryHelpHandler, { capture: true, passive: false });
+                    newBtn.addEventListener('touchstart', closeSensoryHelpHandler, { capture: true, passive: false });
+                    newBtn.addEventListener('touchend', closeSensoryHelpHandler, { capture: true, passive: false });
+                    
+                    // Also add as direct properties
+                    newBtn.onclick = closeSensoryHelpHandler;
+                    newBtn.ontouchstart = closeSensoryHelpHandler;
+                    newBtn.ontouchend = closeSensoryHelpHandler;
+                    
+                    // Also attach to the icon inside
+                    const icon = newBtn.querySelector('i');
+                    if (icon) {
+                        icon.addEventListener('touchstart', closeSensoryHelpHandler, { capture: true, passive: false });
+                        icon.addEventListener('touchend', closeSensoryHelpHandler, { capture: true, passive: false });
+                        icon.addEventListener('click', closeSensoryHelpHandler, { capture: true, passive: false });
+                    }
+                }
+            };
+            
+            // Initial attachment
+            const closeBtn = document.getElementById('closeSensoryHelpBtn');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', closeSensoryHelpHandler, { capture: true, passive: false });
+                closeBtn.addEventListener('touchstart', closeSensoryHelpHandler, { capture: true, passive: false });
+                closeBtn.addEventListener('touchend', closeSensoryHelpHandler, { capture: true, passive: false });
+                closeBtn.onclick = closeSensoryHelpHandler;
+                closeBtn.ontouchstart = closeSensoryHelpHandler;
+                closeBtn.ontouchend = closeSensoryHelpHandler;
+                
+                const icon = closeBtn.querySelector('i');
+                if (icon) {
+                    icon.addEventListener('touchstart', closeSensoryHelpHandler, { capture: true, passive: false });
+                    icon.addEventListener('touchend', closeSensoryHelpHandler, { capture: true, passive: false });
+                    icon.addEventListener('click', closeSensoryHelpHandler, { capture: true, passive: false });
+                }
+            }
 
 
             // Panel controls - 개선된 닫기 로직
@@ -273,7 +406,25 @@ export class UIHandler {
                 observer.observe(settingsPanel, { attributes: true });
             }
             //document.getElementById('closeContactBtn')?.addEventListener('click', () => this.closeContactModal());
-            document.getElementById('closePanelBtn')?.addEventListener('click', () => this.closeCurrentPanel());
+            document.getElementById('closePanelBtn')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                e.preventDefault();
+                // Only close the side panel, not the sensory help modal
+                const sidePanel = document.getElementById('sidePanel');
+                if (sidePanel) {
+                    sidePanel.classList.remove('open');
+                    sidePanel.classList.remove('show');
+                    sidePanel.style.right = '';
+                    sidePanel.setAttribute('aria-hidden', 'true');
+                    this.removePanelFromStack('sidePanel');
+                    
+                    // Show header controls if no panels are open
+                    if (this.panelStack.length === 0) {
+                        this.showHeaderControls();
+                    }
+                }
+            });
             document.getElementById('cancelBtn')?.addEventListener('click', () => this.closeCurrentPanel());
             document.getElementById('closeProfileBtn')?.addEventListener('click', () => this.closeCurrentPanel());
             ['cancelProfileBtn', 'cancelMyDataBtn'].forEach(id => {
@@ -1349,12 +1500,75 @@ export class UIHandler {
             return;
         }
         
+        // Don't open if modal is being closed
+        if (this._isClosingSensoryHelpModal) {
+            console.log('Modal is being closed, skipping open');
+            return;
+        }
+        
+        // Don't open if modal is already open
+        // Check both the class and the computed display style
+        const computedDisplay = window.getComputedStyle(modal).display;
+        const styleDisplay = modal.style.display;
+        const styleVisibility = modal.style.visibility;
+        const styleOpacity = modal.style.opacity;
+        const ariaHidden = modal.getAttribute('aria-hidden');
+        
+        // Modal is open if it has 'show' class AND is visible
+        const isCurrentlyOpen = modal.classList.contains('show') && 
+                                (styleDisplay === 'flex' || styleDisplay === 'block' || computedDisplay === 'flex' || computedDisplay === 'block') &&
+                                styleDisplay !== 'none' && computedDisplay !== 'none' &&
+                                styleVisibility !== 'hidden' &&
+                                styleOpacity !== '0';
+        
+        if (isCurrentlyOpen) {
+            return;
+        }
+        
+        
         // 모달을 body 최상단으로 이동 (지도/헤더 컨테이너 밖으로)
         if (modal.parentElement !== document.body) {
             document.body.appendChild(modal);
         }
         
+        // Re-attach close button listener after modal is moved
+        // Use setTimeout to ensure DOM is fully updated
+        setTimeout(() => {
+            if (this.attachCloseSensoryHelpListener) {
+                this.attachCloseSensoryHelpListener();
+            }
+        }, 0);
+        
         // 모달은 다른 패널 위에 열릴 수 있으므로 closeAllPanels()를 호출하지 않음
+        // First, clear all closing styles to ensure clean state
+        // Use setProperty with empty string to clear !important styles
+        modal.style.setProperty('display', '', 'important');
+        modal.style.setProperty('visibility', '', 'important');
+        modal.style.setProperty('opacity', '', 'important');
+        modal.style.setProperty('z-index', '', 'important');
+        modal.style.setProperty('pointer-events', '', 'important');
+        modal.style.setProperty('transform', '', 'important');
+        modal.style.setProperty('transition', '', 'important');
+        
+        // Then remove the properties entirely
+        modal.style.removeProperty('display');
+        modal.style.removeProperty('visibility');
+        modal.style.removeProperty('opacity');
+        modal.style.removeProperty('z-index');
+        modal.style.removeProperty('pointer-events');
+        modal.style.removeProperty('transform');
+        modal.style.removeProperty('transition');
+        
+        // Also clear modal content styles
+        const modalContent = modal.querySelector('.modal-content');
+        if (modalContent) {
+            modalContent.style.setProperty('display', '', 'important');
+            modalContent.style.removeProperty('display');
+        }
+        
+        // Force a reflow to ensure styles are cleared
+        void modal.offsetHeight;
+        
         // aria-hidden 먼저 제거
         modal.removeAttribute('aria-hidden');
         
@@ -1364,6 +1578,7 @@ export class UIHandler {
         modal.style.setProperty('visibility', 'visible', 'important');
         modal.style.setProperty('opacity', '1', 'important');
         modal.style.setProperty('z-index', '5000', 'important'); // 패널보다 높은 z-index 보장
+        modal.style.setProperty('pointer-events', 'auto', 'important'); // Ensure it's interactive
         modal.setAttribute('aria-hidden', 'false');
         this.addPanelToStack('sensoryHelpModal');
 
@@ -1386,19 +1601,119 @@ export class UIHandler {
     }
 
     closeSensoryHelpModal() {
+        // Prevent multiple calls
+        if (this._isClosingSensoryHelpModal) {
+            return;
+        }
+        
         const modal = document.getElementById('sensoryHelpModal');
-        if (!modal) return;
+        if (!modal) {
+            return;
+        }
+        
+        // Check if modal is already closed
+        const isAlreadyClosed = modal.style.display === 'none' || 
+                                window.getComputedStyle(modal).display === 'none' ||
+                                modal.style.visibility === 'hidden' ||
+                                modal.getAttribute('aria-hidden') === 'true';
+        
+        if (isAlreadyClosed) {
+            return;
+        }
+        
+        // Set a flag to prevent immediate re-opening
+        this._isClosingSensoryHelpModal = true;
+        
+        // Blur focused element to prevent aria-hidden warnings
+        const focusedElement = document.activeElement;
+        if (focusedElement && modal.contains(focusedElement)) {
+            focusedElement.blur();
+        }
+        
+        // Hide modal (disable transition for immediate hide)
+        modal.style.setProperty('transition', 'none', 'important');
         modal.classList.remove('show');
-        modal.style.visibility = 'hidden';
-        modal.style.opacity = '0';
-        modal.style.zIndex = '';
+        modal.style.setProperty('display', 'none', 'important');
+        modal.style.setProperty('visibility', 'hidden', 'important');
+        modal.style.setProperty('opacity', '0', 'important');
+        modal.style.setProperty('z-index', '-1', 'important');
+        modal.style.setProperty('pointer-events', 'none', 'important');
         modal.setAttribute('aria-hidden', 'true');
         this.removePanelFromStack('sensoryHelpModal');
+        
+        // Also hide modal content
+        const modalContent = modal.querySelector('.modal-content');
+        if (modalContent) {
+            modalContent.style.setProperty('display', 'none', 'important');
+        }
+        
+        // Force reflow to ensure styles are applied
+        void modal.offsetHeight;
+        
+        // Verify the modal is actually hidden
+        const computedStyle = window.getComputedStyle(modal);
+        const isActuallyHidden = computedStyle.display === 'none' && 
+                                computedStyle.visibility === 'hidden' &&
+                                parseFloat(computedStyle.opacity) === 0;
+        
+        if (!isActuallyHidden) {
+            // Last resort: move modal off-screen
+            modal.style.setProperty('transform', 'translateX(-9999px)', 'important');
+        }
+        
+        // Re-enable transition after a short delay
+        setTimeout(() => {
+            modal.style.removeProperty('transition');
+            if (modalContent) {
+                modalContent.style.removeProperty('display');
+            }
+        }, 50);
+        
+        // Clear the flag after a delay to prevent immediate re-opening
+        setTimeout(() => {
+            this._isClosingSensoryHelpModal = false;
+        }, 1000);
     }
 
     openSettingsPanel() {
         // openPanel 메서드 사용
         this.openPanel('settingsPanel');
+        // Update mobile bottom nav active state
+        this.updateMobileBottomNavActive('settings');
+    }
+
+    openMyDataPanel() {
+        // 내 데이터 패널 열기
+        this.app.authManager.showMyData();
+        // Update mobile bottom nav active state
+        this.updateMobileBottomNavActive('myData');
+    }
+
+    openHelpPanel() {
+        // 도움말 (튜토리얼) 표시
+        this.showTutorial();
+        // Update mobile bottom nav active state
+        this.updateMobileBottomNavActive('help');
+    }
+
+    updateMobileBottomNavActive(activeItem) {
+        // Remove active class from all bottom nav items
+        document.querySelectorAll('.bottom-nav-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        
+        // Add active class to the selected item
+        const itemMap = {
+            'profile': 'mobileProfileBtn',
+            'myData': 'mobileMyDataBtn',
+            'settings': 'mobileSettingsBtn',
+            'help': 'mobileHelpBtn'
+        };
+        
+        const activeBtn = document.getElementById(itemMap[activeItem]);
+        if (activeBtn) {
+            activeBtn.classList.add('active');
+        }
     }
 
     closeSettingsPanel() {
@@ -1436,14 +1751,15 @@ export class UIHandler {
         console.log('Settings panel closed', panel.classList.contains('open'), panel.style.right);
     }
 
-    
-
     openProfilePanel() {
         // 모든 포커스된 요소 먼저 blur 처리
         const activeElement = document.activeElement;
         if (activeElement && activeElement.blur) {
             activeElement.blur();
         }
+        
+        // Update mobile bottom nav active state
+        this.updateMobileBottomNavActive('profile');
         
         // 다른 패널들만 닫기 (profilePanel은 제외)
         document.querySelectorAll('.side-panel').forEach(panel => {
@@ -1590,6 +1906,12 @@ export class UIHandler {
         const currentPanelId = this.panelStack[this.panelStack.length - 1];
         const panel = document.getElementById(currentPanelId);
         
+        // Don't close the sensory help modal from here - it has its own close handler
+        if (currentPanelId === 'sensoryHelpModal') {
+            console.log('Sensory help modal should be closed via its own handler, skipping');
+            return;
+        }
+        
         if (panel) {
             // 포커스된 요소가 있으면 먼저 blur 처리
             const activeElement = document.activeElement;
@@ -1607,8 +1929,8 @@ export class UIHandler {
                     panel.style.right = '';
                 }
                 
-                // 모달인 경우 visibility와 opacity 리셋
-                if (panel.classList.contains('modal-overlay')) {
+                // 모달인 경우 visibility와 opacity 리셋 (but not sensory help modal)
+                if (panel.classList.contains('modal-overlay') && panel.id !== 'sensoryHelpModal') {
                     panel.style.visibility = 'hidden';
                     panel.style.opacity = '0';
                     panel.style.zIndex = '';
@@ -2201,43 +2523,18 @@ export class UIHandler {
             arr = arr.filter(r => r.type === type);
         }
 
-        // 개인화 점수 계산 (시각화 매니저 로직 재사용)
-        const prof = this.app.visualizationManager?.getSensitivityProfile() || {
-            noiseThreshold: 5,
-            lightThreshold: 5,
-            odorThreshold: 5,
-            crowdThreshold: 5
-        };
-
-        const toScore = (r) => {
-            const w = {
-                noise: r.noise ?? 0,
-                light: r.light ?? 0,
-                odor: r.odor ?? 0,
-                crowd: r.crowd ?? 0
-            };
-            
-            // 간이 점수: 프로필 임계와 차이 기반 (0~10)
-            const deltas = [
-                Math.max(0, w.noise - prof.noiseThreshold),
-                Math.max(0, w.light - prof.lightThreshold),
-                Math.max(0, w.odor - prof.odorThreshold),
-                Math.max(0, w.crowd - prof.crowdThreshold)
-            ];
-            return parseFloat((deltas.reduce((s, x) => s + x, 0) / deltas.length).toFixed(2));
-        };
-
-        arr = arr.map(r => ({ ...r, _score: toScore(r) }));
-
         // 4) 정렬
-        if (sort === 'newest') {
-            arr.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        } else if (sort === 'oldest') {
-            arr.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-        } else if (sort === 'scoreDesc') {
-            arr.sort((a, b) => (b._score || 0) - (a._score || 0));
-        } else if (sort === 'scoreAsc') {
-            arr.sort((a, b) => (a._score || 0) - (b._score || 0));
+        const getTimestamp = (report) => {
+            if (!report) return 0;
+            const source = report.created_at || report.updated_at;
+            const ts = source ? new Date(source).getTime() : 0;
+            return Number.isFinite(ts) ? ts : 0;
+        };
+
+        if (sort === 'oldest') {
+            arr.sort((a, b) => getTimestamp(a) - getTimestamp(b));
+        } else {
+            arr.sort((a, b) => getTimestamp(b) - getTimestamp(a));
         }
 
         // 통계 갱신
@@ -2282,23 +2579,62 @@ export class UIHandler {
     _renderMyDataItem(r) {
         const el = document.createElement('div');
         el.className = 'card';
+
+        const toNumberOrNull = (value) => {
+            const parsed = Number.parseFloat(value);
+            return Number.isFinite(parsed) ? parsed : null;
+        };
+
+        const latValue = toNumberOrNull(r.lat);
+        const lngValue = toNumberOrNull(r.lng);
+
+        let locationText;
+        if (typeof r.address === 'string' && r.address.trim()) {
+            locationText = this._sanitizeText(r.address.trim());
+        } else if (latValue !== null && lngValue !== null) {
+            locationText = `${latValue.toFixed(4)}, ${lngValue.toFixed(4)}`;
+        } else {
+            locationText = '위치 정보 없음';
+        }
+
+        const typeLabel = r.type === 'regular' ? '🟢 지속적' : '⚡ 일시적';
+        const typeClass = r.type === 'regular' ? 'is-regular' : 'is-irregular';
+        const dateLabel = this._fmtDate(r.created_at);
+
+        const formatSense = (value) => (value === null || value === undefined || value === '')
+            ? '-'
+            : value;
+
+        const senses = [
+            { icon: '🔊', value: formatSense(r.noise), label: '소음' },
+            { icon: '💡', value: formatSense(r.light), label: '빛' },
+            { icon: '👃', value: formatSense(r.odor), label: '냄새' },
+            { icon: '👥', value: formatSense(r.crowd), label: '혼잡' }
+        ];
+
+        const senseChips = senses.map(sense => `
+            <span class="sense-chip" title="${sense.label}">
+                <span class="sense-icon">${sense.icon}</span>
+                <span class="sense-value">${sense.value}</span>
+            </span>
+        `).join('');
+
         el.innerHTML = `
-            <div class="card-row" style="display:flex;justify-content:space-between;align-items:center;">
-                <div style="flex:1;">
-                    <div style="font-weight:600; margin-bottom:4px;">
-                        ${r.type === 'regular' ? '🟢 지속적' : '⚡ 일시적'} · 
-                        <span style="font-size:12px; color:#6b7280;">${this._fmtDate(r.created_at)}</span>
+            <div class="mydata-card-row">
+                <div class="mydata-card-info">
+                    <div class="mydata-card-header">
+                        <span class="mydata-type-badge ${typeClass}">${typeLabel}</span>
+                        <span class="mydata-date">${dateLabel}</span>
                     </div>
-                    
-                    <div style="display:flex; gap:10px; font-size:13px; flex-wrap:wrap;">
-                        <span>🔊 ${r.noise ?? '-'}</span>
-                        <span>💡 ${r.light ?? '-'}</span>
-                        <span>👃 ${r.odor ?? '-'}</span>
-                        <span>👥 ${r.crowd ?? '-'}</span>
-                        <span style="color:#3b82f6; font-weight:600;">점수 ${r._score}</span>
+                    <div class="mydata-location">
+                        <i class="fas fa-map-marker-alt" aria-hidden="true"></i>
+                        <span>${locationText}</span>
+                    </div>
+                    <div class="mydata-senses">
+                        ${senseChips}
                     </div>
                 </div>
-                <div style="display:flex; gap:6px; flex-shrink:0;">
+                <div class="mydata-card-actions">
                     <button class="icon-btn" title="지도에서 보기" data-act="focus">
                         <i class="fas fa-location-arrow"></i>
                     </button>
@@ -2476,6 +2812,17 @@ export class UIHandler {
         if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
         if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
         return `${Math.floor(diff / 86400)}일 전`;
+    }
+
+    _sanitizeText(text) {
+        if (typeof text !== 'string') return '';
+        return text.replace(/[&<>"']/g, (char) => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        })[char] || char);
     }
     // 2-1) 튜토리얼 질문 input에 1~20번 번호를 자동 부여(폼 없어도 동작)
 ensureQuestionNumbering() {
