@@ -3484,6 +3484,195 @@ html {
 }
 
 /* Responsive adjustments */
+/* 내 데이터 패널 */
+#myDataPanel .panel-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.mydata-intro {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: #eef2ff;
+    border: 1px solid rgba(79, 70, 229, 0.15);
+    border-radius: 12px;
+    color: #4338ca;
+    font-size: 13px;
+}
+
+.mydata-intro i {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #4338ca;
+    color: #fff;
+    font-size: 15px;
+}
+
+.mydata-toolbar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    align-items: stretch;
+}
+
+.mydata-control {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+}
+
+.mydata-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #4b5563;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.mydata-select {
+    font-size: 13px;
+    min-height: 36px;
+}
+
+.mydata-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+}
+
+.mydata-stat-card {
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    padding: 16px;
+    text-align: center;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+}
+
+.mydata-stat-number {
+    font-size: 22px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.mydata-stat-label {
+    font-size: 11px;
+    color: #6b7280;
+    margin-top: 6px;
+    letter-spacing: 0.02em;
+}
+
+.mydata-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.mydata-card-row {
+    display: flex;
+    gap: 16px;
+    justify-content: space-between;
+    align-items: stretch;
+}
+
+.mydata-card-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.mydata-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.mydata-type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.mydata-type-badge.is-regular {
+    background: #ecfdf5;
+    color: #047857;
+}
+
+.mydata-type-badge.is-irregular {
+    background: #fdf2f8;
+    color: #be123c;
+}
+
+.mydata-date {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.mydata-location {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #4b5563;
+    word-break: keep-all;
+}
+
+.mydata-location i {
+    color: #4338ca;
+}
+
+.mydata-senses {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.sense-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #f3f4f6;
+    font-size: 12px;
+    color: #374151;
+    font-weight: 500;
+}
+
+.sense-chip .sense-icon {
+    font-size: 13px;
+}
+
+.sense-chip .sense-value {
+    font-variant-numeric: tabular-nums;
+}
+
+.mydata-card-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-end;
+    justify-content: center;
+}
+
 @media (max-width: 768px) {
     .timetable-grid {
         grid-template-columns: 1fr;
@@ -3519,6 +3708,35 @@ html {
     
     .time-cell {
         padding: 8px;
+    }
+}
+
+@media (max-width: 900px) {
+    .mydata-card-row {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .mydata-card-actions {
+        flex-direction: row;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 8px;
+    }
+}
+
+@media (max-width: 600px) {
+    .mydata-toolbar {
+        grid-template-columns: 1fr;
+    }
+
+    .mydata-intro {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .mydata-card-actions {
+        justify-content: flex-start;
     }
 }
 

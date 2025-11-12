@@ -2523,43 +2523,18 @@ export class UIHandler {
             arr = arr.filter(r => r.type === type);
         }
 
-        // 개인화 점수 계산 (시각화 매니저 로직 재사용)
-        const prof = this.app.visualizationManager?.getSensitivityProfile() || {
-            noiseThreshold: 5,
-            lightThreshold: 5,
-            odorThreshold: 5,
-            crowdThreshold: 5
-        };
-
-        const toScore = (r) => {
-            const w = {
-                noise: r.noise ?? 0,
-                light: r.light ?? 0,
-                odor: r.odor ?? 0,
-                crowd: r.crowd ?? 0
-            };
-            
-            // 간이 점수: 프로필 임계와 차이 기반 (0~10)
-            const deltas = [
-                Math.max(0, w.noise - prof.noiseThreshold),
-                Math.max(0, w.light - prof.lightThreshold),
-                Math.max(0, w.odor - prof.odorThreshold),
-                Math.max(0, w.crowd - prof.crowdThreshold)
-            ];
-            return parseFloat((deltas.reduce((s, x) => s + x, 0) / deltas.length).toFixed(2));
-        };
-
-        arr = arr.map(r => ({ ...r, _score: toScore(r) }));
-
         // 4) 정렬
-        if (sort === 'newest') {
-            arr.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        } else if (sort === 'oldest') {
-            arr.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-        } else if (sort === 'scoreDesc') {
-            arr.sort((a, b) => (b._score || 0) - (a._score || 0));
-        } else if (sort === 'scoreAsc') {
-            arr.sort((a, b) => (a._score || 0) - (b._score || 0));
+        const getTimestamp = (report) => {
+            if (!report) return 0;
+            const source = report.created_at || report.updated_at;
+            const ts = source ? new Date(source).getTime() : 0;
+            return Number.isFinite(ts) ? ts : 0;
+        };
+
+        if (sort === 'oldest') {
+            arr.sort((a, b) => getTimestamp(a) - getTimestamp(b));
+        } else {
+            arr.sort((a, b) => getTimestamp(b) - getTimestamp(a));
         }
 
         // 통계 갱신
@@ -2604,23 +2579,62 @@ export class UIHandler {
     _renderMyDataItem(r) {
         const el = document.createElement('div');
         el.className = 'card';
+
+        const toNumberOrNull = (value) => {
+            const parsed = Number.parseFloat(value);
+            return Number.isFinite(parsed) ? parsed : null;
+        };
+
+        const latValue = toNumberOrNull(r.lat);
+        const lngValue = toNumberOrNull(r.lng);
+
+        let locationText;
+        if (typeof r.address === 'string' && r.address.trim()) {
+            locationText = this._sanitizeText(r.address.trim());
+        } else if (latValue !== null && lngValue !== null) {
+            locationText = `${latValue.toFixed(4)}, ${lngValue.toFixed(4)}`;
+        } else {
+            locationText = '위치 정보 없음';
+        }
+
+        const typeLabel = r.type === 'regular' ? '🟢 지속적' : '⚡ 일시적';
+        const typeClass = r.type === 'regular' ? 'is-regular' : 'is-irregular';
+        const dateLabel = this._fmtDate(r.created_at);
+
+        const formatSense = (value) => (value === null || value === undefined || value === '')
+            ? '-'
+            : value;
+
+        const senses = [
+            { icon: '🔊', value: formatSense(r.noise), label: '소음' },
+            { icon: '💡', value: formatSense(r.light), label: '빛' },
+            { icon: '👃', value: formatSense(r.odor), label: '냄새' },
+            { icon: '👥', value: formatSense(r.crowd), label: '혼잡' }
+        ];
+
+        const senseChips = senses.map(sense => `
+            <span class="sense-chip" title="${sense.label}">
+                <span class="sense-icon">${sense.icon}</span>
+                <span class="sense-value">${sense.value}</span>
+            </span>
+        `).join('');
+
         el.innerHTML = `
-            <div class="card-row" style="display:flex;justify-content:space-between;align-items:center;">
-                <div style="flex:1;">
-                    <div style="font-weight:600; margin-bottom:4px;">
-                        ${r.type === 'regular' ? '🟢 지속적' : '⚡ 일시적'} · 
-                        <span style="font-size:12px; color:#6b7280;">${this._fmtDate(r.created_at)}</span>
+            <div class="mydata-card-row">
+                <div class="mydata-card-info">
+                    <div class="mydata-card-header">
+                        <span class="mydata-type-badge ${typeClass}">${typeLabel}</span>
+                        <span class="mydata-date">${dateLabel}</span>
                     </div>
-                    
-                    <div style="display:flex; gap:10px; font-size:13px; flex-wrap:wrap;">
-                        <span>🔊 ${r.noise ?? '-'}</span>
-                        <span>💡 ${r.light ?? '-'}</span>
-                        <span>👃 ${r.odor ?? '-'}</span>
-                        <span>👥 ${r.crowd ?? '-'}</span>
-                        <span style="color:#3b82f6; font-weight:600;">점수 ${r._score}</span>
+                    <div class="mydata-location">
+                        <i class="fas fa-map-marker-alt" aria-hidden="true"></i>
+                        <span>${locationText}</span>
+                    </div>
+                    <div class="mydata-senses">
+                        ${senseChips}
                     </div>
                 </div>
-                <div style="display:flex; gap:6px; flex-shrink:0;">
+                <div class="mydata-card-actions">
                     <button class="icon-btn" title="지도에서 보기" data-act="focus">
                         <i class="fas fa-location-arrow"></i>
                     </button>
@@ -2798,6 +2812,17 @@ export class UIHandler {
         if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
         if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
         return `${Math.floor(diff / 86400)}일 전`;
+    }
+
+    _sanitizeText(text) {
+        if (typeof text !== 'string') return '';
+        return text.replace(/[&<>"']/g, (char) => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        })[char] || char);
     }
     // 2-1) 튜토리얼 질문 input에 1~20번 번호를 자동 부여(폼 없어도 동작)
 ensureQuestionNumbering() {
