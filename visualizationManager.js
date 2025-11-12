@@ -1,5 +1,6 @@
 import { GridDebugLayer } from './gridDebugLayer.js';
 import { clip01, vScoreVector } from './sensoryScorer.js';
+import { isReportActive, computeReportWeight } from './sensoryAdapter.js';
 // ==========================
 // FixedHeatLayer + VisualizationManager (single-pass version)
 // ==========================
@@ -499,37 +500,12 @@ export class VisualizationManager {
             const center = this._getGridCenter(gridKey, cellData);
             let totalW = 0;
             const wsum = { noise: 0, light: 0, odor: 0, crowd: 0 };
+            // 공통 로직 사용: 활성 포인트 → 동일 스케일(value*weight)로 누적
             for (const report of cellData.reports) {
-                const ts = report.timestamp ?? report.created_at ?? report.createdAt ?? null;
-                const rawType = (report.type ?? '').toString().toLowerCase();
-                const normType = rawType.includes('irreg') ? 'irregular'
-                    : rawType.includes('reg') ? 'regular'
-                        : 'regular';
-                // Enforce timetable filtering for regular data
-                if (normType === 'regular') {
-                    const nowD = new Date(now);
-                    const day = nowD.getDay();
-                    const hourKey = String(nowD.getHours()).padStart(2, '0');
-                    let withinSchedule = false;
 
-                    if (report.timetable && typeof report.timetable === 'object') {
-                        try {
-                            const dayArr = report.timetable[String(day)] ?? report.timetable[day] ?? [];
-                            if (Array.isArray(dayArr)) {
-                                withinSchedule = dayArr.some(([k]) => String(k) === hourKey);
-                            }
-                        } catch (e) {
-                            withinSchedule = false;
-                        }
-                    }
-                    // Regular data without timetable should not be shown (no schedule = never show)
-                    // Regular data with timetable should only show when current time matches
-                    if (!withinSchedule) continue;
-                }
-                // Repeated regular data: no age decay, rely purely on timetable to toggle
-                const w = (normType === 'regular' && report.timetable && report.timetable_repeat)
-                    ? 1.0
-                    : this._timeDecay(ts, normType, now);
+                const nowD = new Date(now);
+                if (!isReportActive(report, nowD)) continue;
+                const w = computeReportWeight(report, nowD);
                 if (w <= 0.1) continue;
                 if (report.noise != null) wsum.noise += report.noise * w;
                 if (report.light != null) wsum.light += report.light * w;

@@ -70,7 +70,7 @@ class SensmapApp {
             this.routeManager = new RouteManager(this);
             window.app = this;                  // 앱을 전역에 노출
             window.routeManager = this.routeManager; // routeManager 전역 노출
-            this.routeManager.setAvoidPreviewMode(false);
+            this.routeManager.setAvoidPreviewMode(true, {source: 'lastSent'});
 
             // 6단계: UI 핸들러 초기화 (마지막)
             console.log('🖥️ UI 핸들러 초기화...');

@@ -1,5 +1,6 @@
 // routeManager.js - 모드별 회피/감각 가중 + 코리도 타깃 회피 + lastSent 프리뷰
 import { clip01, vScoreVector } from './sensoryScorer.js';
+import { isReportActive, computeReportWeight } from './sensoryAdapter.js';
 
 export class RouteManager {
     constructor(app) {
@@ -562,20 +563,32 @@ export class RouteManager {
     _getAllSensoryPoints() {
         const dm = this.app?.dataManager;
 
-        // 1) gridData가 있으면: 셀 중심 + 평균값 → '셀당 1점' 보장
+        // 1) gridData가 있으면: **활성 report 가중 평균**으로 '셀당 1점'
         if (dm?.gridData && typeof dm.gridData.forEach === 'function') {
             const out = [];
-            try {
-                dm.gridData.forEach((cell, gridKey) => {
-                    const a = cell.averages || {};
-                    const center = this._cellCenter(cell, gridKey);
-                    out.push({
-                        lat: center.lat,
-                        lng: center.lng,
-                        noise: a.noise, light: a.light, odor: a.odor, crowd: a.crowd
-                    });
+            const nowD = new Date();
+            dm.gridData.forEach((cell, gridKey) => {
+                const center = this._cellCenter(cell, gridKey);
+                const reps = Array.isArray(cell?.reports) ? cell.reports : [];
+                if (!reps.length) return;
+                let wsum = { noise: 0, light: 0, odor: 0, crowd: 0 }, totalW = 0;
+                for (const r of reps) {
+                    if (!isReportActive(r, nowD)) continue;
+                    const w = computeReportWeight(r, nowD);
+                    if (w <= 0.1) continue;
+                    if (r.noise != null) wsum.noise += r.noise * w;
+                    if (r.light != null) wsum.light += r.light * w;
+                    if (r.odor != null) wsum.odor += r.odor * w;
+                    if (r.crowd != null) wsum.crowd += r.crowd * w;
+                    totalW += w;
+                }
+                if (totalW <= 0) return;
+                out.push({
+                    lat: center.lat, lng: center.lng,
+                    noise: wsum.noise / totalW, light: wsum.light / totalW,
+                    odor: wsum.odor / totalW, crowd: wsum.crowd / totalW
                 });
-            } catch { }
+            });
             return out;
         }
 
@@ -648,49 +661,10 @@ export class RouteManager {
 
     // Check if a report should be included based on timetable filtering and time decay (same logic as visualizationManager)
     _shouldIncludeReport(report) {
-        const now = Date.now();
-        const rawType = report.type?.toString().toLowerCase() || 'regular';
-        const normType = rawType.includes('irreg') ? 'irregular'
-            : rawType.includes('reg') ? 'regular'
-                : 'regular';
-
-        // Apply timetable filtering for regular data
-        if (normType === 'regular') {
-            const nowD = new Date(now);
-            const day = nowD.getDay();
-            const hourKey = String(nowD.getHours()).padStart(2, '0');
-            let withinSchedule = false;
-
-            if (report.timetable && typeof report.timetable === 'object') {
-                try {
-                    const dayArr = report.timetable[String(day)] ?? report.timetable[day] ?? [];
-                    if (Array.isArray(dayArr)) {
-                        withinSchedule = dayArr.some(([k]) => String(k) === hourKey);
-                    }
-                } catch (e) {
-                    withinSchedule = false;
-                }
-            }
-            // Regular data without timetable should not be included
-            // Regular data with timetable should only be included when current time matches
-            return withinSchedule;
-        }
-
-        // For irregular data, apply time decay
-        if (normType === 'irregular') {
-            const dm = this.app?.dataManager;
-            if (typeof dm?.calculateTimeDecay === 'function') {
-                try {
-                    const decay = dm.calculateTimeDecay(report.timestamp || report.created_at, 'irregular', now);
-                    return decay > 0.1; // Only include if decay is significant
-                } catch (e) {
-                    return true; // Fallback to include if error
-                }
-            }
-        }
-
-        // Default: include the report
-        return true;
+        const nowD = new Date();
+        if (!isReportActive(report, nowD)) return false;
+        const w = computeReportWeight(report, nowD);
+        return w > 0.1;
     }
 
     _pointScore(p) {
